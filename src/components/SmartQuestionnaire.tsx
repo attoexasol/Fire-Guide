@@ -1,28 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Flame, ChevronRight, Building2, Users, Layers, Calendar, FileText, ChevronLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
+import { fetchPropertyTypes, PropertyTypeResponse, fetchApproximatePeople, ApproximatePeopleResponse } from "../api/servicesService";
 
 interface SmartQuestionnaireProps {
   service: string;
-  onComplete: () => void;
+  onComplete: (formData: {
+    property_type_id: number;
+    approximate_people_id: number;
+    number_of_floors: string;
+    preferred_date: string;
+    access_note: string;
+  }) => void;
   onBack: () => void;
 }
 
 export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestionnaireProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
-    propertyType: "",
-    numberOfPeople: "",
+    propertyTypeId: "",
+    approximatePeopleId: "",
     numberOfFloors: "",
     assessmentDate: "",
     accessNotes: ""
   });
+  const [propertyTypes, setPropertyTypes] = useState<PropertyTypeResponse[]>([]);
+  const [loadingPropertyTypes, setLoadingPropertyTypes] = useState<boolean>(true);
+  const [approximatePeople, setApproximatePeople] = useState<ApproximatePeopleResponse[]>([]);
+  const [loadingApproximatePeople, setLoadingApproximatePeople] = useState<boolean>(true);
 
   const totalSteps = 5;
+
+  useEffect(() => {
+    const loadPropertyTypes = async () => {
+      try {
+        setLoadingPropertyTypes(true);
+        const data = await fetchPropertyTypes();
+        setPropertyTypes(data);
+      } catch (err: any) {
+        console.error("Error loading property types:", err);
+        // Continue with empty array if fetch fails
+        setPropertyTypes([]);
+      } finally {
+        setLoadingPropertyTypes(false);
+      }
+    };
+
+    loadPropertyTypes();
+  }, []);
+
+  useEffect(() => {
+    const loadApproximatePeople = async () => {
+      try {
+        setLoadingApproximatePeople(true);
+        const data = await fetchApproximatePeople();
+        // Sort by ID in ascending order (1, 2, 3, ...)
+        const sortedData = data.sort((a, b) => a.id - b.id);
+        setApproximatePeople(sortedData);
+      } catch (err: any) {
+        console.error("Error loading approximate people:", err);
+        // Continue with empty array if fetch fails
+        setApproximatePeople([]);
+      } finally {
+        setLoadingApproximatePeople(false);
+      }
+    };
+
+    loadApproximatePeople();
+  }, []);
 
   const updateFormData = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
@@ -32,7 +81,7 @@ export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestio
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete();
+      handleComplete();
     }
   };
 
@@ -47,9 +96,9 @@ export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestio
   const isStepValid = () => {
     switch (currentStep) {
       case 1:
-        return formData.propertyType !== "";
+        return formData.propertyTypeId !== "";
       case 2:
-        return formData.numberOfPeople !== "";
+        return formData.approximatePeopleId !== "";
       case 3:
         return formData.numberOfFloors !== "";
       case 4:
@@ -58,6 +107,23 @@ export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestio
         return true; // Access notes are optional
       default:
         return false;
+    }
+  };
+
+  const handleComplete = () => {
+    // Find the property type ID from the selected name
+    const selectedPropertyType = propertyTypes.find(pt => pt.property_type_name === formData.propertyTypeId);
+    // Find the approximate people ID from the selected value
+    const selectedApproximatePeople = approximatePeople.find(ap => ap.number_of_people === formData.approximatePeopleId);
+    
+    if (selectedPropertyType && selectedApproximatePeople) {
+      onComplete({
+        property_type_id: selectedPropertyType.id,
+        approximate_people_id: selectedApproximatePeople.id,
+        number_of_floors: formData.numberOfFloors,
+        preferred_date: formData.assessmentDate,
+        access_note: formData.accessNotes || ""
+      });
     }
   };
 
@@ -114,25 +180,31 @@ export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestio
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="propertyType">Select property type</Label>
-                  <Select
-                    value={formData.propertyType}
-                    onValueChange={(value) => updateFormData("propertyType", value)}
-                  >
-                    <SelectTrigger id="propertyType" className="w-full">
-                      <SelectValue placeholder="Choose property type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="office">Office Building</SelectItem>
-                      <SelectItem value="retail">Retail Shop</SelectItem>
-                      <SelectItem value="warehouse">Warehouse</SelectItem>
-                      <SelectItem value="restaurant">Restaurant/Café</SelectItem>
-                      <SelectItem value="hotel">Hotel/Guest House</SelectItem>
-                      <SelectItem value="school">School/Educational</SelectItem>
-                      <SelectItem value="healthcare">Healthcare Facility</SelectItem>
-                      <SelectItem value="residential">Residential Building</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {loadingPropertyTypes ? (
+                    <div className="w-full p-3 border rounded-md bg-gray-50 text-gray-500 text-center">
+                      Loading property types...
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.propertyTypeId}
+                      onValueChange={(value) => updateFormData("propertyTypeId", value)}
+                    >
+                      <SelectTrigger id="propertyType" className="w-full">
+                        <SelectValue placeholder="Choose property type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyTypes.length === 0 ? (
+                          <SelectItem value="no-data">No property types available</SelectItem>
+                        ) : (
+                          propertyTypes.map((propertyType) => (
+                            <SelectItem key={propertyType.id} value={propertyType.property_type_name}>
+                              {propertyType.property_type_name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             )}
@@ -148,23 +220,31 @@ export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestio
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="numberOfPeople">Select approximate number</Label>
-                  <Select
-                    value={formData.numberOfPeople}
-                    onValueChange={(value) => updateFormData("numberOfPeople", value)}
-                  >
-                    <SelectTrigger id="numberOfPeople" className="w-full">
-                      <SelectValue placeholder="Choose number of people" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1-10">1-10 people</SelectItem>
-                      <SelectItem value="11-25">11-25 people</SelectItem>
-                      <SelectItem value="26-50">26-50 people</SelectItem>
-                      <SelectItem value="51-100">51-100 people</SelectItem>
-                      <SelectItem value="101-250">101-250 people</SelectItem>
-                      <SelectItem value="251-500">251-500 people</SelectItem>
-                      <SelectItem value="500+">More than 500 people</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {loadingApproximatePeople ? (
+                    <div className="w-full p-3 border rounded-md bg-gray-50 text-gray-500 text-center">
+                      Loading options...
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.approximatePeopleId}
+                      onValueChange={(value) => updateFormData("approximatePeopleId", value)}
+                    >
+                      <SelectTrigger id="numberOfPeople" className="w-full">
+                        <SelectValue placeholder="Choose number of people" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {approximatePeople.length === 0 ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          approximatePeople.map((option) => (
+                            <SelectItem key={option.id} value={option.number_of_people}>
+                              {option.number_of_people}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             )}

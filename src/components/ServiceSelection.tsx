@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ClipboardCheck, Flame, Bell, DoorOpen, GraduationCap, ArrowLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Header } from "./Header";
+import { fetchServices, ServiceResponse } from "../api/servicesService";
 
 interface ServiceSelectionProps {
   onSelectService: (service: string) => void;
@@ -30,39 +31,38 @@ export function ServiceSelection({
   onLogout
 }: ServiceSelectionProps) {
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [services, setServices] = useState<ServiceResponse[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const services = [
-    {
-      id: "risk-assessment",
-      icon: ClipboardCheck,
-      title: "Fire Risk Assessment",
-      description: "Comprehensive evaluation of fire hazards and safety measures in your premises"
-    },
-    {
-      id: "extinguisher",
-      icon: Flame,
-      title: "Fire Extinguisher Service",
-      description: "Supply, maintenance, and certification of fire extinguishers for your property"
-    },
-    {
-      id: "alarm-service",
-      icon: Bell,
-      title: "Fire Alarm Service",
-      description: "Installation, maintenance, and testing of fire alarm systems"
-    },
-    {
-      id: "door-inspection",
-      icon: DoorOpen,
-      title: "Fire Door Inspection",
-      description: "Professional inspection and certification of fire doors to ensure compliance"
-    },
-    {
-      id: "marshal-training",
-      icon: GraduationCap,
-      title: "Fire Marshal Training",
-      description: "Certified training programs for designated fire safety personnel"
-    }
-  ];
+  // Map service types to icons (fallback icons)
+  const getIconForService = (type: string | undefined) => {
+    const typeUpper = type?.toUpperCase() || "";
+    if (typeUpper.includes("DELIVERY")) return Flame;
+    if (typeUpper.includes("ASSESSMENT")) return ClipboardCheck;
+    if (typeUpper.includes("ALARM")) return Bell;
+    if (typeUpper.includes("DOOR")) return DoorOpen;
+    if (typeUpper.includes("TRAINING")) return GraduationCap;
+    return ClipboardCheck; // Default icon
+  };
+
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchServices();
+        setServices(data);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch services");
+        console.error("Error loading services:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadServices();
+  }, []);
 
   const handleNext = () => {
     if (selectedService) {
@@ -98,41 +98,71 @@ export function ServiceSelection({
           </div>
 
           {/* Service Cards */}
-          <div className="grid md:grid-cols-2 gap-6 mb-12">
-            {services.map((service) => (
-              <Card
-                key={service.id}
-                onClick={() => setSelectedService(service.id)}
-                className={`cursor-pointer transition-all hover:shadow-lg ${
-                  selectedService === service.id
-                    ? "border-2 border-red-600 shadow-lg"
-                    : "border-2 border-transparent hover:border-gray-200"
-                }`}
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex items-start gap-4">
-                    <div className={`w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      selectedService === service.id
-                        ? "bg-red-600"
-                        : "bg-red-100"
-                    }`}>
-                      <service.icon className={`w-8 h-8 ${
-                        selectedService === service.id
-                          ? "text-white"
-                          : "text-red-600"
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="mb-2">{service.title}</CardTitle>
-                      <CardDescription className="text-base">
-                        {service.description}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12 mb-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading services...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12 mb-12">
+              <div className="text-center">
+                <p className="text-red-600 text-lg mb-4">Error: {error}</p>
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  className="px-4 py-2"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : services.length === 0 ? (
+            <div className="text-center py-12 mb-12">
+              <p className="text-gray-500 text-lg">No services available at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
+              {services.map((service) => {
+                const ServiceIcon = getIconForService(service.type);
+                const serviceId = service.id.toString();
+                return (
+                  <Card
+                    key={service.id}
+                    onClick={() => setSelectedService(serviceId)}
+                    className={`cursor-pointer transition-all hover:shadow-lg ${
+                      selectedService === serviceId
+                        ? "border-2 border-red-600 shadow-lg"
+                        : "border-2 border-transparent hover:border-gray-200"
+                    }`}
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          selectedService === serviceId
+                            ? "bg-red-600"
+                            : "bg-red-100"
+                        }`}>
+                          <ServiceIcon className={`w-8 h-8 ${
+                            selectedService === serviceId
+                              ? "text-white"
+                              : "text-red-600"
+                          }`} />
+                        </div>
+                        <div className="flex-1">
+                          <CardTitle className="mb-2">{service.service_name}</CardTitle>
+                          <CardDescription className="text-base">
+                            {service.description}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
 
           {/* Navigation Buttons */}
           <div className="flex justify-between items-center">

@@ -12,9 +12,13 @@ import {
   Lock,
   AlertCircle,
   Calendar,
-  User
+  User,
+  Loader2
 } from "lucide-react";
 import type { BookingData } from "./BookingFlow";
+import { storePaymentInvoice } from "../api/paymentService";
+import { toast } from "sonner";
+import { getApiToken } from "../lib/auth";
 
 interface PaymentPageProps {
   bookingData: BookingData;
@@ -31,6 +35,7 @@ export function PaymentPage({
   const [cardName, setCardName] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [processing, setProcessing] = useState(false);
 
@@ -79,21 +84,72 @@ export function PaymentPage({
     if (cvv.length !== 3) {
       newErrors.cvv = "Please enter a valid CVV";
     }
+    if (!isTermsAccepted) {
+      newErrors.terms = "You must agree to the Terms of Service and Privacy Policy";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Convert MM/YY to YYYY-MM-DD format for API
+  const convertExpiryDate = (mmYY: string): string => {
+    if (!mmYY.match(/^\d{2}\/\d{2}$/)) {
+      return "";
+    }
+    const [month, year] = mmYY.split("/");
+    const fullYear = `20${year}`; // Assuming 20XX format
+    // Set to last day of the month
+    const lastDay = new Date(parseInt(fullYear), parseInt(month), 0).getDate();
+    return `${fullYear}-${month}-${lastDay}`;
+  };
+
   const handlePayment = async () => {
     if (!validateForm()) return;
 
+    if (!bookingData.customer.professionalBookingId) {
+      toast.error("Booking ID is missing. Please try again.");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to continue. You need to be authenticated to process payment.");
+      return;
+    }
+
     setProcessing(true);
     
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setProcessing(false);
-    onPaymentComplete();
+    try {
+      // Convert expiry date from MM/YY to YYYY-MM-DD
+      const expiryDateFormatted = convertExpiryDate(expiryDate);
+      
+      // Prepare payment data
+      const paymentData = {
+        api_token: token,
+        card_number: cardNumber.replace(/\s/g, ""), // Remove spaces
+        cardholder_name: cardName,
+        expiry_date: expiryDateFormatted,
+        cvv: parseInt(cvv),
+        is_terms_privacy: isTermsAccepted,
+        professional_booking_id: bookingData.customer.professionalBookingId
+      };
+
+      // Submit payment
+      const response = await storePaymentInvoice(paymentData);
+      
+      if (response.status === "success") {
+        toast.success("Payment processed successfully!");
+        onPaymentComplete();
+      } else {
+        throw new Error(response.message || "Failed to process payment");
+      }
+    } catch (error: any) {
+      console.error("Payment processing error:", error);
+      toast.error(error.message || "Failed to process payment. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const { service, professional, selectedDate, selectedTime, customer, pricing } = bookingData;
@@ -281,8 +337,12 @@ export function PaymentPage({
                     <input
                       type="checkbox"
                       id="terms"
-                      className="mt-1 w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500"
-                      defaultChecked
+                      checked={isTermsAccepted}
+                      onChange={(e) => {
+                        setIsTermsAccepted(e.target.checked);
+                        if (errors.terms) setErrors({ ...errors, terms: "" });
+                      }}
+                      className={`mt-1 w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500 ${errors.terms ? "border-red-500" : ""}`}
                     />
                     <label htmlFor="terms" className="text-sm text-gray-700">
                       I agree to the{" "}
@@ -292,6 +352,12 @@ export function PaymentPage({
                       I understand that payment will be charged immediately upon confirmation.
                     </label>
                   </div>
+                  {errors.terms && (
+                    <p className="text-sm text-red-600 flex items-center gap-1 mt-2">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.terms}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -374,7 +440,8 @@ export function PaymentPage({
                 >
                   {processing ? (
                     <>
-                      <span className="animate-pulse">Processing Payment...</span>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Processing Payment...
                     </>
                   ) : (
                     <>

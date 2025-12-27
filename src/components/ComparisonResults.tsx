@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { Flame, ChevronRight, MapPin, Star, CheckCircle, Shield, Award, Briefcase, Calendar, SlidersHorizontal } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Flame, ChevronRight, MapPin, Star, CheckCircle, Shield, Award, Briefcase, Calendar, SlidersHorizontal, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
+import { fetchProfessionals, ProfessionalResponse } from "../api/professionalsService";
+import { toast } from "sonner@2.0.3";
 
 interface Professional {
   id: number;
@@ -21,97 +23,89 @@ interface Professional {
 
 interface ComparisonResultsProps {
   onViewProfile: (professional: Professional) => void;
+  onBookNow: (professional: Professional) => void;
   onBack: () => void;
 }
 
-export function ComparisonResults({ onViewProfile, onBack }: ComparisonResultsProps) {
+export function ComparisonResults({ onViewProfile, onBookNow, onBack }: ComparisonResultsProps) {
   const [sortBy, setSortBy] = useState("recommended");
   const [filterPrice, setFilterPrice] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
   const [filterDistance, setFilterDistance] = useState("all");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [availableToday, setAvailableToday] = useState(false);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const professionals: Professional[] = [
-    {
-      id: 1,
-      name: "Sarah Mitchell",
-      photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
-      verified: true,
-      rating: 4.9,
-      reviewCount: 127,
-      price: 285,
-      distance: 2.3,
-      nextAvailable: "Tomorrow, 10:00 AM",
-      qualifications: ["NEBOSH", "Fire Safety Level 4", "15+ Years"],
-      responseTime: "Responds within 1 hour"
-    },
-    {
-      id: 2,
-      name: "James Patterson",
-      photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop",
-      verified: true,
-      rating: 4.8,
-      reviewCount: 94,
-      price: 250,
-      distance: 4.1,
-      nextAvailable: "Today, 2:00 PM",
-      qualifications: ["IOSH Certified", "Fire Safety Level 3", "10+ Years"],
-      responseTime: "Responds within 2 hours"
-    },
-    {
-      id: 3,
-      name: "David Chen",
-      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
-      verified: true,
-      rating: 4.7,
-      reviewCount: 156,
-      price: 295,
-      distance: 3.8,
-      nextAvailable: "Wed, 9:00 AM",
-      qualifications: ["NEBOSH", "IOSH", "Risk Assessment Expert"],
-      responseTime: "Responds within 30 mins"
-    },
-    {
-      id: 4,
-      name: "Emma Thompson",
-      photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop",
-      verified: true,
-      rating: 4.9,
-      reviewCount: 203,
-      price: 320,
-      distance: 5.2,
-      nextAvailable: "Tomorrow, 1:00 PM",
-      qualifications: ["NEBOSH Diploma", "Fire Safety Level 4", "20+ Years"],
-      responseTime: "Responds within 1 hour"
-    },
-    {
-      id: 5,
-      name: "Michael Brown",
-      photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop",
-      verified: false,
-      rating: 4.6,
-      reviewCount: 67,
-      price: 225,
-      distance: 6.7,
-      nextAvailable: "Thu, 10:30 AM",
-      qualifications: ["Fire Safety Level 3", "5+ Years"],
-      responseTime: "Responds within 3 hours"
-    },
-    {
-      id: 6,
-      name: "Lisa Anderson",
-      photo: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=400&fit=crop",
-      verified: true,
-      rating: 4.8,
-      reviewCount: 89,
-      price: 275,
-      distance: 7.1,
-      nextAvailable: "Tomorrow, 3:00 PM",
-      qualifications: ["IOSH Certified", "Fire Safety Level 4", "12+ Years"],
-      responseTime: "Responds within 2 hours"
+  // Map API response to Professional interface
+  const mapApiResponseToProfessional = (apiProfessional: ProfessionalResponse): Professional => {
+    // Parse rating from string to number
+    const rating = parseFloat(apiProfessional.rating) || 0;
+    
+    // Generate placeholder photo based on name
+    const photoPlaceholder = `https://ui-avatars.com/api/?name=${encodeURIComponent(apiProfessional.name)}&background=EF4444&color=fff&size=400`;
+    
+    // Extract review count from review text or use default
+    const reviewCount = apiProfessional.review ? parseInt(apiProfessional.review.match(/\d+/)?.[0] || "0") || 50 : 50;
+    
+    // Mock price based on rating (higher rating = higher price)
+    const basePrice = 200;
+    const price = Math.round(basePrice + (rating * 20));
+    
+    // Mock distance (could be calculated from lat/long if user location is available)
+    // Using professional ID for deterministic distance calculation
+    const distance = Math.round(((apiProfessional.id % 8) + 1) * 10) / 10;
+    
+    // Mock next available date
+    const availableDates = ["Today, 2:00 PM", "Tomorrow, 10:00 AM", "Tomorrow, 1:00 PM", "Wed, 9:00 AM", "Thu, 10:30 AM"];
+    const nextAvailable = availableDates[Math.floor(Math.random() * availableDates.length)];
+    
+    // Use about field for qualifications, split by common separators or use as single qualification
+    const qualifications = apiProfessional.about 
+      ? apiProfessional.about.split(/[,;]/).map(q => q.trim()).filter(q => q.length > 0)
+      : ["Fire Safety Certified"];
+    
+    // Ensure at least one qualification
+    if (qualifications.length === 0) {
+      qualifications.push("Fire Safety Certified");
     }
-  ];
+
+    return {
+      id: apiProfessional.id,
+      name: apiProfessional.name,
+      photo: photoPlaceholder,
+      verified: true, // Default to verified since API doesn't provide this field
+      rating: rating,
+      reviewCount: reviewCount,
+      price: price,
+      distance: distance,
+      nextAvailable: nextAvailable,
+      qualifications: qualifications.slice(0, 3), // Limit to 3 qualifications
+      responseTime: apiProfessional.response_time || "Responds within 2 hours"
+    };
+  };
+
+  // Fetch professionals on component mount
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const apiProfessionals = await fetchProfessionals(1);
+        const mappedProfessionals = apiProfessionals.map(mapApiResponseToProfessional);
+        setProfessionals(mappedProfessionals);
+      } catch (err: any) {
+        console.error('Failed to load professionals:', err);
+        setError(err.message || 'Failed to load professionals. Please try again.');
+        toast.error(err.message || 'Failed to load professionals');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfessionals();
+  }, []);
 
   const renderStars = (rating: number) => {
     return (
@@ -192,9 +186,9 @@ export function ComparisonResults({ onViewProfile, onBack }: ComparisonResultsPr
       <div className="bg-white py-4 px-6 border-b">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <a href="#" className="hover:text-red-600 transition-colors">Home</a>
+            <a href="/" className="hover:text-red-600 transition-colors">Home</a>
             <ChevronRight className="w-4 h-4" />
-            <a href="#" className="hover:text-red-600 transition-colors">Select Service</a>
+            <a href="/services" className="hover:text-red-600 transition-colors">Select Service</a>
             <ChevronRight className="w-4 h-4" />
             <span className="text-gray-900">Compare Professionals</span>
           </div>
@@ -331,7 +325,39 @@ export function ComparisonResults({ onViewProfile, onBack }: ComparisonResultsPr
                 </p>
               </div>
 
-              {sortedProfessionals.map((professional) => (
+              {/* Loading State */}
+              {isLoading && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-red-600" />
+                    <p className="text-gray-600">Loading professionals...</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Error State */}
+              {error && !isLoading && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <p className="text-red-600 mb-4">{error}</p>
+                    <Button onClick={() => window.location.reload()} variant="outline">
+                      Retry
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Empty State */}
+              {!isLoading && !error && sortedProfessionals.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <p className="text-gray-600">No professionals found matching your criteria.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Professionals List */}
+              {!isLoading && !error && sortedProfessionals.map((professional) => (
                 <Card key={professional.id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row gap-6">
@@ -410,7 +436,7 @@ export function ComparisonResults({ onViewProfile, onBack }: ComparisonResultsPr
                             <Button variant="outline" className="flex-1 md:flex-none" onClick={() => onViewProfile(professional)}>
                               View Profile
                             </Button>
-                            <Button className="bg-red-600 hover:bg-red-700 flex-1 md:flex-none" onClick={() => onViewProfile(professional)}>
+                            <Button className="bg-red-600 hover:bg-red-700 flex-1 md:flex-none" onClick={() => onBookNow(professional)}>
                               Book Now
                             </Button>
                           </div>

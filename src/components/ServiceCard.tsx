@@ -87,16 +87,16 @@ export function ServiceCard({
               </CardTitle>
               
               {/* Badges Row - only for non-admin views, moved below title */}
-              {!isAdmin && (service.popular || service.active !== false) && (
+              {!isAdmin && (
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {service.popular && (
-                    <Badge className="bg-red-600 text-white text-xs px-2 py-1 rounded-lg h-6">
-                      Popular
-                    </Badge>
-                  )}
-                  {service.active !== false && (
+                  {service.active === true && (
                     <Badge className="bg-green-600 text-white text-xs px-2 py-1 rounded-lg h-6">
                       Active
+                    </Badge>
+                  )}
+                  {service.active === false && (
+                    <Badge className=" text-white text-xs px-2 py-1 rounded-lg h-6">
+                      Inactive
                     </Badge>
                   )}
                 </div>
@@ -152,7 +152,11 @@ export function ServiceCard({
           <div className="flex items-end justify-between pt-1">
             <div>
               <p className="text-xs text-gray-500 mb-1">Starting from</p>
-              <p className="text-base font-bold text-red-600 leading-none">{service.basePrice}</p>
+              <p className={`text-base font-bold leading-none ${
+                service.active === false ? "text-gray-400" : "text-red-600"
+              }`}>
+                {service.basePrice}
+              </p>
             </div>
 
             {/* Category Badge (if exists) */}

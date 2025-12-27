@@ -14,13 +14,18 @@ import {
   Mail,
   Phone,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import type { BookingData } from "./BookingFlow";
+import { storeProfessionalBooking } from "../api/bookingService";
+import { toast } from "sonner";
+import { getApiToken } from "../lib/auth";
 
 interface CustomerDetailsFormProps {
   service: BookingData["service"];
   professional: BookingData["professional"];
+  professionalId?: number | null;
   selectedDate: string;
   selectedTime: string;
   pricing: BookingData["pricing"];
@@ -32,6 +37,7 @@ interface CustomerDetailsFormProps {
 export function CustomerDetailsForm({
   service,
   professional,
+  professionalId,
   selectedDate,
   selectedTime,
   pricing,
@@ -41,6 +47,8 @@ export function CustomerDetailsForm({
 }: CustomerDetailsFormProps) {
   const [formData, setFormData] = useState<BookingData["customer"]>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   const updateFormData = (field: keyof BookingData["customer"], value: string) => {
     setFormData({ ...formData, [field]: value });
@@ -72,9 +80,92 @@ export function CustomerDetailsForm({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleContinue = () => {
-    if (validateForm()) {
-      onContinue(formData);
+  // Get coordinates from address (using default coordinates if geocoding fails)
+  const getCoordinates = async (address: string, city: string, postcode: string): Promise<{ longitude: number; latitude: number }> => {
+    // For now, use default coordinates (can be enhanced with geocoding API)
+    // Default coordinates for UK (London area)
+    const defaultCoords = { longitude: -0.1276, latitude: 51.5074 };
+    
+    // Try to get user's location if available
+    if (navigator.geolocation) {
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              longitude: position.coords.longitude,
+              latitude: position.coords.latitude
+            });
+          },
+          () => resolve(defaultCoords),
+          { timeout: 5000 }
+        );
+      });
+    }
+    
+    return defaultCoords;
+  };
+
+  const handleContinue = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    if (!professionalId) {
+      toast.error("Professional ID is missing. Please try again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to continue. You need to be authenticated to submit a booking.");
+      return;
+    }
+
+    try {
+      // Get coordinates
+      const coordinates = await getCoordinates(formData.address, formData.city, formData.postcode);
+      
+      // Prepare booking data
+      const bookingData = {
+        api_token: token,
+        selected_date: selectedDate,
+        selected_time: selectedTime,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        property_address: formData.address,
+        longitude: coordinates.longitude,
+        latitude: coordinates.latitude,
+        city: formData.city,
+        post_code: formData.postcode,
+        additional_notes: formData.notes || "",
+        professional_id: professionalId
+      };
+
+      // Submit booking
+      const response = await storeProfessionalBooking(bookingData);
+      console.log(response);
+      if (response.status === "success") {
+        toast.success("Booking submitted successfully!");
+        // Update form data with coordinates and booking ID
+        const updatedFormData = {
+          ...formData,
+          longitude: coordinates.longitude,
+          latitude: coordinates.latitude,
+          professionalBookingId: response.data?.id || response.data?.booking_id || null
+        };
+        onContinue(updatedFormData);
+      } else {
+        throw new Error(response.message || "Failed to submit booking");
+      }
+    } catch (error: any) {
+      console.error("Booking submission error:", error);
+      toast.error(error.message || "Failed to submit booking. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -359,10 +450,20 @@ export function CustomerDetailsForm({
 
                 <Button
                   onClick={handleContinue}
-                  className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg"
+                  disabled={isSubmitting}
+                  className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Continue to Payment
-                  <ChevronRight className="w-5 h-5 ml-2" />
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      Continue to Payment
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

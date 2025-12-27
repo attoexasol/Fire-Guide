@@ -1,9 +1,14 @@
-import { useState } from "react";
-import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
+import { fetchQualifications, QualificationCertificationResponse } from "../api/qualificationsService";
+import { fetchInsuranceCoverage, InsuranceCoverageResponse } from "../api/insuranceService";
+import { fetchExperiences, ExperienceResponse } from "../api/experiencesService";
+import { fetchReviews, ReviewResponse } from "../api/reviewsService";
+import { toast } from "sonner";
 
 interface ProfessionalProfileProps {
   professional: any;
@@ -13,6 +18,104 @@ interface ProfessionalProfileProps {
 
 export function ProfessionalProfile({ professional, onBook, onBack }: ProfessionalProfileProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [qualifications, setQualifications] = useState<QualificationCertificationResponse[]>([]);
+  const [isLoadingQualifications, setIsLoadingQualifications] = useState(true);
+  const [insuranceCoverage, setInsuranceCoverage] = useState<InsuranceCoverageResponse[]>([]);
+  const [isLoadingInsurance, setIsLoadingInsurance] = useState(true);
+  const [experiences, setExperiences] = useState<ExperienceResponse[]>([]);
+  const [isLoadingExperiences, setIsLoadingExperiences] = useState(true);
+  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [persistedProfessional, setPersistedProfessional] = useState<any>(null);
+
+  // Restore professional data from sessionStorage on mount if not provided in props
+  useEffect(() => {
+    if (!professional || !professional.name) {
+      try {
+        const stored = sessionStorage.getItem('fireguide_selected_professional');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.name) {
+            setPersistedProfessional(parsed);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load professional from sessionStorage:', error);
+      }
+    }
+  }, [professional]);
+
+  // Fetch qualifications on component mount
+  useEffect(() => {
+    const loadQualifications = async () => {
+      try {
+        setIsLoadingQualifications(true);
+        const data = await fetchQualifications();
+        setQualifications(data);
+      } catch (error: any) {
+        console.error('Failed to load qualifications:', error);
+        toast.error(error.message || 'Failed to load qualifications');
+      } finally {
+        setIsLoadingQualifications(false);
+      }
+    };
+
+    loadQualifications();
+  }, []);
+
+  // Fetch insurance coverage on component mount
+  useEffect(() => {
+    const loadInsuranceCoverage = async () => {
+      try {
+        setIsLoadingInsurance(true);
+        const data = await fetchInsuranceCoverage();
+        setInsuranceCoverage(data);
+      } catch (error: any) {
+        console.error('Failed to load insurance coverage:', error);
+        toast.error(error.message || 'Failed to load insurance coverage');
+      } finally {
+        setIsLoadingInsurance(false);
+      }
+    };
+
+    loadInsuranceCoverage();
+  }, []);
+
+  // Fetch experiences on component mount
+  useEffect(() => {
+    const loadExperiences = async () => {
+      try {
+        setIsLoadingExperiences(true);
+        const data = await fetchExperiences();
+        setExperiences(data);
+      } catch (error: any) {
+        console.error('Failed to load experiences:', error);
+        toast.error(error.message || 'Failed to load experiences');
+      } finally {
+        setIsLoadingExperiences(false);
+      }
+    };
+
+    loadExperiences();
+  }, []);
+
+  // Fetch reviews on component mount
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        setIsLoadingReviews(true);
+        const data = await fetchReviews();
+        setReviews(data);
+      } catch (error: any) {
+        console.error('Failed to load reviews:', error);
+        toast.error(error.message || 'Failed to load reviews');
+      } finally {
+        setIsLoadingReviews(false);
+      }
+    };
+
+    loadReviews();
+  }, []);
 
   // Provide default professional data with proper fallbacks
   const defaultData = {
@@ -26,11 +129,6 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     price: "£350",
     photo: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
     bio: "Experienced fire safety professional with over 15 years in the industry. Specializing in comprehensive fire risk assessments for commercial and residential properties. Committed to ensuring your property meets all fire safety regulations.",
-    certifications: [
-      { name: "Fire Safety Diploma", year: "2020" },
-      { name: "NEBOSH Certificate", year: "2019" },
-      { name: "IOSH Managing Safely", year: "2018" }
-    ],
     insurance: {
       publicLiability: "£5M",
       professionalIndemnity: "£2M",
@@ -45,46 +143,205 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     }
   };
 
+  // Map API qualifications to display format
+  const mappedQualifications = qualifications.map((qual) => ({
+    name: qual.title,
+    year: qual.certification_date ? new Date(qual.certification_date).getFullYear().toString() : new Date(qual.created_at).getFullYear().toString(),
+    id: qual.id,
+    certificationDate: qual.certification_date
+  }));
+
+  // Map API insurance coverage to display format
+  const getInsuranceData = () => {
+    const publicLiability = insuranceCoverage.find(ins => ins.title === 'Public Liability');
+    const professionalIndemnity = insuranceCoverage.find(ins => ins.title === 'Professional Indemnity');
+    
+    // Find the latest expire date for "Valid until"
+    const allExpireDates = insuranceCoverage
+      .map(ins => ins.expire_date)
+      .filter(date => date)
+      .sort()
+      .reverse();
+    const latestExpireDate = allExpireDates.length > 0 ? allExpireDates[0] : null;
+    
+    // Format expire date for display
+    const formatExpireDate = (dateStr: string | null) => {
+      if (!dateStr) return 'N/A';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+    };
+
+    return {
+      publicLiability: publicLiability ? `£${publicLiability.price}` : defaultData.insurance.publicLiability,
+      professionalIndemnity: professionalIndemnity ? `£${professionalIndemnity.price}` : defaultData.insurance.professionalIndemnity,
+      provider: defaultData.insurance.provider, // provider_id is null in API response
+      validUntil: latestExpireDate ? formatExpireDate(latestExpireDate) : defaultData.insurance.validUntil
+    };
+  };
+
+  // Get insurance data from API
+  const insuranceData = getInsuranceData();
+
+  // Map API experiences to display format
+  const getExperienceData = () => {
+    if (experiences.length === 0) {
+      return defaultData.experience;
+    }
+
+    // Calculate years of experience from the earliest years_experience date
+    const experienceDates = experiences
+      .map(exp => exp.years_experience)
+      .filter(date => date)
+      .sort();
+    
+    const earliestDate = experienceDates.length > 0 ? new Date(experienceDates[0]) : null;
+    let yearsActive = earliestDate 
+      ? Math.max(1, Math.floor((new Date().getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 365)))
+      : defaultData.experience.yearsActive;
+
+    // Extract assessment count from assessment field
+    // Handle formats like "500+ Assessments Completed" or "15+Years Experience"
+    const extractAssessmentCount = (assessmentText: string): number => {
+      // Check if it's an assessment count (contains "Assessment" or "Assessments")
+      if (assessmentText.toLowerCase().includes('assessment')) {
+        const match = assessmentText.match(/(\d+)\+/);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
+      }
+      return 0;
+    };
+
+    // Extract years from assessment field if it mentions years
+    const extractYearsFromAssessment = (assessmentText: string): number | null => {
+      // Check if it mentions years (e.g., "15+Years Experience")
+      if (assessmentText.toLowerCase().includes('year')) {
+        const match = assessmentText.match(/(\d+)\+?\s*year/i);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
+      }
+      return null;
+    };
+
+    // Get the highest assessment count from all experiences
+    const assessmentCounts = experiences
+      .map(exp => extractAssessmentCount(exp.assessment))
+      .filter(count => count > 0);
+    const assessmentsCompleted = assessmentCounts.length > 0 
+      ? Math.max(...assessmentCounts)
+      : defaultData.experience.assessmentsCompleted;
+
+    // Check if years are mentioned in assessment field and use the highest
+    const yearsFromAssessment = experiences
+      .map(exp => extractYearsFromAssessment(exp.assessment))
+      .filter((years): years is number => years !== null);
+    if (yearsFromAssessment.length > 0) {
+      yearsActive = Math.max(yearsActive, Math.max(...yearsFromAssessment));
+    }
+
+    // Collect all unique specializations
+    const specializationsSet = new Set<string>();
+    experiences.forEach(exp => {
+      if (exp.specialization?.title) {
+        specializationsSet.add(exp.specialization.title);
+      }
+    });
+    const specializations = specializationsSet.size > 0
+      ? Array.from(specializationsSet)
+      : defaultData.experience.specializations;
+
+    return {
+      yearsActive,
+      assessmentsCompleted,
+      specializations
+    };
+  };
+
+  // Get experience data from API
+  const experienceData = getExperienceData();
+
+  // Resolve professional data: props > persisted state > sessionStorage > defaults
+  const getResolvedProfessional = () => {
+    // First, try props
+    if (professional && professional.name) {
+      return professional;
+    }
+    
+    // Then, try persisted state (from useEffect)
+    if (persistedProfessional && persistedProfessional.name) {
+      return persistedProfessional;
+    }
+    
+    // Then, try sessionStorage directly (fallback)
+    try {
+      const stored = sessionStorage.getItem('fireguide_selected_professional');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.name) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load professional from sessionStorage:', error);
+    }
+    
+    // Fallback to defaults
+    return null;
+  };
+
+  const resolvedProfessionalData = getResolvedProfessional();
+  const professionalToUse = resolvedProfessionalData || professional || defaultData;
+
   // Merge professional data with defaults
   const prof = {
     ...defaultData,
-    ...professional,
-    certifications: professional?.certifications || defaultData.certifications,
+    ...professionalToUse,
+    // Only override defaults if we have actual professional data
+    name: professionalToUse.name || defaultData.name,
+    rating: professionalToUse.rating || defaultData.rating,
+    reviewCount: professionalToUse.reviewCount || defaultData.reviewCount,
+    responseTime: professionalToUse.responseTime || defaultData.responseTime,
+    location: professionalToUse.location || defaultData.location,
+    distance: professionalToUse.distance || defaultData.distance,
+    verified: professionalToUse.verified !== undefined ? professionalToUse.verified : defaultData.verified,
+    photo: professionalToUse.photo || defaultData.photo,
+    bio: professionalToUse.bio || defaultData.bio,
+    certifications: mappedQualifications.length > 0 ? mappedQualifications : (professionalToUse?.certifications || []),
     insurance: {
-      ...defaultData.insurance,
-      ...(professional?.insurance || {})
+      publicLiability: insuranceData.publicLiability,
+      professionalIndemnity: insuranceData.professionalIndemnity,
+      provider: insuranceData.provider,
+      validUntil: insuranceData.validUntil
     },
-    experience: {
-      ...defaultData.experience,
-      ...(professional?.experience || {}),
-      specializations: professional?.experience?.specializations || defaultData.experience.specializations
-    }
+    experience: experienceData
   };
 
-  // Mock data for demonstration
-  const reviews = [
-    {
-      id: 1,
-      author: "Sarah Thompson",
-      date: "2 weeks ago",
-      rating: 5,
-      text: "Excellent service! Very thorough assessment and clear reporting. Highly recommended."
-    },
-    {
-      id: 2,
-      author: "Mark Johnson",
-      date: "1 month ago",
-      rating: 5,
-      text: "Professional and knowledgeable. Made the whole process very easy."
-    },
-    {
-      id: 3,
-      author: "Emma Wilson",
-      date: "2 months ago",
-      rating: 4,
-      text: "Great experience overall. Very detailed report and helpful recommendations."
-    }
-  ];
+  // Map API reviews to display format
+  const formatReviewDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    return `${Math.floor(diffDays / 365)} years ago`;
+  };
+
+  const mappedReviews = reviews.map((review) => ({
+    id: review.id,
+    author: review.name,
+    date: formatReviewDate(review.created_at),
+    rating: parseFloat(review.rating) || 0,
+    text: review.feedback
+  }));
+
+  // Calculate review count from API data
+  const reviewCount = reviews.length > 0 ? reviews.length : prof.reviewCount;
 
   const pricing = [
     { service: "Small property (1-5 people)", price: "£250" },
@@ -225,21 +482,33 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {prof.certifications.map((qual, index) => (
-                      <div key={index} className="flex items-start justify-between py-3 border-b last:border-0">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Award className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{qual.name}</p>
-                            <p className="text-sm text-gray-500">Certified {qual.year}</p>
+                  {isLoadingQualifications ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
+                      <span className="text-gray-600">Loading qualifications...</span>
+                    </div>
+                  ) : prof.certifications.length > 0 ? (
+                    <div className="space-y-3">
+                      {prof.certifications.map((qual, index) => (
+                        <div key={qual.id || index} className="flex items-start justify-between py-3 border-b last:border-0">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Award className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{qual.name}</p>
+                              <p className="text-sm text-gray-500">Certified {qual.year}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Award className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>No qualifications available</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -252,21 +521,35 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 mb-1">Public Liability</p>
-                      <p className="text-xl font-semibold text-gray-900">{prof.insurance.publicLiability}</p>
+                  {isLoadingInsurance ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
+                      <span className="text-gray-600">Loading insurance coverage...</span>
                     </div>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 mb-1">Professional Indemnity</p>
-                      <p className="text-xl font-semibold text-gray-900">{prof.insurance.professionalIndemnity}</p>
+                  ) : insuranceCoverage.length > 0 ? (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <p className="text-sm text-gray-600 mb-1">Public Liability</p>
+                          <p className="text-xl font-semibold text-gray-900">{prof.insurance.publicLiability}</p>
+                        </div>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <p className="text-sm text-gray-600 mb-1">Professional Indemnity</p>
+                          <p className="text-xl font-semibold text-gray-900">{prof.insurance.professionalIndemnity}</p>
+                        </div>
+                      </div>
+                      <Separator className="my-4" />
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Provider: {prof.insurance.provider}</span>
+                        <span className="text-gray-600">Valid until: {prof.insurance.validUntil}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Shield className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>No insurance coverage available</p>
                     </div>
-                  </div>
-                  <Separator className="my-4" />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Provider: {prof.insurance.provider}</span>
-                    <span className="text-gray-600">Valid until: {prof.insurance.validUntil}</span>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -279,52 +562,79 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-6 mb-6">
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-3xl text-red-600 mb-1">{prof.experience.yearsActive}+</p>
-                      <p className="text-sm text-gray-600">Years Experience</p>
+                  {isLoadingExperiences ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
+                      <span className="text-gray-600">Loading experience data...</span>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-3xl text-red-600 mb-1">{prof.experience.assessmentsCompleted}+</p>
-                      <p className="text-sm text-gray-600">Assessments Completed</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-3">Specializations:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {prof.experience.specializations.map((spec, index) => (
-                        <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          {spec}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-6 mb-6">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <p className="text-3xl text-red-600 mb-1">{prof.experience.yearsActive}+</p>
+                          <p className="text-sm text-gray-600">Years Experience</p>
+                        </div>
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <p className="text-3xl text-red-600 mb-1">{prof.experience.assessmentsCompleted}+</p>
+                          <p className="text-sm text-gray-600">Assessments Completed</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600 mb-3">Specializations:</p>
+                        {prof.experience.specializations.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {prof.experience.specializations.map((spec, index) => (
+                              <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                {spec}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">No specializations available</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
               {/* Reviews */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-[#0A1A2F]">Reviews ({prof.reviewCount})</CardTitle>
+                  <CardTitle className="text-[#0A1A2F]">Reviews ({reviewCount})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {reviews.map((review) => (
-                      <div key={review.id} className="pb-4 border-b last:border-0">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="font-medium text-gray-900">{review.author}</p>
-                            <p className="text-sm text-gray-500">{review.date}</p>
+                  {isLoadingReviews ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
+                      <span className="text-gray-600">Loading reviews...</span>
+                    </div>
+                  ) : mappedReviews.length > 0 ? (
+                    <>
+                      <div className="space-y-4">
+                        {mappedReviews.map((review) => (
+                          <div key={review.id} className="pb-4 border-b last:border-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-medium text-gray-900">{review.author}</p>
+                                <p className="text-sm text-gray-500">{review.date}</p>
+                              </div>
+                              {renderStars(review.rating)}
+                            </div>
+                            <p className="text-gray-700">{review.text}</p>
                           </div>
-                          {renderStars(review.rating)}
-                        </div>
-                        <p className="text-gray-700">{review.text}</p>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <Button variant="outline" className="w-full mt-4">
-                    View All Reviews
-                  </Button>
+                      <Button variant="outline" className="w-full mt-4">
+                        View All Reviews
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Star className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>No reviews available yet</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

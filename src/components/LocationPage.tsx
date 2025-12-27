@@ -3,15 +3,27 @@ import { Flame, ChevronRight, MapPin, ArrowLeft, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { storeSelectedService } from "../api/servicesService";
+import { getApiToken } from "../lib/auth";
 
 interface LocationPageProps {
+  serviceId: number;
+  questionnaireData: {
+    property_type_id: number;
+    approximate_people_id: number;
+    number_of_floors: string;
+    preferred_date: string;
+    access_note: string;
+  } | null;
   onContinue: () => void;
   onBack: () => void;
 }
 
-export function LocationPage({ onContinue, onBack }: LocationPageProps) {
+export function LocationPage({ serviceId, questionnaireData, onContinue, onBack }: LocationPageProps) {
   const [postcode, setPostcode] = useState("");
   const [selectedRadius, setSelectedRadius] = useState("10mi");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const radiusOptions = [
     { value: "5mi", label: "5 miles" },
@@ -22,6 +34,70 @@ export function LocationPage({ onContinue, onBack }: LocationPageProps) {
   ];
 
   const isValid = postcode.trim().length > 0;
+
+  // Convert radius from "5mi" format to "5km" format
+  const convertRadiusToKm = (radius: string): string => {
+    if (radius === "entire") {
+      return "entire";
+    }
+    // Extract number and convert miles to km (1 mile ≈ 1.609 km, but we'll use the number as-is for km)
+    const match = radius.match(/(\d+)/);
+    if (match) {
+      const miles = parseInt(match[1]);
+      // Convert to km (round to nearest)
+      const km = Math.round(miles * 1.609);
+      return `${km}km`;
+    }
+    return "10km"; // Default
+  };
+
+  const handleFindProfessionals = async () => {
+    if (!isValid || !questionnaireData) {
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      setError("Please log in to continue. You need to be authenticated to search for professionals.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const searchRadius = convertRadiusToKm(selectedRadius);
+      
+      const requestData = {
+        api_token: token,
+        service_id: serviceId,
+        property_type_id: questionnaireData.property_type_id,
+        approximate_people_id: questionnaireData.approximate_people_id,
+        number_of_floors: questionnaireData.number_of_floors,
+        preferred_date: questionnaireData.preferred_date,
+        access_note: questionnaireData.access_note,
+        post_code: postcode.trim(),
+        search_radius: searchRadius
+      };
+
+      await storeSelectedService(requestData);
+      
+      // If successful, continue to next page
+      onContinue();
+    } catch (err: any) {
+      console.error("Error submitting form:", err);
+      const errorMessage = err.message || err.error || "Failed to submit. Please try again.";
+      
+      // Check if error is related to invalid token
+      if (errorMessage.toLowerCase().includes("invalid token") || errorMessage.toLowerCase().includes("unauthorized")) {
+        setError("Your session has expired. Please log in again to continue.");
+      } else {
+        setError(errorMessage);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -37,9 +113,9 @@ export function LocationPage({ onContinue, onBack }: LocationPageProps) {
       <div className="bg-gray-50 py-4 px-6 border-b">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <a href="#" className="hover:text-red-600 transition-colors">Home</a>
+            <a href="/" className="hover:text-red-600 transition-colors">Home</a>
             <ChevronRight className="w-4 h-4" />
-            <a href="#" className="hover:text-red-600 transition-colors">Select Service</a>
+            <a href="/services" className="hover:text-red-600 transition-colors">Select Service</a>
             <ChevronRight className="w-4 h-4" />
             <a href="#" className="hover:text-red-600 transition-colors">Details</a>
             <ChevronRight className="w-4 h-4" />
@@ -110,14 +186,21 @@ export function LocationPage({ onContinue, onBack }: LocationPageProps) {
                 </p>
               </div>
 
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+
               {/* Find Button */}
               <Button
-                disabled={!isValid}
+                disabled={!isValid || isSubmitting || !questionnaireData}
                 className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={onContinue}
+                onClick={handleFindProfessionals}
               >
                 <Search className="w-5 h-5 mr-2" />
-                Find Professionals
+                {isSubmitting ? "Submitting..." : "Find Professionals"}
               </Button>
             </div>
 

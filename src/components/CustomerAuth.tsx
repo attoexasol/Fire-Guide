@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+import { registerUser, loginUser, sendOtp, verifyOtp, resetPassword } from "../api/authService";
+import { setAuthToken, setUserEmail, setUserInfo } from "../lib/auth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 
 interface CustomerAuthProps {
   onAuthSuccess: (name: string) => void;
@@ -28,20 +31,84 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
   const [signUpPhone, setSignUpPhone] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
 
+  // Forgot Password State
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<"email" | "otp" | "reset">("email");
+  const [otpCode, setOtpCode] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      if (signInEmail && signInPassword) {
-        toast.success("Welcome back! Signed in successfully.");
-        onAuthSuccess("John Smith");
-      } else {
-        toast.error("Please enter your email and password.");
-      }
+    // Validation
+    if (!signInEmail || !signInPassword) {
+      toast.error("Please enter your email and password.");
       setIsLoading(false);
-    }, 1000);
+      return;
+    }
+
+    // API call
+    try {
+      const response = await loginUser({
+        email: signInEmail.trim(),
+        password: signInPassword,
+      });
+
+      // Check if login was successful
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        // Extract token from response (check multiple possible locations)
+        const token = response.data?.token || 
+                     response.data?.api_token || 
+                     response.token || 
+                     response.api_token ||
+                     response.data?.data?.token ||
+                     response.data?.data?.api_token;
+
+        if (token && typeof token === 'string' && token.trim().length > 0) {
+          // Store token securely
+          setAuthToken(token.trim());
+          // Store email for reference
+          setUserEmail(signInEmail.trim().toLowerCase());
+          // Store user info - extract first name from full_name
+          const fullName = response.data?.full_name || response.data?.user_name || response.data?.name || "User";
+          setUserInfo(fullName, "customer"); // setUserInfo will extract first name
+          console.log('Token stored successfully after login');
+        } else {
+          console.error('No valid token found in login response:', response);
+          toast.error("Login successful but no authentication token received. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success("Welcome back! Signed in successfully.");
+        const fullName = response.data?.full_name || response.data?.user_name || response.data?.name || "User";
+        const firstName = fullName.trim().split(' ')[0]; // Extract first name for callback
+        onAuthSuccess(firstName);
+      } else {
+        // Handle specific error messages
+        const errorMessage = response.message || response.error || "Login failed. Please try again.";
+        if (errorMessage.toLowerCase().includes("verify your email") || errorMessage.toLowerCase().includes("email verification")) {
+          toast.error("Please verify your email first. Check your inbox for the verification link.");
+        } else {
+          toast.error(errorMessage);
+        }
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred during login. Please try again.";
+      if (errorMessage.toLowerCase().includes("verify your email") || errorMessage.toLowerCase().includes("email verification")) {
+        toast.error("Please verify your email first. Check your inbox for the verification link.");
+      } else {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -55,12 +122,54 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      toast.success("Account created successfully! Welcome to Fire Guide.");
-      onAuthSuccess(signUpName);
+    // API call
+    try {
+      const response = await registerUser({
+        full_name: signUpName,
+        email: signUpEmail,
+        phone: signUpPhone,
+        password: signUpPassword,
+      });
+
+      // Check if registration was successful
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        // Extract token from response (check multiple possible locations)
+        const token = response.data?.token || 
+                     response.data?.api_token || 
+                     response.token || 
+                     response.api_token ||
+                     response.data?.data?.token ||
+                     response.data?.data?.api_token;
+
+        if (token && typeof token === 'string' && token.trim().length > 0) {
+          // Store token securely
+          setAuthToken(token.trim());
+          // Store email for reference
+          setUserEmail(signUpEmail.trim().toLowerCase());
+          // Store user info - extract first name from full_name
+          const fullName = response.data?.full_name || signUpName;
+          setUserInfo(fullName, "customer"); // setUserInfo will extract first name
+          console.log('Token stored successfully after registration');
+        } else {
+          console.error('No valid token found in registration response:', response);
+          toast.error("Registration successful but no authentication token received. Please log in.");
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success("Account created successfully! Welcome to Fire Guide.");
+        const fullName = response.data?.full_name || signUpName;
+        const firstName = fullName.trim().split(' ')[0]; // Extract first name for callback
+        onAuthSuccess(firstName);
+      } else {
+        toast.error(response.message || response.error || "Registration failed. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred during registration. Please try again.";
+      toast.error(errorMessage);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -72,6 +181,122 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
       onAuthSuccess("John Smith");
       setIsSocialLoading(null);
     }, 1500);
+  };
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
+    // Validation
+    if (!forgotPasswordEmail || !forgotPasswordEmail.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSendingOtp(true);
+
+    try {
+      const response = await sendOtp({
+        email: forgotPasswordEmail.trim().toLowerCase(),
+      });
+
+      // Check if OTP was sent successfully
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        toast.success("OTP sent successfully! Please check your email.");
+        setForgotPasswordStep("otp");
+        setOtpCode("");
+      } else {
+        toast.error(response.message || response.error || "Failed to send OTP. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while sending OTP. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!otpCode || otpCode.trim().length === 0) {
+      toast.error("Please enter the OTP code.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+
+    try {
+      const response = await verifyOtp({
+        email: forgotPasswordEmail.trim().toLowerCase(),
+        otp: otpCode.trim(),
+      });
+
+      // Check if OTP was verified successfully
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        toast.success("OTP verified successfully! Please set your new password.");
+        setForgotPasswordStep("reset");
+        setOtpCode("");
+      } else {
+        toast.error(response.message || response.error || "Invalid OTP. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while verifying OTP. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!newPassword || newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match. Please try again.");
+      return;
+    }
+
+    setIsResettingPassword(true);
+
+    try {
+      const response = await resetPassword({
+        email: forgotPasswordEmail.trim().toLowerCase(),
+        password: newPassword,
+        password_confirmation: confirmPassword,
+      });
+
+      // Check if password was reset successfully
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        toast.success("Password reset successfully! You can now login with your new password.");
+        handleCloseForgotPassword();
+        // Optionally switch to sign in form
+        setIsSignUp(false);
+      } else {
+        toast.error(response.message || response.error || "Failed to reset password. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while resetting password. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  const handleCloseForgotPassword = () => {
+    setForgotPasswordOpen(false);
+    setForgotPasswordStep("email");
+    setForgotPasswordEmail("");
+    setOtpCode("");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   return (
@@ -369,9 +594,13 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
-                        <a href="#" className="text-red-600 hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => setForgotPasswordOpen(true)}
+                          className="text-red-600 hover:underline"
+                        >
                           Forgot password?
-                        </a>
+                        </button>
                       </div>
 
                       <Button
@@ -527,6 +756,199 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           </div>
         </div>
       </main>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotPasswordOpen} onOpenChange={handleCloseForgotPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {forgotPasswordStep === "email" 
+                ? "Reset Password" 
+                : forgotPasswordStep === "otp"
+                ? "Verify OTP"
+                : "Set New Password"}
+            </DialogTitle>
+            <DialogDescription>
+              {forgotPasswordStep === "email" 
+                ? "Enter your email address and we'll send you an OTP to reset your password."
+                : forgotPasswordStep === "otp"
+                ? `Enter the OTP code sent to ${forgotPasswordEmail}`
+                : "Please enter your new password"
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {forgotPasswordStep === "email" ? (
+            <form onSubmit={handleSendOtp} className="px-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email" className="text-base">
+                  Email Address
+                </Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  className="h-12 text-base"
+                  required
+                  disabled={isSendingOtp}
+                />
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseForgotPassword}
+                  disabled={isSendingOtp}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSendingOtp}
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+                >
+                  {isSendingOtp ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Sending OTP...
+                    </span>
+                  ) : (
+                    "Send OTP"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : forgotPasswordStep === "otp" ? (
+            <form onSubmit={handleVerifyOtp} className="px-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp-code" className="text-base">
+                  OTP Code
+                </Label>
+                <Input
+                  id="otp-code"
+                  type="text"
+                  placeholder="Enter 6-digit OTP"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="h-12 text-base text-center text-2xl tracking-widest"
+                  required
+                  disabled={isVerifyingOtp}
+                  maxLength={6}
+                />
+                <p className="text-sm text-gray-500">
+                  Didn't receive the code?{" "}
+                  <button
+                    type="button"
+                    onClick={() => handleSendOtp()}
+                    disabled={isSendingOtp || isVerifyingOtp}
+                    className="text-red-600 hover:underline"
+                  >
+                    Resend OTP
+                  </button>
+                </p>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setForgotPasswordStep("email");
+                    setOtpCode("");
+                  }}
+                  disabled={isVerifyingOtp}
+                  className="w-full sm:w-auto"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isVerifyingOtp || otpCode.length < 4}
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+                >
+                  {isVerifyingOtp ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Verifying...
+                    </span>
+                  ) : (
+                    "Verify OTP"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <form onSubmit={handleResetPassword} className="px-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password" className="text-base">
+                  New Password
+                </Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-12 text-base"
+                  required
+                  disabled={isResettingPassword}
+                  minLength={8}
+                />
+                <p className="text-xs text-gray-500">
+                  Password must be at least 8 characters long
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password" className="text-base">
+                  Confirm Password
+                </Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="h-12 text-base"
+                  required
+                  disabled={isResettingPassword}
+                  minLength={8}
+                />
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setForgotPasswordStep("otp");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                  }}
+                  disabled={isResettingPassword}
+                  className="w-full sm:w-auto"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isResettingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+                >
+                  {isResettingPassword ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Resetting Password...
+                    </span>
+                  ) : (
+                    "Reset Password"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
