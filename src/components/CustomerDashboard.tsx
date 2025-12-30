@@ -3,12 +3,12 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
-import { 
-  Flame, 
-  LogOut, 
-  User, 
-  Calendar, 
-  CreditCard, 
+import {
+  Flame,
+  LogOut,
+  User,
+  Calendar,
+  CreditCard,
   Home,
   Bell,
   Settings,
@@ -41,7 +41,7 @@ import { Input } from "./ui/input";
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { updateUser, uploadProfileImage } from "../api/authService";
-import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage } from "../lib/auth";
+import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage, getUserRole } from "../lib/auth";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -54,8 +54,8 @@ interface CustomerDashboardProps {
 
 type CustomerView = "overview" | "bookings" | "payments" | "profile" | "settings" | "notifications";
 
-export function CustomerDashboard({ 
-  onLogout, 
+export function CustomerDashboard({
+  onLogout,
   onBookNewService,
   bookings,
   payments,
@@ -64,7 +64,7 @@ export function CustomerDashboard({
 }: CustomerDashboardProps) {
   const [currentView, setCurrentView] = useState<CustomerView>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  
+
   // Address management state
   const [addresses, setAddresses] = useState([
     {
@@ -101,12 +101,12 @@ export function CustomerDashboard({
   const storedEmail = getUserEmail();
   const storedPhone = getUserPhone();
   const storedProfileImage = getUserProfileImage();
-  
+
   // Use stored data or fallback to defaults
   const customerName = storedFullName || "User";
   const customerEmail = storedEmail || "user@example.com";
   const customerPhone = storedPhone || "";
-  
+
   // Profile form state - initialize with stored user data
   const [profileForm, setProfileForm] = useState({
     full_name: customerName,
@@ -288,7 +288,11 @@ export function CustomerDashboard({
     fileInputRef.current?.click();
   };
 
-  const menuItems = [
+  // Get user role from backend (checks both user_role and fireguide_user_role)
+  const userRole = getUserRole();
+
+  // Define customer menu items
+  const customerMenuItems = [
     { id: "overview" as CustomerView, label: "Overview", icon: LayoutDashboard },
     { id: "bookings" as CustomerView, label: "My Bookings", icon: Calendar },
     { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
@@ -297,6 +301,19 @@ export function CustomerDashboard({
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
   ];
 
+  // Define professional menu items
+  const professionalMenuItems = [
+    { id: "overview" as CustomerView, label: "Dashboard", icon: LayoutDashboard },
+    { id: "bookings" as CustomerView, label: "Bookings", icon: Calendar },
+    { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
+    { id: "profile" as CustomerView, label: "Profile", icon: User },
+    { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
+    { id: "settings" as CustomerView, label: "Settings", icon: Settings },
+  ];
+
+  // Select menu items based on role
+  const menuItems = userRole === "PROFESSIONAL" ? professionalMenuItems : customerMenuItems;
+
   const renderOverview = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -304,7 +321,7 @@ export function CustomerDashboard({
           <h1 className="text-2xl md:text-3xl text-[#0A1A2F] mb-2">Welcome back, {customerName}!</h1>
           <p className="text-gray-600 text-sm md:text-base">Here's an overview of your fire safety services.</p>
         </div>
-        <Button 
+        <Button
           onClick={onBookNewService}
           className="bg-red-600 hover:bg-red-700 w-full md:w-auto h-12 md:h-10"
         >
@@ -315,7 +332,7 @@ export function CustomerDashboard({
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <Card 
+        <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
           onClick={() => setCurrentView("bookings")}
         >
@@ -336,7 +353,7 @@ export function CustomerDashboard({
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
           onClick={() => setCurrentView("bookings")}
         >
@@ -357,7 +374,7 @@ export function CustomerDashboard({
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
           onClick={() => setCurrentView("payments")}
         >
@@ -385,8 +402,8 @@ export function CustomerDashboard({
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[#0A1A2F]">Upcoming Bookings</h3>
-              <Button 
-                variant="link" 
+              <Button
+                variant="link"
                 className="text-red-600 p-0 h-auto"
                 onClick={() => setCurrentView("bookings")}
               >
@@ -397,7 +414,7 @@ export function CustomerDashboard({
               <div className="text-center py-8">
                 <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-600 mb-4">No upcoming bookings</p>
-                <Button 
+                <Button
                   onClick={onBookNewService}
                   className="bg-red-600 hover:bg-red-700"
                 >
@@ -410,8 +427,8 @@ export function CustomerDashboard({
                   .filter(b => b.status === "upcoming")
                   .slice(0, 3)
                   .map((booking) => (
-                    <div 
-                      key={booking.id} 
+                    <div
+                      key={booking.id}
                       className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                       onClick={() => setCurrentView("bookings")}
                     >
@@ -496,9 +513,9 @@ export function CustomerDashboard({
             <div className="relative">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-red-100 flex items-center justify-center">
                 {profileImage ? (
-                  <img 
-                    src={profileImage} 
-                    alt="Profile" 
+                  <img
+                    src={profileImage}
+                    alt="Profile"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -521,8 +538,8 @@ export function CustomerDashboard({
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="mt-3"
                 onClick={handleChangePhotoClick}
                 disabled={isUploadingImage}
@@ -536,8 +553,8 @@ export function CustomerDashboard({
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Full Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   value={profileForm.full_name}
                   onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
@@ -545,8 +562,8 @@ export function CustomerDashboard({
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50"
                   value={customerEmail}
                   disabled
@@ -555,8 +572,8 @@ export function CustomerDashboard({
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Phone Number</label>
-                <input 
-                  type="tel" 
+                <input
+                  type="tel"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   value={profileForm.phone}
                   onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
@@ -573,14 +590,14 @@ export function CustomerDashboard({
             </div>
 
             <div className="pt-4 flex gap-3">
-              <Button 
+              <Button
                 className="bg-red-600 hover:bg-red-700"
                 onClick={handleUpdateProfile}
                 disabled={isUpdatingProfile}
               >
                 {isUpdatingProfile ? "Saving..." : "Save Changes"}
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setProfileForm({ full_name: customerName, phone: customerPhone })}
                 disabled={isUpdatingProfile}
@@ -597,7 +614,7 @@ export function CustomerDashboard({
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl text-[#0A1A2F]">Saved Addresses</h3>
-            <Button 
+            <Button
               onClick={handleAddAddress}
               className="bg-red-600 hover:bg-red-700"
             >
@@ -610,7 +627,7 @@ export function CustomerDashboard({
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 mb-4">No saved addresses yet</p>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={handleAddAddress}
               >
@@ -621,8 +638,8 @@ export function CustomerDashboard({
           ) : (
             <div className="space-y-4">
               {addresses.map((address) => (
-                <div 
-                  key={address.id} 
+                <div
+                  key={address.id}
                   className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:border-red-300 transition-colors"
                 >
                   <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -755,8 +772,8 @@ export function CustomerDashboard({
           </div>
 
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setAddressModalOpen(false);
                 setEditingAddress(null);
@@ -764,7 +781,7 @@ export function CustomerDashboard({
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-red-600 hover:bg-red-700"
               onClick={handleSaveAddress}
             >
@@ -872,7 +889,7 @@ export function CustomerDashboard({
               <h1 className="text-3xl text-[#0A1A2F] mb-2">My Bookings</h1>
               <p className="text-gray-600">View and manage all your fire safety service bookings.</p>
             </div>
-            <CustomerBookings 
+            <CustomerBookings
               bookings={bookings}
               onUpdateBooking={onUpdateBooking}
               onDeleteBooking={onDeleteBooking}
@@ -954,9 +971,8 @@ export function CustomerDashboard({
       <div className="flex w-full overflow-x-hidden">
         {/* Sidebar - Full Slide-in Panel */}
         <aside
-          className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 lg:top-[73px] lg:h-[calc(100vh-73px)] ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } ${sidebarOpen ? "top-0 h-screen" : "top-[73px] h-[calc(100vh-73px)]"} lg:!top-[73px] lg:!h-[calc(100vh-73px)]`}
+          className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 lg:top-[73px] lg:h-[calc(100vh-73px)] ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            } ${sidebarOpen ? "top-0 h-screen" : "top-[73px] h-[calc(100vh-73px)]"} lg:!top-[73px] lg:!h-[calc(100vh-73px)]`}
         >
           <div className="p-6 pt-16 lg:pt-6 h-full flex flex-col overflow-hidden">
             {/* Close button for mobile */}
@@ -978,11 +994,10 @@ export function CustomerDashboard({
                       setCurrentView(item.id);
                       setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      isActive
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
                         ? "bg-red-50 text-red-600 font-medium"
                         : "text-gray-600 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{item.label}</span>
@@ -994,6 +1009,16 @@ export function CustomerDashboard({
                   </button>
                 );
               })}
+              
+              {userRole && (
+                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 cursor-default">
+                  <User className="w-5 h-5" />
+                  <span>
+                    {userRole === "PROFESSIONAL" ? "Professional" : "User"}
+                  </span>
+                </button>
+              )}
+
             </nav>
 
             <div className="space-y-2 pt-4 border-t">

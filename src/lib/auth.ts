@@ -171,6 +171,8 @@ export const removeAuthToken = (): void => {
     localStorage.removeItem(USER_FULL_NAME_KEY);
     localStorage.removeItem(USER_PHONE_KEY);
     localStorage.removeItem(USER_PROFILE_IMAGE_KEY);
+    localStorage.removeItem("user_role"); // Primary role key
+    localStorage.removeItem("fireguide_user_role"); // Legacy role key
   } catch (error) {
     console.error('Failed to remove auth token:', error);
   }
@@ -209,6 +211,37 @@ export const getApiToken = (): string | null => {
   return getAuthToken();
 };
 
+
+/**
+ * Store backend user role in localStorage
+ * Overwrites existing role and removes legacy key
+ * @param role - The user's role from backend (PROFESSIONAL, CUSTOMER, etc.)
+ */
+export const setUserRole = (role: string): void => {
+  try {
+    // Store role in the primary key
+    localStorage.setItem("user_role", role);
+    // Remove legacy key to prevent conflicts
+    localStorage.removeItem("fireguide_user_role");
+  } catch (error) {
+    console.error('Failed to store user role:', error);
+  }
+};
+
+/**
+ * Get backend user role from localStorage
+ * Uses only "user_role" as single source of truth
+ * @returns The user's role in uppercase (PROFESSIONAL, CUSTOMER) or null if not found
+ */
+export const getUserRole = (): string | null => {
+  try {
+    const role = localStorage.getItem("user_role");
+    return role ? role.toUpperCase() : null;
+  } catch (error) {
+    console.error('Failed to retrieve user role:', error);
+    return null;
+  }
+};
 
 /**
  * Check if user is authenticated

@@ -8,7 +8,7 @@ import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu } from "lucid
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { registerUser, loginUser, sendOtp, verifyOtp, resetPassword } from "../api/authService";
-import { setAuthToken, setUserEmail, setUserInfo, setUserPhone } from "../lib/auth";
+import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole } from "../lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 
 interface CustomerAuthProps {
@@ -83,6 +83,10 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           // Store phone number if available in response
           if (response.data?.phone) {
             setUserPhone(response.data.phone);
+          }
+          // Store role from backend response - overwrites existing and removes legacy key
+          if (response.data?.role) {
+            setUserRole(response.data.role);
           }
           console.log('Token stored successfully after login');
         } else {
@@ -160,6 +164,11 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           const phone = response.data?.phone || signUpPhone;
           if (phone) {
             setUserPhone(phone);
+          }
+          // Store role from backend response - overwrites existing and removes legacy key
+          const role = response.data?.role || signUpRole;
+          if (role) {
+            setUserRole(role);
           }
           console.log('Token stored successfully after registration');
         } else {
