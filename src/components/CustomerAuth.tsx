@@ -3,11 +3,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { registerUser, loginUser, sendOtp, verifyOtp, resetPassword } from "../api/authService";
-import { setAuthToken, setUserEmail, setUserInfo } from "../lib/auth";
+import { setAuthToken, setUserEmail, setUserInfo, setUserPhone } from "../lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 
 interface CustomerAuthProps {
@@ -30,6 +31,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPhone, setSignUpPhone] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpRole, setSignUpRole] = useState<string>("USER");
 
   // Forgot Password State
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -77,7 +79,11 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           setUserEmail(signInEmail.trim().toLowerCase());
           // Store user info - extract first name from full_name
           const fullName = response.data?.full_name || response.data?.user_name || response.data?.name || "User";
-          setUserInfo(fullName, "customer"); // setUserInfo will extract first name
+          setUserInfo(fullName, "customer"); // setUserInfo will extract first name and store full name
+          // Store phone number if available in response
+          if (response.data?.phone) {
+            setUserPhone(response.data.phone);
+          }
           console.log('Token stored successfully after login');
         } else {
           console.error('No valid token found in login response:', response);
@@ -116,7 +122,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
     setIsLoading(true);
 
     // Validation
-    if (!signUpName || !signUpEmail || !signUpPhone || !signUpPassword) {
+    if (!signUpName || !signUpEmail || !signUpPhone || !signUpPassword || !signUpRole) {
       toast.error("Please fill in all fields.");
       setIsLoading(false);
       return;
@@ -129,6 +135,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
         email: signUpEmail,
         phone: signUpPhone,
         password: signUpPassword,
+        role: signUpRole, // Already in correct format: "USER" or "PROFESSIONAL"
       });
 
       // Check if registration was successful
@@ -148,7 +155,12 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           setUserEmail(signUpEmail.trim().toLowerCase());
           // Store user info - extract first name from full_name
           const fullName = response.data?.full_name || signUpName;
-          setUserInfo(fullName, "customer"); // setUserInfo will extract first name
+          setUserInfo(fullName, "customer"); // setUserInfo will extract first name and store full name
+          // Store phone number from response or signup form
+          const phone = response.data?.phone || signUpPhone;
+          if (phone) {
+            setUserPhone(phone);
+          }
           console.log('Token stored successfully after registration');
         } else {
           console.error('No valid token found in registration response:', response);
@@ -431,7 +443,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                     </p>
                   </div>
                 </div>
-
+        
                 <div className="flex items-start gap-3 md:gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 md:p-4">
                   <div className="w-10 h-10 md:w-12 md:h-12 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Clock className="w-5 h-5 md:w-6 md:h-6 text-red-400" />
@@ -443,7 +455,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                     </p>
                   </div>
                 </div>
-
+      
                 <div className="flex items-start gap-3 md:gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 md:p-4">
                   <div className="w-10 h-10 md:w-12 md:h-12 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Heart className="w-5 h-5 md:w-6 md:h-6 text-red-400" />
@@ -475,8 +487,8 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
             </div>
 
             {/* Right Side - Auth Form */}
-            <div className="order-1 lg:order-2">
-              <Card className="border-0 shadow-2xl">
+            <div className="order-1 lg:order-2 relative">
+              <Card className="border-0 shadow-2xl overflow-visible">
                 <CardHeader className="text-center pb-4">
                   <div className="w-14 h-14 md:w-16 md:h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
                     <User className="w-7 h-7 md:w-8 md:h-8 text-red-600" />
@@ -491,7 +503,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                     }
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-5 md:space-y-6 p-4 md:p-6">
+                <CardContent className="space-y-5 md:space-y-6 p-4 md:p-6 overflow-visible">
                   {/* Social Login Buttons */}
                   <div className="space-y-3">
                     <Button
@@ -666,6 +678,21 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                           className="h-12 text-base"
                           required
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-role" className="text-base">
+                          Role
+                        </Label>
+                        <Select value={signUpRole} onValueChange={setSignUpRole}>
+                          <SelectTrigger id="signup-role" className="h-12 text-base">
+                            <SelectValue placeholder="Select your role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USER">User</SelectItem>
+                            <SelectItem value="PROFESSIONAL">Professional</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="space-y-2">

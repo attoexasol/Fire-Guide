@@ -462,7 +462,6 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                   </div>
                 </CardContent>
               </Card>
-
               {/* Bio */}
               <Card>
                 <CardHeader>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
@@ -40,6 +40,8 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+import { updateUser, uploadProfileImage } from "../api/authService";
+import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage } from "../lib/auth";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -94,9 +96,26 @@ export function CustomerDashboard({
     country: "United Kingdom"
   });
 
-  // Mock customer data
-  const customerName = "John Smith";
-  const customerEmail = "john.smith@example.com";
+  // Get user data from localStorage
+  const storedFullName = getUserFullName();
+  const storedEmail = getUserEmail();
+  const storedPhone = getUserPhone();
+  const storedProfileImage = getUserProfileImage();
+  
+  // Use stored data or fallback to defaults
+  const customerName = storedFullName || "User";
+  const customerEmail = storedEmail || "user@example.com";
+  const customerPhone = storedPhone || "";
+  
+  // Profile form state - initialize with stored user data
+  const [profileForm, setProfileForm] = useState({
+    full_name: customerName,
+    phone: customerPhone
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(storedProfileImage);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Calculate stats from real data
   const upcomingBookings = bookings.filter(b => b.status === "upcoming").length;
@@ -177,6 +196,96 @@ export function CustomerDashboard({
       postcode: "",
       country: "United Kingdom"
     });
+  };
+
+  const handleUpdateProfile = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to update your profile.");
+      return;
+    }
+
+    if (!profileForm.full_name || !profileForm.phone) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      const response = await updateUser({
+        api_token: token,
+        full_name: profileForm.full_name,
+        phone: profileForm.phone
+      });
+
+      if (response.success || response.status === "success" || (response.data && !response.error)) {
+        // Update localStorage with the new values
+        setUserFullName(profileForm.full_name);
+        setUserPhone(profileForm.phone);
+        toast.success("Profile updated successfully!");
+      } else {
+        toast.error(response.message || response.error || "Failed to update profile. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while updating your profile. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file.");
+      return;
+    }
+
+    // Validate file size (e.g., max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast.error("Image size must be less than 5MB.");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to upload a profile image.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const response = await uploadProfileImage({
+        api_token: token,
+        file: file
+      });
+
+      if (response.status === true && response.image_url) {
+        // Update state and localStorage
+        setProfileImage(response.image_url);
+        setUserProfileImage(response.image_url);
+        toast.success(response.message || "Profile image updated successfully!");
+      } else {
+        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while uploading your profile image. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsUploadingImage(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleChangePhotoClick = () => {
+    fileInputRef.current?.click();
   };
 
   const menuItems = [
@@ -384,13 +493,42 @@ export function CustomerDashboard({
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center gap-6 mb-6">
-            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
-              <User className="w-12 h-12 text-red-600" />
+            <div className="relative">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-red-100 flex items-center justify-center">
+                {profileImage ? (
+                  <img 
+                    src={profileImage} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-12 h-12 text-red-600" />
+                )}
+              </div>
+              {isUploadingImage && (
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                  <div className="text-white text-xs">Uploading...</div>
+                </div>
+              )}
             </div>
             <div>
-              <h2 className="text-2xl text-[#0A1A2F] mb-1">{customerName}</h2>
+              <h2 className="text-2xl text-[#0A1A2F] mb-1">{profileForm.full_name || customerName}</h2>
               <p className="text-gray-600">{customerEmail}</p>
-              <Button variant="outline" className="mt-3">Change Photo</Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button 
+                variant="outline" 
+                className="mt-3"
+                onClick={handleChangePhotoClick}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? "Uploading..." : "Change Photo"}
+              </Button>
             </div>
           </div>
 
@@ -401,15 +539,18 @@ export function CustomerDashboard({
                 <input 
                   type="text" 
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  defaultValue={customerName}
+                  value={profileForm.full_name}
+                  onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Email Address</label>
                 <input 
                   type="email" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  defaultValue={customerEmail}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50"
+                  value={customerEmail}
+                  disabled
+                  readOnly
                 />
               </div>
               <div>
@@ -417,7 +558,8 @@ export function CustomerDashboard({
                 <input 
                   type="tel" 
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  defaultValue="07123 456789"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                 />
               </div>
               <div>
@@ -431,8 +573,20 @@ export function CustomerDashboard({
             </div>
 
             <div className="pt-4 flex gap-3">
-              <Button className="bg-red-600 hover:bg-red-700">Save Changes</Button>
-              <Button variant="outline">Cancel</Button>
+              <Button 
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleUpdateProfile}
+                disabled={isUpdatingProfile}
+              >
+                {isUpdatingProfile ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setProfileForm({ full_name: customerName, phone: customerPhone })}
+                disabled={isUpdatingProfile}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -800,12 +954,11 @@ export function CustomerDashboard({
       <div className="flex w-full overflow-x-hidden">
         {/* Sidebar - Full Slide-in Panel */}
         <aside
-          className={`fixed lg:sticky left-0 h-screen bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 ${
+          className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 lg:top-[73px] lg:h-[calc(100vh-73px)] ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-          style={{ top: sidebarOpen ? "0" : "73px" }}
+          } ${sidebarOpen ? "top-0 h-screen" : "top-[73px] h-[calc(100vh-73px)]"} lg:!top-[73px] lg:!h-[calc(100vh-73px)]`}
         >
-          <div className="p-6 pt-16 lg:pt-6 h-full flex flex-col">
+          <div className="p-6 pt-16 lg:pt-6 h-full flex flex-col overflow-hidden">
             {/* Close button for mobile */}
             <button
               onClick={() => setSidebarOpen(false)}
@@ -814,7 +967,7 @@ export function CustomerDashboard({
               <X className="w-5 h-5" />
             </button>
 
-            <nav className="space-y-2 flex-1 mt-6 lg:mt-0">
+            <nav className="space-y-2 flex-1 mt-6 lg:mt-0 overflow-y-auto">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;

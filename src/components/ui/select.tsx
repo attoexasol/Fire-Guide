@@ -33,7 +33,9 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
 
   return (
     <SelectContext.Provider value={{ value, onValueChange: handleValueChange, open, setOpen }}>
-      {children}
+      <div className="relative w-full">
+        {children}
+      </div>
     </SelectContext.Provider>
   );
 };
@@ -81,7 +83,7 @@ const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
         <div
           ref={ref}
           className={cn(
-            "absolute z-50 mt-1 max-h-96 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg",
+            "absolute z-50 top-full left-0 mt-1 max-h-96 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg",
             className
           )}
           {...props}

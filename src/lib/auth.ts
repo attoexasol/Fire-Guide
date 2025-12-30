@@ -7,6 +7,9 @@ const TOKEN_KEY = 'fireguide_auth_token';
 const USER_EMAIL_KEY = 'fireguide_user_email';
 const USER_NAME_KEY = 'fireguide_user_name';
 const USER_ROLE_KEY = 'fireguide_user_role';
+const USER_FULL_NAME_KEY = 'fireguide_user_full_name';
+const USER_PHONE_KEY = 'fireguide_user_phone';
+const USER_PROFILE_IMAGE_KEY = 'fireguide_user_profile_image';
 
 /**
  * Store authentication token securely
@@ -56,8 +59,85 @@ export const setUserInfo = (name: string, role: "customer" | "professional" | "a
     const firstName = getFirstName(name);
     localStorage.setItem(USER_NAME_KEY, firstName);
     localStorage.setItem(USER_ROLE_KEY, role);
+    // Also store full name
+    localStorage.setItem(USER_FULL_NAME_KEY, name);
   } catch (error) {
     console.error('Failed to store user info:', error);
+  }
+};
+
+/**
+ * Store user full name
+ * @param fullName - User's full name
+ */
+export const setUserFullName = (fullName: string): void => {
+  try {
+    localStorage.setItem(USER_FULL_NAME_KEY, fullName);
+  } catch (error) {
+    console.error('Failed to store user full name:', error);
+  }
+};
+
+/**
+ * Get stored user full name
+ * @returns The user's full name or null if not found
+ */
+export const getUserFullName = (): string | null => {
+  try {
+    return localStorage.getItem(USER_FULL_NAME_KEY);
+  } catch (error) {
+    console.error('Failed to retrieve user full name:', error);
+    return null;
+  }
+};
+
+/**
+ * Store user phone number
+ * @param phone - User's phone number
+ */
+export const setUserPhone = (phone: string): void => {
+  try {
+    localStorage.setItem(USER_PHONE_KEY, phone);
+  } catch (error) {
+    console.error('Failed to store user phone:', error);
+  }
+};
+
+/**
+ * Get stored user phone number
+ * @returns The user's phone number or null if not found
+ */
+export const getUserPhone = (): string | null => {
+  try {
+    return localStorage.getItem(USER_PHONE_KEY);
+  } catch (error) {
+    console.error('Failed to retrieve user phone:', error);
+    return null;
+  }
+};
+
+/**
+ * Store user profile image URL
+ * @param imageUrl - User's profile image URL
+ */
+export const setUserProfileImage = (imageUrl: string): void => {
+  try {
+    localStorage.setItem(USER_PROFILE_IMAGE_KEY, imageUrl);
+  } catch (error) {
+    console.error('Failed to store user profile image:', error);
+  }
+};
+
+/**
+ * Get stored user profile image URL
+ * @returns The user's profile image URL or null if not found
+ */
+export const getUserProfileImage = (): string | null => {
+  try {
+    return localStorage.getItem(USER_PROFILE_IMAGE_KEY);
+  } catch (error) {
+    console.error('Failed to retrieve user profile image:', error);
+    return null;
   }
 };
 
@@ -88,6 +168,9 @@ export const removeAuthToken = (): void => {
     localStorage.removeItem(USER_EMAIL_KEY);
     localStorage.removeItem(USER_NAME_KEY);
     localStorage.removeItem(USER_ROLE_KEY);
+    localStorage.removeItem(USER_FULL_NAME_KEY);
+    localStorage.removeItem(USER_PHONE_KEY);
+    localStorage.removeItem(USER_PROFILE_IMAGE_KEY);
   } catch (error) {
     console.error('Failed to remove auth token:', error);
   }

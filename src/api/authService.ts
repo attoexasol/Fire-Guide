@@ -6,6 +6,7 @@ export interface RegisterUserRequest {
   email: string;
   phone: string;
   password: string;
+  role?: string;
 }
 
 // TypeScript types for registration response
@@ -43,16 +44,23 @@ export const registerUser = async (
   data: RegisterUserRequest
 ): Promise<RegisterUserResponse> => {
   try {
-    // Send POST request with exact body fields: full_name, email, password, phone
+    // Send POST request with exact body fields: full_name, email, password, phone, role
     // No custom headers - axios will automatically add Content-Type: application/json
+    const requestBody: any = {
+      full_name: data.full_name,
+      email: data.email,
+      password: data.password,
+      phone: data.phone
+    };
+    
+    // Only include role if it's provided
+    if (data.role) {
+      requestBody.role = data.role;
+    }
+    
     const response = await apiClient.post<RegisterUserResponse>(
       '/user/register',
-      {
-        full_name: data.full_name,
-        email: data.email,
-        password: data.password,
-        phone: data.phone
-      }
+      requestBody
     );
     return response.data;
   } catch (error) {
@@ -349,6 +357,146 @@ export const resetPassword = async (
     // Handle other errors
     throw {
       success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for update user request
+export interface UpdateUserRequest {
+  api_token: string;
+  full_name: string;
+  phone: string;
+}
+
+// TypeScript types for update user response
+export interface UpdateUserResponse {
+  success?: boolean;
+  status?: boolean | string;
+  message?: string;
+  data?: {
+    id?: string;
+    full_name?: string;
+    email?: string;
+    phone?: string;
+    [key: string]: any;
+  };
+  error?: string;
+}
+
+/**
+ * Update user information
+ * @param data - API token, full name, and phone number
+ * @returns Promise with the API response
+ */
+export const updateUser = async (
+  data: UpdateUserRequest
+): Promise<UpdateUserResponse> => {
+  try {
+    // Send POST request with api_token, full_name, and phone in body
+    // No custom headers - axios will automatically add Content-Type: application/json
+    const response = await apiClient.post<UpdateUserResponse>(
+      '/user/update',
+      {
+        api_token: data.api_token,
+        full_name: data.full_name,
+        phone: data.phone
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      // Handle axios errors
+      if (error.response) {
+        // Server responded with error status
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to update user',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        // Request was made but no response received
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    // Handle other errors
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for upload profile image request
+export interface UploadProfileImageRequest {
+  api_token: string;
+  file: File;
+}
+
+// TypeScript types for upload profile image response
+export interface UploadProfileImageResponse {
+  status?: boolean;
+  message?: string;
+  image_url?: string;
+  error?: string;
+}
+
+/**
+ * Upload profile image
+ * @param data - API token and image file
+ * @returns Promise with the API response
+ */
+export const uploadProfileImage = async (
+  data: UploadProfileImageRequest
+): Promise<UploadProfileImageResponse> => {
+  try {
+    // Create FormData for multipart/form-data request
+    const formData = new FormData();
+    formData.append('file', data.file);
+    formData.append('api_token', data.api_token);
+
+    // Send POST request with FormData
+    // axios will automatically set Content-Type to multipart/form-data
+    const response = await apiClient.post<UploadProfileImageResponse>(
+      '/user/upload_profile_image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      // Handle axios errors
+      if (error.response) {
+        // Server responded with error status
+        throw {
+          status: false,
+          message: error.response.data?.message || 'Failed to upload profile image',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        // Request was made but no response received
+        throw {
+          status: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    // Handle other errors
+    throw {
+      status: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
