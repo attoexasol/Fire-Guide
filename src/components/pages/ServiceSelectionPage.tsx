@@ -24,6 +24,17 @@ export default function ServiceSelectionPage() {
         logout();
         navigate("/");
       }}
+      onNavigateToDashboard={() => {
+        if (currentUser) {
+          if (currentUser.role === "admin") {
+            navigate("/admin/dashboard");
+          } else if (currentUser.role === "professional") {
+            navigate("/professional/dashboard");
+          } else {
+            navigate("/customer/dashboard");
+          }
+        }
+      }}
     />
   );
 }

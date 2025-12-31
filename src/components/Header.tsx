@@ -20,6 +20,7 @@ interface HeaderProps {
   onNavigateServices?: () => void;
   onNavigateAbout?: () => void;
   onNavigateContact?: () => void;
+  onNavigateToDashboard?: () => void;
 }
 
 export function Header({ 
@@ -33,7 +34,8 @@ export function Header({
   onNavigateHome,
   onNavigateServices,
   onNavigateAbout,
-  onNavigateContact
+  onNavigateContact,
+  onNavigateToDashboard
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -43,6 +45,13 @@ export function Header({
       onCustomerLogin();
     } else if (onLogin) {
       onLogin();
+    }
+  };
+
+  // Handler for user icon/name click - navigate to dashboard
+  const handleUserClick = () => {
+    if (onNavigateToDashboard) {
+      onNavigateToDashboard();
     }
   };
 
@@ -80,7 +89,7 @@ export function Header({
           {currentUser ? (
             <Button 
               variant="ghost" 
-              onClick={onLogout} 
+              onClick={handleUserClick} 
               className="text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer"
             >
               <User className="w-4 h-4 mr-2" />
@@ -144,7 +153,7 @@ export function Header({
               {currentUser ? (
                 <Button 
                   variant="ghost" 
-                  onClick={onLogout} 
+                  onClick={handleUserClick} 
                   className="w-full text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
                 >
                   <User className="w-4 h-4 mr-2" />

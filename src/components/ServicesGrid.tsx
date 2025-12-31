@@ -75,7 +75,7 @@ export function ServicesGrid({ onSelectService }: ServicesGridProps) {
 
   // Show all services (both active and inactive)
   const allServices = services;
-
+console.log(allServices);
   return (
     <section id="services" className="py-24 px-6 bg-white">
       <div className="max-w-6xl mx-auto">

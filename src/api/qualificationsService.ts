@@ -10,11 +10,11 @@ export interface QualificationCertificationResponse {
   updated_at: string;
   creator: {
     id: number;
-    user_name: string;
+    full_name: string;
   } | null;
   updater: {
     id: number;
-    user_name: string;
+    full_name: string;
   } | null;
   professional: {
     id: number;
@@ -77,4 +77,3 @@ export const fetchQualifications = async (): Promise<QualificationCertificationR
     };
   }
 };
-

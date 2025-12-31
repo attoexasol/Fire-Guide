@@ -39,7 +39,7 @@ export interface ServicesPaginatedResponse {
 export interface ServicesApiResponse {
   status: string;
   message: string;
-  data: ServicesPaginatedResponse;
+  data: ServiceResponse[] | ServicesPaginatedResponse;
 }
 
 // TypeScript types for Property Type API response
@@ -74,7 +74,7 @@ export interface PropertyTypesPaginatedResponse {
 export interface PropertyTypesApiResponse {
   status: string;
   message: string;
-  data: PropertyTypesPaginatedResponse;
+  data: PropertyTypeResponse[] | PropertyTypesPaginatedResponse;
 }
 
 // TypeScript types for Approximate People API response
@@ -97,7 +97,7 @@ export interface ApproximatePeopleApiResponse {
 // Create axios instance with base configuration
 // Uses VITE_API_BASE_URL from .env file, with fallback to default URL
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -111,13 +111,24 @@ const apiClient = axios.create({
 export const fetchServices = async (): Promise<ServiceResponse[]> => {
   try {
     const response = await apiClient.get<ServicesApiResponse>('/services');
+    console.log('Services API Response:', response.data);
     
-    // Handle the paginated response structure
-    if (response.data.status === 'success' && response.data.data?.data) {
-      return response.data.data.data; // Access the nested data array
+    // Handle the response structure: { status: 'success', data: [...] }
+    if (response.data.status === 'success' && response.data.data) {
+      // Check if data is a direct array (current API structure)
+      if (Array.isArray(response.data.data)) {
+        console.log('Services found (direct array):', response.data.data.length);
+        return response.data.data; // Direct array
+      }
+      // Check if data is a paginated object with nested data array
+      if (typeof response.data.data === 'object' && 'data' in response.data.data && Array.isArray((response.data.data as any).data)) {
+        console.log('Services found (paginated):', (response.data.data as any).data.length);
+        return (response.data.data as any).data; // Nested paginated array
+      }
     }
     
     // Fallback: return empty array if structure is unexpected
+    console.warn('Unexpected services API response structure:', response.data);
     return [];
   } catch (error) {
     console.error('Error fetching services:', error);
@@ -152,13 +163,24 @@ export const fetchServices = async (): Promise<ServiceResponse[]> => {
 export const fetchPropertyTypes = async (): Promise<PropertyTypeResponse[]> => {
   try {
     const response = await apiClient.get<PropertyTypesApiResponse>('/all/property_types');
+    console.log('Property Types API Response:', response.data);
     
-    // Handle the paginated response structure
-    if (response.data.status === 'success' && response.data.data?.data) {
-      return response.data.data.data; // Access the nested data array
+    // Handle the response structure: { status: 'success', data: [...] }
+    if (response.data.status === 'success' && response.data.data) {
+      // Check if data is a direct array (current API structure)
+      if (Array.isArray(response.data.data)) {
+        console.log('Property types found (direct array):', response.data.data.length);
+        return response.data.data; // Direct array
+      }
+      // Check if data is a paginated object with nested data array
+      if (typeof response.data.data === 'object' && 'data' in response.data.data && Array.isArray((response.data.data as any).data)) {
+        console.log('Property types found (paginated):', (response.data.data as any).data.length);
+        return (response.data.data as any).data; // Nested paginated array
+      }
     }
     
     // Fallback: return empty array if structure is unexpected
+    console.warn('Unexpected property types API response structure:', response.data);
     return [];
   } catch (error) {
     console.error('Error fetching property types:', error);

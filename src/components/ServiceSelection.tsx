@@ -16,6 +16,7 @@ interface ServiceSelectionProps {
   onCustomerLogin?: () => void;
   currentUser?: { name: string; role: "customer" | "professional" | "admin" } | null;
   onLogout?: () => void;
+  onNavigateToDashboard?: () => void;
 }
 
 export function ServiceSelection({ 
@@ -28,7 +29,8 @@ export function ServiceSelection({
   onNavigateContact,
   onCustomerLogin,
   currentUser,
-  onLogout
+  onLogout,
+  onNavigateToDashboard
 }: ServiceSelectionProps) {
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [services, setServices] = useState<ServiceResponse[]>([]);
@@ -83,6 +85,7 @@ export function ServiceSelection({
         onNavigateServices={onNavigateServices}
         onNavigateAbout={onNavigateAbout}
         onNavigateContact={onNavigateContact}
+        onNavigateToDashboard={onNavigateToDashboard}
       />
 
       {/* Main Content - Added pt-8 for spacing after header */}

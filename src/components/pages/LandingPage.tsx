@@ -19,6 +19,17 @@ export default function LandingPage() {
           navigate("/");
         }}
         onAboutContact={() => navigate("/about")}
+        onNavigateToDashboard={() => {
+          if (currentUser) {
+            if (currentUser.role === "admin") {
+              navigate("/admin/dashboard");
+            } else if (currentUser.role === "professional") {
+              navigate("/professional/dashboard");
+            } else {
+              navigate("/customer/dashboard");
+            }
+          }
+        }}
       />
     );
   } catch (error) {

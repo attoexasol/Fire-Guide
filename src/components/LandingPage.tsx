@@ -31,9 +31,10 @@ interface LandingPageProps {
   currentUser?: User | null;
   onLogout?: () => void;
   onAboutContact?: () => void;
+  onNavigateToDashboard?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, onCustomerLogin, currentUser, onLogout, onAboutContact }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, onCustomerLogin, currentUser, onLogout, onAboutContact, onNavigateToDashboard }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-white">
       <Header 
@@ -62,6 +63,7 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
             }, 100);
           }
         }}
+        onNavigateToDashboard={onNavigateToDashboard}
       />
       <Hero onGetStarted={onGetStarted} />
       {/* <RecentActivityTicker /> */}
