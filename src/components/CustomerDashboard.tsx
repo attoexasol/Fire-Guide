@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
+import { ProfessionalCertifications } from "./ProfessionalCertifications";
 import {
   Flame,
   LogOut,
@@ -23,7 +24,8 @@ import {
   Plus,
   Edit,
   Trash2,
-  Star
+  Star,
+  Award
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Booking } from "../App";
@@ -52,7 +54,7 @@ interface CustomerDashboardProps {
   onDeleteBooking: (bookingId: string) => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "settings" | "notifications";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "settings" | "notifications";
 
 export function CustomerDashboard({
   onLogout,
@@ -307,6 +309,7 @@ export function CustomerDashboard({
     { id: "bookings" as CustomerView, label: "Bookings", icon: Calendar },
     { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
     { id: "profile" as CustomerView, label: "Profile", icon: User },
+    { id: "certification" as CustomerView, label: "Certification", icon: Award },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
   ];
@@ -908,6 +911,8 @@ export function CustomerDashboard({
         );
       case "profile":
         return renderProfile();
+      case "certification":
+        return <ProfessionalCertifications />;
       case "settings":
         return renderSettings();
       case "notifications":
@@ -1014,7 +1019,8 @@ export function CustomerDashboard({
                 <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 cursor-default">
                   <User className="w-5 h-5" />
                   <span>
-                    {userRole === "PROFESSIONAL" ? "Professional" : "User"}
+                    {userRole === "PROFESSIONAL" ? "Professional" : 
+                     userRole === "ADMIN" ? "Admin" : "User"}
                   </span>
                 </button>
               )}

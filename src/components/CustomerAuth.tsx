@@ -84,9 +84,10 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           if (response.data?.phone) {
             setUserPhone(response.data.phone);
           }
-          // Store role from backend response - overwrites existing and removes legacy key
-          if (response.data?.role) {
-            setUserRole(response.data.role);
+          // Store role from backend response - check multiple possible locations
+          const role = response.data?.role || response.data?.data?.role;
+          if (role) {
+            setUserRole(role);
           }
           console.log('Token stored successfully after login');
         } else {

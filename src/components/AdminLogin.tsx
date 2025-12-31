@@ -5,6 +5,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+import { loginUser } from "../api/authService";
+import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole } from "../lib/auth";
+import { toast } from "sonner";
 
 interface AdminLoginProps {
   onLoginSuccess: (name: string) => void;
@@ -20,20 +23,71 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     if (!email || !password) {
       setError("Please enter both email and password");
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await loginUser({
+        email: email.trim(),
+        password: password,
+      });
+
+      // Check if login was successful
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        // Extract token from response (check multiple possible locations)
+        const token = response.data?.token || 
+                     response.data?.api_token || 
+                     response.token || 
+                     response.api_token ||
+                     response.data?.data?.token ||
+                     response.data?.data?.api_token;
+
+        if (token && typeof token === 'string' && token.trim().length > 0) {
+          // Store token securely
+          setAuthToken(token.trim());
+          // Store email for reference
+          setUserEmail(email.trim().toLowerCase());
+          
+          // Store user info - extract first name from full_name
+          const fullName = response.data?.full_name || response.data?.user_name || response.data?.name || "Admin";
+          setUserInfo(fullName, "admin");
+          
+          // Store phone number if available in response
+          if (response.data?.phone) {
+            setUserPhone(response.data.phone);
+          }
+          
+          // Store role from backend response - check multiple possible locations
+          const role = response.data?.role || response.data?.data?.role;
+          if (role) {
+            setUserRole(role);
+          }
+          
+          toast.success("Welcome back! Signed in successfully.");
+          const firstName = fullName.trim().split(' ')[0]; // Extract first name for callback
+          onLoginSuccess(firstName);
+        } else {
+          console.error('No valid token found in login response:', response);
+          setError("Login successful but no authentication token received. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // Handle specific error messages
+        const errorMessage = response.message || response.error || "Login failed. Please try again.";
+        setError(errorMessage);
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred during login. Please try again.";
+      setError(errorMessage);
       setIsLoading(false);
-      // For demo purposes, accept any email/password
-      // In production, this would validate against backend
-      onLoginSuccess("Admin User");
-    }, 1500);
+    }
   };
 
   return (
@@ -176,13 +230,6 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
                     )}
                   </Button>
                 </form>
-
-                {/* Demo Credentials Info */}
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-900 text-center">
-                    <strong>Demo:</strong> Use any email and password to login
-                  </p>
-                </div>
               </CardContent>
             </Card>
 

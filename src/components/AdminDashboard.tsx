@@ -18,7 +18,8 @@ import {
   Menu,
   X,
   LogOut,
-  Flame
+  Flame,
+  User
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -32,6 +33,7 @@ import { AdminServices } from "./AdminServices";
 import { AdminSettings } from "./AdminSettings";
 import { AdminNotifications } from "./AdminNotifications";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+import { getUserRole } from "../lib/auth";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -43,7 +45,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [currentView, setCurrentView] = useState<AdminView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const menuItems = [
+  // Get user role from localStorage (stored during login)
+  const userRole = getUserRole();
+
+  // Define all available admin menu items
+  const allAdminMenuItems = [
     { id: "dashboard" as AdminView, label: "Dashboard", icon: LayoutDashboard },
     { id: "customers" as AdminView, label: "Customers", icon: Users },
     { id: "professionals" as AdminView, label: "Professionals", icon: Briefcase },
@@ -54,6 +60,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: "notifications" as AdminView, label: "Notifications", icon: Bell },
     { id: "settings" as AdminView, label: "Settings", icon: Settings },
   ];
+
+  // Filter menu items based on role - for ADMIN role, show all admin menu items
+  // This structure allows for future role-based filtering (e.g., SUPER_ADMIN, MODERATOR, etc.)
+  const menuItems = userRole === "ADMIN" ? allAdminMenuItems : allAdminMenuItems;
 
   const renderDashboard = () => (
     <div className="space-y-6">
@@ -330,6 +340,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </button>
               );
             })}
+            
+            {/* Display user role */}
+            {userRole && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700">
+                  <User className="w-4 h-4" />
+                  <span className="capitalize">{userRole.toLowerCase()}</span>
+                </div>
+              </div>
+            )}
           </nav>
         </aside>
 

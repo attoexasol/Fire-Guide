@@ -15,7 +15,8 @@ import {
   Flame,
   Briefcase,
   TrendingUp,
-  FileText
+  FileText,
+  Award
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
@@ -28,6 +29,7 @@ import { ProfessionalNotifications } from "./ProfessionalNotifications";
 import { ProfessionalProfileContent } from "./ProfessionalProfileContent";
 import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
 import { ProfessionalAvailabilityContent } from "./ProfessionalAvailabilityContent";
+import { ProfessionalCertifications } from "./ProfessionalCertifications";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface ProfessionalDashboardProps {
@@ -35,7 +37,7 @@ interface ProfessionalDashboardProps {
   onNavigateToReports: () => void;
 }
 
-type ProfessionalView = "dashboard" | "profile" | "pricing" | "availability" | "bookings" | "payments" | "verification" | "settings" | "notifications";
+type ProfessionalView = "dashboard" | "profile" | "pricing" | "availability" | "bookings" | "payments" | "verification" | "certification" | "settings" | "notifications";
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
   const [activeMenu, setActiveMenu] = useState<ProfessionalView>("dashboard");
@@ -49,6 +51,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     { id: "bookings" as ProfessionalView, label: "Bookings", icon: Calendar },
     { id: "payments" as ProfessionalView, label: "Payments", icon: CreditCard },
     { id: "verification" as ProfessionalView, label: "Verification Status", icon: ShieldCheck },
+    { id: "certification" as ProfessionalView, label: "Certification", icon: Award },
     { id: "notifications" as ProfessionalView, label: "Notifications", icon: Bell },
     { id: "settings" as ProfessionalView, label: "Settings", icon: Settings },
   ];
@@ -133,6 +136,8 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         return <ProfessionalPricingContent />;
       case "availability":
         return <ProfessionalAvailabilityContent />;
+      case "certification":
+        return <ProfessionalCertifications />;
       default:
         return renderDashboard();
     }
