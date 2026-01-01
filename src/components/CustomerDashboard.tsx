@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
@@ -66,8 +67,32 @@ export function CustomerDashboard({
   onDeleteBooking,
   onNavigateHome
 }: CustomerDashboardProps) {
-  const [currentView, setCurrentView] = useState<CustomerView>("overview");
+  const navigate = useNavigate();
+  const { view } = useParams<{ view?: string }>();
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "settings", "notifications"];
+  
+  // Determine current view from URL parameter, default to "overview"
+  const currentViewFromUrl: CustomerView = (view && validViews.includes(view as CustomerView)) 
+    ? (view as CustomerView) 
+    : "overview";
+  
+  const [currentView, setCurrentView] = useState<CustomerView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Sync state with URL parameter when it changes (including on mount and URL changes)
+  useEffect(() => {
+    setCurrentView(currentViewFromUrl);
+  }, [currentViewFromUrl]);
+
+  // Navigation handler that updates URL
+  const handleViewChange = (view: CustomerView) => {
+    setCurrentView(view);
+    if (view === "overview") {
+      navigate("/customer/dashboard", { replace: true });
+    } else {
+      navigate(`/customer/dashboard/${view}`, { replace: true });
+    }
+  };
 
   // Address management state
   const [addresses, setAddresses] = useState([
@@ -339,7 +364,7 @@ export function CustomerDashboard({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
-          onClick={() => setCurrentView("bookings")}
+          onClick={() => handleViewChange("bookings")}
         >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -360,7 +385,7 @@ export function CustomerDashboard({
 
         <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
-          onClick={() => setCurrentView("bookings")}
+          onClick={() => handleViewChange("bookings")}
         >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -381,7 +406,7 @@ export function CustomerDashboard({
 
         <Card
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
-          onClick={() => setCurrentView("payments")}
+          onClick={() => handleViewChange("payments")}
         >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -410,7 +435,7 @@ export function CustomerDashboard({
               <Button
                 variant="link"
                 className="text-red-600 p-0 h-auto"
-                onClick={() => setCurrentView("bookings")}
+                onClick={() => handleViewChange("bookings")}
               >
                 View All →
               </Button>
@@ -435,7 +460,7 @@ export function CustomerDashboard({
                     <div
                       key={booking.id}
                       className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                      onClick={() => setCurrentView("bookings")}
+                      onClick={() => handleViewChange("bookings")}
                     >
                       <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <Shield className="w-5 h-5 text-red-600" />
@@ -948,7 +973,7 @@ export function CustomerDashboard({
               variant="ghost"
               size="icon"
               className="text-white hover:text-red-500 hover:bg-transparent relative p-1.5"
-              onClick={() => setCurrentView("notifications")}
+              onClick={() => handleViewChange("notifications")}
             >
               <Bell className="w-5 h-5" />
               {bookings.filter(b => b.status === "upcoming").length > 0 && (
@@ -959,7 +984,7 @@ export function CustomerDashboard({
               variant="ghost"
               size="icon"
               className="text-white hover:text-red-500 hover:bg-transparent hidden md:flex p-1.5"
-              onClick={() => setCurrentView("settings")}
+              onClick={() => handleViewChange("settings")}
             >
               <Settings className="w-5 h-5" />
             </Button>
@@ -998,7 +1023,7 @@ export function CustomerDashboard({
                   <button
                     key={item.id}
                     onClick={() => {
-                      setCurrentView(item.id);
+                      handleViewChange(item.id);
                       setSidebarOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all min-h-[44px] ${isActive
@@ -1044,7 +1069,7 @@ export function CustomerDashboard({
 
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto w-full">
+          <div className="max-w-9xl mx-auto w-full">
             {renderContent()}
           </div>
         </main>

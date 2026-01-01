@@ -39,8 +39,16 @@ function ProtectedRoute({
     return <Navigate to="/" replace />;
   }
   
-  if (requiredRole && currentUser?.role !== requiredRole) {
+  // Check role from localStorage first (available immediately on reload)
+  // before checking currentUser from context (which may be null initially)
+  if (requiredRole) {
     const userInfo = getUserInfo();
+    // If userInfo exists and role matches, allow access even if currentUser is null
+    // (currentUser will be set by useEffect soon)
+    if (userInfo?.role === requiredRole) {
+      return <>{children}</>;
+    }
+    // Role doesn't match - redirect based on actual role
     if (userInfo?.role === "customer") {
       return <Navigate to="/customer/dashboard" replace />;
     } else if (userInfo?.role === "professional") {
@@ -48,7 +56,10 @@ function ProtectedRoute({
     } else if (userInfo?.role === "admin") {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    return <Navigate to="/" replace />;
+    // Fallback: check currentUser from context as last resort
+    if (currentUser?.role !== requiredRole) {
+      return <Navigate to="/" replace />;
+    }
   }
   
   return <>{children}</>;
@@ -73,6 +84,14 @@ export default function Routes() {
       {/* Professional Routes */}
       <Route path="/professional/benefits" element={<ProfessionalBenefitsPage />} />
       <Route path="/professional/auth" element={<ProfessionalAuthPage />} />
+      <Route 
+        path="/professional/dashboard/:view" 
+        element={
+          <ProtectedRoute requiredRole="professional">
+            <ProfessionalDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
       <Route 
         path="/professional/dashboard" 
         element={
@@ -117,6 +136,14 @@ export default function Routes() {
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route 
+        path="/admin/dashboard/:view" 
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/admin/dashboard" 
         element={
           <ProtectedRoute requiredRole="admin">
@@ -127,6 +154,14 @@ export default function Routes() {
       
       {/* Customer Routes */}
       <Route path="/customer/auth" element={<CustomerAuthPage />} />
+      <Route 
+        path="/customer/dashboard/:view" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
       <Route 
         path="/customer/dashboard" 
         element={

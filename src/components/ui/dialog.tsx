@@ -65,7 +65,7 @@ export function DialogTrigger({ children, className = "", onClick }: DialogTrigg
 
 export function DialogContent({ children, className = "" }: DialogContentProps) {
   return (
-    <div className={`bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 ${className}`}>
+    <div className={`bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 `}>
       {children}
     </div>
   );

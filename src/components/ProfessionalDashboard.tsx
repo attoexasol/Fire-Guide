@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { 
   LayoutDashboard,
   User, 
@@ -40,14 +41,38 @@ interface ProfessionalDashboardProps {
 type ProfessionalView = "dashboard" | "profile" | "pricing" | "availability" | "bookings" | "payments" | "verification" | "certification" | "settings" | "notifications";
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
-  const [activeMenu, setActiveMenu] = useState<ProfessionalView>("dashboard");
+  const navigate = useNavigate();
+  const { view } = useParams<{ view?: string }>();
+  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing", "availability", "bookings", "payments", "verification", "certification", "settings", "notifications"];
+  
+  // Determine current view from URL parameter, default to "dashboard"
+  const currentViewFromUrl: ProfessionalView = (view && validViews.includes(view as ProfessionalView)) 
+    ? (view as ProfessionalView) 
+    : "dashboard";
+  
+  const [activeMenu, setActiveMenu] = useState<ProfessionalView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Sync state with URL parameter when it changes (including on mount and URL changes)
+  useEffect(() => {
+    setActiveMenu(currentViewFromUrl);
+  }, [currentViewFromUrl]);
+
+  // Navigation handler that updates URL
+  const handleViewChange = (view: ProfessionalView) => {
+    setActiveMenu(view);
+    if (view === "dashboard") {
+      navigate("/professional/dashboard", { replace: true });
+    } else {
+      navigate(`/professional/dashboard/${view}`, { replace: true });
+    }
+  };
 
   const menuItems = [
     { id: "dashboard" as ProfessionalView, label: "Dashboard", icon: LayoutDashboard },
-    { id: "profile" as ProfessionalView, label: "Profile", icon: User, onClick: () => setActiveMenu("profile") },
-    { id: "pricing" as ProfessionalView, label: "Pricing", icon: DollarSign, onClick: () => setActiveMenu("pricing") },
-    { id: "availability" as ProfessionalView, label: "Availability", icon: Clock, onClick: () => setActiveMenu("availability") },
+    { id: "profile" as ProfessionalView, label: "Profile", icon: User },
+    { id: "pricing" as ProfessionalView, label: "Pricing", icon: DollarSign },
+    { id: "availability" as ProfessionalView, label: "Availability", icon: Clock },
     { id: "bookings" as ProfessionalView, label: "Bookings", icon: Calendar },
     { id: "payments" as ProfessionalView, label: "Payments", icon: CreditCard },
     { id: "verification" as ProfessionalView, label: "Verification Status", icon: ShieldCheck },
@@ -161,9 +186,9 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
           // Determine click handler based on card type
           const getClickHandler = () => {
             if (stat.title === "Upcoming Jobs") {
-              return () => setActiveMenu("bookings");
+              return () => handleViewChange("bookings");
             } else if (stat.title === "Total Earnings") {
-              return () => setActiveMenu("payments");
+              return () => handleViewChange("payments");
             } else if (stat.title === "Pending Reports") {
               return onNavigateToReports;
             }
@@ -208,7 +233,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         <Button 
           variant="outline" 
           className="h-auto py-4 justify-start border-2"
-          onClick={() => setActiveMenu("availability")}
+          onClick={() => handleViewChange("availability")}
         >
           <Calendar className="w-5 h-5 mr-3 text-blue-600" />
           <div className="text-left">
@@ -219,7 +244,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         <Button 
           variant="outline" 
           className="h-auto py-4 justify-start border-2"
-          onClick={() => setActiveMenu("payments")}
+          onClick={() => handleViewChange("payments")}
         >
           <DollarSign className="w-5 h-5 mr-3 text-green-600" />
           <div className="text-left">
@@ -237,7 +262,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
             <Button 
               variant="ghost" 
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => setActiveMenu("bookings")}
+              onClick={() => handleViewChange("bookings")}
             >
               View All
             </Button>
@@ -385,7 +410,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
           <div className="flex items-center gap-3">
             <button
               className="relative text-white hover:text-red-500 transition-colors"
-              onClick={() => setActiveMenu("notifications")}
+              onClick={() => handleViewChange("notifications")}
               aria-label="Notifications"
             >
               <Bell className="w-5 h-5" />
@@ -393,7 +418,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
             </button>
             <button
               className="text-white hover:text-red-500 transition-colors"
-              onClick={() => setActiveMenu("settings")}
+              onClick={() => handleViewChange("settings")}
               aria-label="Settings"
             >
               <Settings className="w-5 h-5" />
@@ -430,11 +455,8 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
                 <button
                   key={item.id}
                   onClick={() => {
-                    setActiveMenu(item.id);
+                    handleViewChange(item.id);
                     setSidebarOpen(false);
-                    if (item.onClick && item.id !== "dashboard") {
-                      item.onClick();
-                    }
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                     activeMenu === item.id

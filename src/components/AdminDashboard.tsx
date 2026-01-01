@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -42,8 +43,32 @@ interface AdminDashboardProps {
 type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "settings" | "notifications";
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const [currentView, setCurrentView] = useState<AdminView>("dashboard");
+  const navigate = useNavigate();
+  const { view } = useParams<{ view?: string }>();
+  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications"];
+  
+  // Determine current view from URL parameter, default to "dashboard"
+  const currentViewFromUrl: AdminView = (view && validViews.includes(view as AdminView)) 
+    ? (view as AdminView) 
+    : "dashboard";
+  
+  const [currentView, setCurrentView] = useState<AdminView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Sync state with URL parameter when it changes (including on mount and URL changes)
+  useEffect(() => {
+    setCurrentView(currentViewFromUrl);
+  }, [currentViewFromUrl]);
+
+  // Navigation handler that updates URL
+  const handleViewChange = (view: AdminView) => {
+    setCurrentView(view);
+    if (view === "dashboard") {
+      navigate("/admin/dashboard", { replace: true });
+    } else {
+      navigate(`/admin/dashboard/${view}`, { replace: true });
+    }
+  };
 
   // Get user role from localStorage (stored during login)
   const userRole = getUserRole();
@@ -198,7 +223,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <p className="text-xs text-yellow-700 mt-0.5">Review and approve new professional applications</p>
                   <button 
                     className="text-xs text-yellow-800 mt-1 hover:underline"
-                    onClick={() => setCurrentView("professionals")}
+                    onClick={() => handleViewChange("professionals")}
                   >
                     Review Now →
                   </button>
@@ -212,7 +237,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <p className="text-xs text-blue-700 mt-0.5">Check and moderate customer reviews</p>
                   <button 
                     className="text-xs text-blue-800 mt-1 hover:underline"
-                    onClick={() => setCurrentView("reviews")}
+                    onClick={() => handleViewChange("reviews")}
                   >
                     View Reviews →
                   </button>
@@ -280,14 +305,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <div className="flex items-center gap-3">
             <button
               className="relative text-white hover:text-red-500 transition-colors"
-              onClick={() => setCurrentView("notifications")}
+              onClick={() => handleViewChange("notifications")}
             >
               <Bell className="w-5 h-5" />
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
             <button
               className="text-white hover:text-red-500 transition-colors"
-              onClick={() => setCurrentView("settings")}
+              onClick={() => handleViewChange("settings")}
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -324,7 +349,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <button
                   key={item.id}
                   onClick={() => {
-                    setCurrentView(item.id);
+                    handleViewChange(item.id);
                     if (window.innerWidth < 1024) {
                       setSidebarOpen(false);
                     }
