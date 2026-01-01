@@ -387,6 +387,8 @@ export function CustomerDashboard({
     }
   };
 
+
+  
   const handleChangePhotoClick = () => {
     fileInputRef.current?.click();
   };
