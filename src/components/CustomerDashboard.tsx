@@ -9,6 +9,9 @@ import { AddCertification } from "./AddCertification";
 import { Addresses } from "./Addresses";
 import { AddAddress } from "./AddAddress";
 import { EditAddress } from "./EditAddress";
+import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
+import { AddPricing } from "./AddPricing";
+import { EditPricing } from "./EditPricing";
 import {
   Flame,
   LogOut,
@@ -31,7 +34,8 @@ import {
   Trash2,
   Star,
   Award,
-  Loader2
+  Loader2,
+  DollarSign
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import {
@@ -62,7 +66,7 @@ interface CustomerDashboardProps {
   onNavigateHome?: () => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing";
 
 export function CustomerDashboard({
   onLogout,
@@ -76,7 +80,7 @@ export function CustomerDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing"];
   
   // Check if we're on the add certification route
   const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
@@ -84,16 +88,23 @@ export function CustomerDashboard({
   const isAddAddressRoute = location.pathname === "/customer/dashboard/profile/addresses/add";
   // Check if we're on the edit address route (child of profile)
   const isEditAddressRoute = location.pathname.startsWith("/customer/dashboard/profile/addresses/edit/");
+  // Check if we're on the add pricing route
+  const isAddPricingRoute = location.pathname === "/customer/dashboard/pricing/add";
+  // Check if we're on the edit pricing route
+  const isEditPricingRoute = location.pathname.startsWith("/customer/dashboard/pricing/edit/");
   
   // Determine current view from URL parameter or pathname
   // If on /certification/add route, treat it as certification view
   // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
+  // If on /pricing/add or /pricing/edit route, treat it as pricing view
   const currentViewFromUrl: CustomerView = isAddCertificationRoute
     ? "certification"
     : isAddAddressRoute || isEditAddressRoute
     ? "profile"
-    : (view && validViews.includes(view as CustomerView)) 
-      ? (view as CustomerView) 
+    : isAddPricingRoute || isEditPricingRoute
+    ? "pricing"
+    : (view && validViews.includes(view as CustomerView))
+      ? (view as CustomerView)
       : "overview";
   
   const [currentView, setCurrentView] = useState<CustomerView>(currentViewFromUrl);
@@ -105,11 +116,13 @@ export function CustomerDashboard({
       ? "certification"
       : isAddAddressRoute || isEditAddressRoute
       ? "profile"
-      : (view && validViews.includes(view as CustomerView)) 
-        ? (view as CustomerView) 
+      : isAddPricingRoute || isEditPricingRoute
+      ? "pricing"
+      : (view && validViews.includes(view as CustomerView))
+        ? (view as CustomerView)
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute]);
+  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute]);
 
   // Fetch addresses when profile view is shown
   useEffect(() => {
@@ -375,6 +388,7 @@ export function CustomerDashboard({
     { id: "profile" as CustomerView, label: "Profile", icon: User },
     { id: "addresses" as CustomerView, label: "Addresses", icon: MapPin },
     { id: "certification" as CustomerView, label: "Certification", icon: Award },
+    { id: "pricing" as CustomerView, label: "Pricing", icon: DollarSign },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
   ];
@@ -901,6 +915,16 @@ export function CustomerDashboard({
           return <AddCertification />;
         }
         return <ProfessionalCertifications />;
+      case "pricing":
+        // Check if we're on the add pricing route
+        if (isAddPricingRoute) {
+          return <AddPricing />;
+        }
+        // Check if we're on the edit pricing route
+        if (isEditPricingRoute) {
+          return <EditPricing />;
+        }
+        return <ProfessionalPricingContent />;
       case "addresses":
         return <Addresses />;
       case "settings":
