@@ -52,6 +52,7 @@ interface CustomerDashboardProps {
   payments: Payment[];
   onUpdateBooking: (bookingId: string, updates: Partial<Booking>) => void;
   onDeleteBooking: (bookingId: string) => void;
+  onNavigateHome?: () => void;
 }
 
 type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "settings" | "notifications";
@@ -62,7 +63,8 @@ export function CustomerDashboard({
   bookings,
   payments,
   onUpdateBooking,
-  onDeleteBooking
+  onDeleteBooking,
+  onNavigateHome
 }: CustomerDashboardProps) {
   const [currentView, setCurrentView] = useState<CustomerView>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -936,7 +938,7 @@ export function CustomerDashboard({
             >
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={onNavigateHome}>
               <img src={logoImage} alt="Fire Guide" className="h-10 w-auto flex-shrink-0" />
               <Badge variant="outline" className="text-white border-white hidden md:inline-flex">Customer</Badge>
             </div>
@@ -988,7 +990,7 @@ export function CustomerDashboard({
               <X className="w-5 h-5" />
             </button>
 
-            <nav className="space-y-2 flex-1 mt-6 lg:mt-0 overflow-y-auto">
+            <nav className="space-y-2 flex-1 mt-6 lg:mt-0 overflow-y-auto min-h-0">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
@@ -999,15 +1001,15 @@ export function CustomerDashboard({
                       setCurrentView(item.id);
                       setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all min-h-[44px] ${isActive
                         ? "bg-red-50 text-red-600 font-medium"
                         : "text-gray-600 hover:bg-gray-50"
                       }`}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="flex-1 text-left">{item.label}</span>
                     {item.id === "notifications" && bookings.filter(b => b.status === "upcoming").length > 0 && (
-                      <Badge className="ml-auto bg-red-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs">
+                      <Badge className="ml-auto bg-red-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs flex-shrink-0">
                         {bookings.filter(b => b.status === "upcoming").length}
                       </Badge>
                     )}
@@ -1016,9 +1018,9 @@ export function CustomerDashboard({
               })}
               
               {userRole && (
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 cursor-default">
-                  <User className="w-5 h-5" />
-                  <span>
+                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 cursor-default min-h-[44px]">
+                  <User className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-left">
                     {userRole === "PROFESSIONAL" ? "Professional" : 
                      userRole === "ADMIN" ? "Admin" : "User"}
                   </span>

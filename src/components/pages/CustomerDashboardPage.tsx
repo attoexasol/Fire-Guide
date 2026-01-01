@@ -17,6 +17,7 @@ export default function CustomerDashboardPage() {
       payments={customerPayments}
       onUpdateBooking={updateBooking}
       onDeleteBooking={deleteBooking}
+      onNavigateHome={() => navigate("/")}
     />
   );
 }

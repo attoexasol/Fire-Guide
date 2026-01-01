@@ -28,6 +28,33 @@ export interface QualificationsApiResponse {
   data: QualificationCertificationResponse[];
 }
 
+export interface UpdateCertificationRequest {
+  api_token: string;
+  id: number;
+  title: string;
+  certification_date: string; // YYYY-MM-DD format
+  professional_id: number;
+}
+
+export interface UpdateCertificationResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteCertificationRequest {
+  api_token: string;
+  id: number;
+}
+
+export interface DeleteCertificationResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+}
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
@@ -59,6 +86,95 @@ export const fetchQualifications = async (): Promise<QualificationCertificationR
         throw {
           success: false,
           message: error.response.data?.message || 'Failed to fetch qualifications',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Update a qualification certification
+ * @param data - Update certification data
+ * @returns Promise with the API response
+ */
+export const updateCertification = async (
+  data: UpdateCertificationRequest
+): Promise<UpdateCertificationResponse> => {
+  try {
+    const response = await apiClient.post<UpdateCertificationResponse>(
+      '/qualifications-certification/update',
+      {
+        api_token: data.api_token,
+        id: data.id,
+        title: data.title,
+        certification_date: data.certification_date,
+        professional_id: data.professional_id
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error updating certification:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to update certification',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Delete a qualification certification
+ * @param data - Delete certification data (api_token and id)
+ * @returns Promise with the API response
+ */
+export const deleteCertification = async (
+  data: DeleteCertificationRequest
+): Promise<DeleteCertificationResponse> => {
+  try {
+    const response = await apiClient.post<DeleteCertificationResponse>(
+      '/qualifications-certification/delete',
+      {
+        api_token: data.api_token,
+        id: data.id
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting certification:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to delete certification',
           error: error.response.data?.error || error.message,
           status: error.response.status,
         };
