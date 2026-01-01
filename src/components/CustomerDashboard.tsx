@@ -6,6 +6,7 @@ import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
 import { ProfessionalCertifications } from "./ProfessionalCertifications";
 import { AddCertification } from "./AddCertification";
+import { EditCertification } from "./EditCertification";
 import { Addresses } from "./Addresses";
 import { AddAddress } from "./AddAddress";
 import { EditAddress } from "./EditAddress";
@@ -58,7 +59,6 @@ import { Payment } from "../App";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner@2.0.3";
-import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { updateUser, uploadProfileImage } from "../api/authService";
 import { fetchAddresses, deleteAddress } from "../api/addressService";
 import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage, getUserRole } from "../lib/auth";
@@ -91,6 +91,8 @@ export function CustomerDashboard({
   
   // Check if we're on the add certification route
   const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
+  // Check if we're on the edit certification route
+  const isEditCertificationRoute = location.pathname.startsWith("/customer/dashboard/certification/edit/");
   // Check if we're on the add address route (child of profile)
   const isAddAddressRoute = location.pathname === "/customer/dashboard/profile/addresses/add";
   // Check if we're on the edit address route (child of profile)
@@ -109,12 +111,12 @@ export function CustomerDashboard({
   const isEditInsuranceRoute = location.pathname.startsWith("/customer/dashboard/insurance/edit/");
   
   // Determine current view from URL parameter or pathname
-  // If on /certification/add route, treat it as certification view
-  // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
-  // If on /pricing/add or /pricing/edit route, treat it as pricing view
+    // If on /certification/add or /certification/edit route, treat it as certification view
+    // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
+    // If on /pricing/add or /pricing/edit route, treat it as pricing view
     // If on /available_date/add or /available_date/edit route, treat it as available_date view
     // If on /insurance/add or /insurance/edit route, treat it as insurance view
-    const currentViewFromUrl: CustomerView = isAddCertificationRoute
+    const currentViewFromUrl: CustomerView = isAddCertificationRoute || isEditCertificationRoute
       ? "certification"
       : isAddAddressRoute || isEditAddressRoute
       ? "profile"
@@ -133,7 +135,7 @@ export function CustomerDashboard({
 
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
-    const newView = isAddCertificationRoute
+    const newView = isAddCertificationRoute || isEditCertificationRoute
       ? "certification"
       : isAddAddressRoute || isEditAddressRoute
       ? "profile"
@@ -147,7 +149,7 @@ export function CustomerDashboard({
         ? (view as CustomerView)
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute]);
+  }, [view, isAddCertificationRoute, isEditCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute]);
 
   // Fetch addresses when profile view is shown
   useEffect(() => {
@@ -388,7 +390,7 @@ export function CustomerDashboard({
   };
 
 
-  
+
   const handleChangePhotoClick = () => {
     fileInputRef.current?.click();
   };
@@ -943,6 +945,10 @@ export function CustomerDashboard({
         if (isAddCertificationRoute) {
           return <AddCertification />;
         }
+        // Check if we're on the edit certification route
+        if (isEditCertificationRoute) {
+          return <EditCertification />;
+        }
         return <ProfessionalCertifications />;
       case "pricing":
         // Check if we're on the add pricing route
@@ -999,7 +1005,10 @@ export function CustomerDashboard({
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
             <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={onNavigateHome}>
-              <img src={logoImage} alt="Fire Guide" className="h-10 w-auto flex-shrink-0" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 flex-shrink-0" aria-hidden="true">
+                <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path>
+              </svg>
+              <span className="text-lg font-semibold text-white">Fire Guide</span>
               <Badge variant="outline" className="text-white border-white hidden md:inline-flex">Customer</Badge>
             </div>
           </div>

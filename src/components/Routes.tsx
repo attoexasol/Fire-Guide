@@ -163,6 +163,14 @@ export default function Routes() {
         } 
       />
       <Route 
+        path="/customer/dashboard/certification/edit/:id" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/customer/dashboard/profile/addresses/add" 
         element={
           <ProtectedRoute requiredRole="customer">

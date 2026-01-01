@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Award, CheckCircle2, Calendar, Loader2, Plus } from "lucide-react";
 import { FiEye, FiEdit2, FiTrash2 } from "react-icons/fi";
@@ -13,9 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
-import { fetchQualifications, updateCertification, deleteCertification, QualificationCertificationResponse } from "../api/qualificationsService";
+import { fetchQualifications, deleteCertification, QualificationCertificationResponse } from "../api/qualificationsService";
 import { getApiToken } from "../lib/auth";
 import { toast } from "sonner";
 
@@ -23,14 +21,6 @@ export function ProfessionalCertifications() {
   const navigate = useNavigate();
   const [certifications, setCertifications] = useState<QualificationCertificationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedCertification, setSelectedCertification] = useState<QualificationCertificationResponse | null>(null);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    certification_date: "",
-    professional_id: 0
-  });
-  const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [certToDelete, setCertToDelete] = useState<QualificationCertificationResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -66,18 +56,6 @@ export function ProfessionalCertifications() {
     }
   };
 
-  // Convert date string to YYYY-MM-DD format for input
-  const formatDateForInput = (dateString: string): string => {
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch (error) {
-      return dateString;
-    }
-  };
 
   // Placeholder handlers for action icons
   const handleView = (cert: QualificationCertificationResponse) => {
@@ -85,62 +63,9 @@ export function ProfessionalCertifications() {
   };
 
   const handleEdit = (cert: QualificationCertificationResponse) => {
-    setSelectedCertification(cert);
-    setEditForm({
-      title: cert.title,
-      certification_date: formatDateForInput(cert.certification_date),
-      professional_id: 0 // Not used for submission, only for display
-    });
-    setIsEditModalOpen(true);
+    navigate(`/customer/dashboard/certification/edit/${cert.id}`);
   };
 
-  const handleUpdateCertification = async () => {
-    if (!selectedCertification) return;
-
-    if (!editForm.title.trim() || !editForm.certification_date.trim()) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Please log in to update certification.");
-      return;
-    }
-
-    const professionalId = selectedCertification.professional?.id;
-    if (!professionalId) {
-      toast.error("Professional ID is required");
-      return;
-    }
-
-    setIsUpdating(true);
-    try {
-      const response = await updateCertification({
-        api_token: token,
-        id: selectedCertification.id,
-        title: editForm.title,
-        certification_date: editForm.certification_date,
-        professional_id: professionalId
-      });
-
-      if (response.status === "success" || response.success || (response.message && !response.error)) {
-        toast.success(response.message || "Certification updated successfully!");
-        setIsEditModalOpen(false);
-        setSelectedCertification(null);
-        // Refresh certifications list
-        const data = await fetchQualifications();
-        setCertifications(data);
-      } else {
-        toast.error(response.message || response.error || "Failed to update certification. Please try again.");
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || error?.error || "An error occurred while updating certification. Please try again.";
-      toast.error(errorMessage);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
 
   const handleDelete = (cert: QualificationCertificationResponse) => {
     setCertToDelete(cert);
@@ -289,76 +214,6 @@ export function ProfessionalCertifications() {
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Certification Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl text-[#0A1A2F]">
-              Edit Certification
-            </DialogTitle>
-            <DialogDescription>
-              Update your certification details
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5 py-4 px-6 pb-6">
-            <div className="space-y-2">
-              <Label htmlFor="edit-title">Title *</Label>
-              <Input
-                id="edit-title"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                placeholder="e.g., Fire Risk Assessment Level 4"
-                className="px-4 py-2.5 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-certification-date">Certification Date *</Label>
-              <Input
-                id="edit-certification-date"
-                type="date"
-                value={editForm.certification_date}
-                onChange={(e) => setEditForm({ ...editForm, certification_date: e.target.value })}
-                className="px-4 py-2.5 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-professional-id">Professional ID</Label>
-              <Input
-                id="edit-professional-id"
-                type="number"
-                value={selectedCertification?.professional?.id || ''}
-                readOnly
-                disabled
-                className="px-4 py-2.5 bg-gray-50"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEditModalOpen(false);
-                setSelectedCertification(null);
-              }}
-              disabled={isUpdating}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleUpdateCertification}
-              disabled={isUpdating}
-            >
-              {isUpdating ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Modal */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>

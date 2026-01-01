@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
-import logoImage from "figma:asset/69744b74419586d01801e7417ef517136baf5cfb.png";
 
 export interface UserInfo {
   name: string;
@@ -58,8 +57,11 @@ export function Header({
   return (
     <header className="bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-6 sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex items-center cursor-pointer" onClick={onNavigateHome}>
-          <img src={logoImage} alt="Fire Guide" className="h-12" />
+        <div className="flex items-center gap-2 cursor-pointer" onClick={onNavigateHome}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600" aria-hidden="true">
+            <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path>
+          </svg>
+          <span className="text-xl font-semibold text-[#0A1A2F]">Fire Guide</span>
         </div>
         
         <nav className="hidden md:flex items-center gap-8">
