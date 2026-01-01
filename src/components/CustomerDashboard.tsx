@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -15,6 +15,9 @@ import { EditPricing } from "./EditPricing";
 import { AvailableDatesContent } from "./AvailableDatesContent";
 import { AddAvailableDate } from "./AddAvailableDate";
 import { EditAvailableDate } from "./EditAvailableDate";
+import { InsuranceContent } from "./InsuranceContent";
+import { AddInsurance } from "./AddInsurance";
+import { EditInsurance } from "./EditInsurance";
 import {
   Flame,
   LogOut,
@@ -100,23 +103,30 @@ export function CustomerDashboard({
   const isAddAvailableDateRoute = location.pathname === "/customer/dashboard/available_date/add";
   // Check if we're on the edit available date route
   const isEditAvailableDateRoute = location.pathname.startsWith("/customer/dashboard/available_date/edit/");
+  // Check if we're on the add insurance route
+  const isAddInsuranceRoute = location.pathname === "/customer/dashboard/insurance/add";
+  // Check if we're on the edit insurance route
+  const isEditInsuranceRoute = location.pathname.startsWith("/customer/dashboard/insurance/edit/");
   
   // Determine current view from URL parameter or pathname
   // If on /certification/add route, treat it as certification view
   // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
   // If on /pricing/add or /pricing/edit route, treat it as pricing view
-  // If on /available_date/add or /available_date/edit route, treat it as available_date view
-  const currentViewFromUrl: CustomerView = isAddCertificationRoute
-    ? "certification"
-    : isAddAddressRoute || isEditAddressRoute
-    ? "profile"
-    : isAddPricingRoute || isEditPricingRoute
-    ? "pricing"
-    : isAddAvailableDateRoute || isEditAvailableDateRoute
-    ? "available_date"
-    : (view && validViews.includes(view as CustomerView))
-      ? (view as CustomerView)
-      : "overview";
+    // If on /available_date/add or /available_date/edit route, treat it as available_date view
+    // If on /insurance/add or /insurance/edit route, treat it as insurance view
+    const currentViewFromUrl: CustomerView = isAddCertificationRoute
+      ? "certification"
+      : isAddAddressRoute || isEditAddressRoute
+      ? "profile"
+      : isAddPricingRoute || isEditPricingRoute
+      ? "pricing"
+      : isAddAvailableDateRoute || isEditAvailableDateRoute
+      ? "available_date"
+      : isAddInsuranceRoute || isEditInsuranceRoute
+      ? "insurance"
+      : (view && validViews.includes(view as CustomerView))
+        ? (view as CustomerView)
+        : "overview";
   
   const [currentView, setCurrentView] = useState<CustomerView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -131,11 +141,13 @@ export function CustomerDashboard({
       ? "pricing"
       : isAddAvailableDateRoute || isEditAvailableDateRoute
       ? "available_date"
+      : isAddInsuranceRoute || isEditInsuranceRoute
+      ? "insurance"
       : (view && validViews.includes(view as CustomerView))
         ? (view as CustomerView)
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute]);
+  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute]);
 
   // Fetch addresses when profile view is shown
   useEffect(() => {
@@ -950,23 +962,15 @@ export function CustomerDashboard({
         }
         return <AvailableDatesContent />;
       case "insurance":
-        return (
-          <div className="space-y-6">
-            <div className="mb-8">
-              <h1 className="text-[#0A1A2F] mb-2">Insurance</h1>
-              <p className="text-gray-600">
-                Manage your insurance information and documents
-              </p>
-            </div>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-8 text-center">
-                <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Insurance Management</h3>
-                <p className="text-gray-600">Insurance functionality coming soon.</p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+        // Check if we're on the add insurance route
+        if (isAddInsuranceRoute) {
+          return <AddInsurance />;
+        }
+        // Check if we're on the edit insurance route
+        if (isEditInsuranceRoute) {
+          return <EditInsurance />;
+        }
+        return <InsuranceContent />;
       case "addresses":
         return <Addresses />;
       case "settings":

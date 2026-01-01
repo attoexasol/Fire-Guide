@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
 import { fetchQualifications, QualificationCertificationResponse } from "../api/qualificationsService";
-import { fetchInsuranceCoverage, InsuranceCoverageResponse } from "../api/insuranceService";
+import { fetchInsuranceCoverages, InsuranceItem } from "../api/insuranceService";
 import { fetchExperiences, ExperienceResponse } from "../api/experiencesService";
 import { fetchReviews, ReviewResponse } from "../api/reviewsService";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [qualifications, setQualifications] = useState<QualificationCertificationResponse[]>([]);
   const [isLoadingQualifications, setIsLoadingQualifications] = useState(true);
-  const [insuranceCoverage, setInsuranceCoverage] = useState<InsuranceCoverageResponse[]>([]);
+  const [insuranceCoverage, setInsuranceCoverage] = useState<InsuranceItem[]>([]);
   const [isLoadingInsurance, setIsLoadingInsurance] = useState(true);
   const [experiences, setExperiences] = useState<ExperienceResponse[]>([]);
   const [isLoadingExperiences, setIsLoadingExperiences] = useState(true);
@@ -68,7 +68,7 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     const loadInsuranceCoverage = async () => {
       try {
         setIsLoadingInsurance(true);
-        const data = await fetchInsuranceCoverage();
+        const data = await fetchInsuranceCoverages();
         setInsuranceCoverage(data);
       } catch (error: any) {
         console.error('Failed to load insurance coverage:', error);

@@ -1,6 +1,6 @@
+import React, { useState } from "react";
 import { Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
-import { useState } from "react";
 import logoImage from "figma:asset/69744b74419586d01801e7417ef517136baf5cfb.png";
 
 export interface UserInfo {

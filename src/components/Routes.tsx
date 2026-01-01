@@ -211,6 +211,22 @@ export default function Routes() {
         } 
       />
       <Route 
+        path="/customer/dashboard/insurance/add" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/insurance/edit/:id" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/customer/dashboard/:view" 
         element={
           <ProtectedRoute requiredRole="customer">
