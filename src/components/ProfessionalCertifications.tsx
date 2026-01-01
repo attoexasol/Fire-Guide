@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Award, CheckCircle2, Calendar, Loader2, Plus } from "lucide-react";
 import { FiEye, FiEdit2, FiTrash2 } from "react-icons/fi";
 import { Button } from "./ui/button";
@@ -19,6 +20,7 @@ import { getApiToken } from "../lib/auth";
 import { toast } from "sonner";
 
 export function ProfessionalCertifications() {
+  const navigate = useNavigate();
   const [certifications, setCertifications] = useState<QualificationCertificationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -188,7 +190,10 @@ export function ProfessionalCertifications() {
             View and manage your professional certifications and qualifications
           </p>
         </div>
-        <Button className="bg-red-600 hover:bg-red-700 whitespace-nowrap">
+        <Button 
+          className="bg-red-600 hover:bg-red-700 whitespace-nowrap"
+          onClick={() => navigate("/customer/dashboard/certification/add")}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Now
         </Button>

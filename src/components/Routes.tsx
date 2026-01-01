@@ -155,6 +155,14 @@ export default function Routes() {
       {/* Customer Routes */}
       <Route path="/customer/auth" element={<CustomerAuthPage />} />
       <Route 
+        path="/customer/dashboard/certification/add" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/customer/dashboard/:view" 
         element={
           <ProtectedRoute requiredRole="customer">

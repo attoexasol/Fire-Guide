@@ -10,6 +10,7 @@ const USER_ROLE_KEY = 'fireguide_user_role';
 const USER_FULL_NAME_KEY = 'fireguide_user_full_name';
 const USER_PHONE_KEY = 'fireguide_user_phone';
 const USER_PROFILE_IMAGE_KEY = 'fireguide_user_profile_image';
+const PROFESSIONAL_ID_KEY = 'fireguide_professional_id';
 
 /**
  * Store authentication token securely
@@ -160,6 +161,32 @@ export const getUserInfo = (): { name: string; role: "customer" | "professional"
 };
 
 /**
+ * Store professional ID
+ * @param professionalId - The professional ID to store
+ */
+export const setProfessionalId = (professionalId: number): void => {
+  try {
+    localStorage.setItem(PROFESSIONAL_ID_KEY, professionalId.toString());
+  } catch (error) {
+    console.error('Failed to store professional ID:', error);
+  }
+};
+
+/**
+ * Get stored professional ID
+ * @returns The professional ID or null if not found
+ */
+export const getProfessionalId = (): number | null => {
+  try {
+    const professionalId = localStorage.getItem(PROFESSIONAL_ID_KEY);
+    return professionalId ? parseInt(professionalId, 10) : null;
+  } catch (error) {
+    console.error('Failed to retrieve professional ID:', error);
+    return null;
+  }
+};
+
+/**
  * Remove authentication token
  */
 export const removeAuthToken = (): void => {
@@ -171,6 +198,7 @@ export const removeAuthToken = (): void => {
     localStorage.removeItem(USER_FULL_NAME_KEY);
     localStorage.removeItem(USER_PHONE_KEY);
     localStorage.removeItem(USER_PROFILE_IMAGE_KEY);
+    localStorage.removeItem(PROFESSIONAL_ID_KEY);
     localStorage.removeItem("user_role"); // Primary role key
     localStorage.removeItem("fireguide_user_role"); // Legacy role key
   } catch (error) {

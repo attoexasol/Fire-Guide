@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
 import { ProfessionalCertifications } from "./ProfessionalCertifications";
+import { AddCertification } from "./AddCertification";
 import {
   Flame,
   LogOut,
@@ -68,21 +69,33 @@ export function CustomerDashboard({
   onNavigateHome
 }: CustomerDashboardProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { view } = useParams<{ view?: string }>();
   const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "settings", "notifications"];
   
-  // Determine current view from URL parameter, default to "overview"
-  const currentViewFromUrl: CustomerView = (view && validViews.includes(view as CustomerView)) 
-    ? (view as CustomerView) 
-    : "overview";
+  // Check if we're on the add certification route
+  const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
+  
+  // Determine current view from URL parameter or pathname
+  // If on /certification/add route, treat it as certification view
+  const currentViewFromUrl: CustomerView = isAddCertificationRoute
+    ? "certification"
+    : (view && validViews.includes(view as CustomerView)) 
+      ? (view as CustomerView) 
+      : "overview";
   
   const [currentView, setCurrentView] = useState<CustomerView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
-    setCurrentView(currentViewFromUrl);
-  }, [currentViewFromUrl]);
+    const newView = isAddCertificationRoute
+      ? "certification"
+      : (view && validViews.includes(view as CustomerView)) 
+        ? (view as CustomerView) 
+        : "overview";
+    setCurrentView(newView);
+  }, [view, isAddCertificationRoute]);
 
   // Navigation handler that updates URL
   const handleViewChange = (view: CustomerView) => {
@@ -939,6 +952,10 @@ export function CustomerDashboard({
       case "profile":
         return renderProfile();
       case "certification":
+        // Check if we're on the add certification route
+        if (isAddCertificationRoute) {
+          return <AddCertification />;
+        }
         return <ProfessionalCertifications />;
       case "settings":
         return renderSettings();

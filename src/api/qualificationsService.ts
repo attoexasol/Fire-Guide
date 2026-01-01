@@ -55,6 +55,21 @@ export interface DeleteCertificationResponse {
   error?: string;
 }
 
+export interface CreateCertificationRequest {
+  api_token: string;
+  title: string;
+  certification_date: string; // YYYY-MM-DD format
+  professional_id: number;
+}
+
+export interface CreateCertificationResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: QualificationCertificationResponse;
+}
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
@@ -175,6 +190,51 @@ export const deleteCertification = async (
         throw {
           success: false,
           message: error.response.data?.message || 'Failed to delete certification',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Create a new qualification certification
+ * @param data - Create certification data
+ * @returns Promise with the API response
+ */
+export const createCertification = async (
+  data: CreateCertificationRequest
+): Promise<CreateCertificationResponse> => {
+  try {
+    const response = await apiClient.post<CreateCertificationResponse>(
+      '/qualifications-certification/create',
+      {
+        api_token: data.api_token,
+        title: data.title,
+        certification_date: data.certification_date,
+        professional_id: data.professional_id
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating certification:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create certification',
           error: error.response.data?.error || error.message,
           status: error.response.status,
         };

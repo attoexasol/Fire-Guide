@@ -8,7 +8,7 @@ import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu } from "lucid
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { registerUser, loginUser, sendOtp, verifyOtp, resetPassword } from "../api/authService";
-import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole } from "../lib/auth";
+import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole, setProfessionalId } from "../lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 
 interface CustomerAuthProps {
@@ -88,6 +88,11 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           const role = response.data?.role || response.data?.data?.role;
           if (role) {
             setUserRole(role);
+          }
+          // Store professional_id if available in response (for PROFESSIONAL role)
+          const professionalId = response.data?.professional?.id;
+          if (professionalId) {
+            setProfessionalId(professionalId);
           }
           console.log('Token stored successfully after login');
         } else {
@@ -170,6 +175,11 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           const role = response.data?.role || signUpRole;
           if (role) {
             setUserRole(role);
+          }
+          // Store professional_id if available in response (for PROFESSIONAL role)
+          const professionalId = response.data?.professional?.id;
+          if (professionalId) {
+            setProfessionalId(professionalId);
           }
           console.log('Token stored successfully after registration');
         } else {
