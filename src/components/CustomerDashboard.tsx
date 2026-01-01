@@ -6,6 +6,9 @@ import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
 import { ProfessionalCertifications } from "./ProfessionalCertifications";
 import { AddCertification } from "./AddCertification";
+import { Addresses } from "./Addresses";
+import { AddAddress } from "./AddAddress";
+import { EditAddress } from "./EditAddress";
 import {
   Flame,
   LogOut,
@@ -27,11 +30,10 @@ import {
   Edit,
   Trash2,
   Star,
-  Award
+  Award,
+  Loader2
 } from "lucide-react";
 import { Badge } from "./ui/badge";
-import { Booking } from "../App";
-import { Payment } from "../App";
 import {
   Dialog,
   DialogContent,
@@ -40,11 +42,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Booking } from "../App";
+import { Payment } from "../App";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner@2.0.3";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { updateUser, uploadProfileImage } from "../api/authService";
+import { fetchAddresses, deleteAddress } from "../api/addressService";
 import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage, getUserRole } from "../lib/auth";
 
 interface CustomerDashboardProps {
@@ -57,7 +62,7 @@ interface CustomerDashboardProps {
   onNavigateHome?: () => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "settings" | "notifications";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications";
 
 export function CustomerDashboard({
   onLogout,
@@ -71,15 +76,22 @@ export function CustomerDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "settings", "notifications"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications"];
   
   // Check if we're on the add certification route
   const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
+  // Check if we're on the add address route (child of profile)
+  const isAddAddressRoute = location.pathname === "/customer/dashboard/profile/addresses/add";
+  // Check if we're on the edit address route (child of profile)
+  const isEditAddressRoute = location.pathname.startsWith("/customer/dashboard/profile/addresses/edit/");
   
   // Determine current view from URL parameter or pathname
   // If on /certification/add route, treat it as certification view
+  // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
   const currentViewFromUrl: CustomerView = isAddCertificationRoute
     ? "certification"
+    : isAddAddressRoute || isEditAddressRoute
+    ? "profile"
     : (view && validViews.includes(view as CustomerView)) 
       ? (view as CustomerView) 
       : "overview";
@@ -91,11 +103,50 @@ export function CustomerDashboard({
   useEffect(() => {
     const newView = isAddCertificationRoute
       ? "certification"
+      : isAddAddressRoute || isEditAddressRoute
+      ? "profile"
       : (view && validViews.includes(view as CustomerView)) 
         ? (view as CustomerView) 
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute]);
+  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute]);
+
+  // Fetch addresses when profile view is shown
+  useEffect(() => {
+    const loadAddresses = async () => {
+      if (currentView === "profile" && !isAddAddressRoute && !isEditAddressRoute) {
+        const token = getApiToken();
+        if (!token) {
+          return;
+        }
+
+        setIsLoadingAddresses(true);
+        try {
+          const response = await fetchAddresses(token);
+          if (response.status === "success" && response.data) {
+            // Map API response to local address format
+            const mappedAddresses = response.data.map((addr) => ({
+              id: addr.id,
+              label: addr.tag,
+              street: addr.adress_line,
+              city: addr.city,
+              postcode: addr.postal_code,
+              country: addr.country,
+              isDefault: addr.is_default_address === 1
+            }));
+            setAddresses(mappedAddresses);
+          }
+        } catch (error: any) {
+          console.error('Failed to load addresses:', error);
+          // Don't show error toast on initial load, just log it
+        } finally {
+          setIsLoadingAddresses(false);
+        }
+      }
+    };
+
+    loadAddresses();
+  }, [currentView, isAddAddressRoute, isEditAddressRoute]);
 
   // Navigation handler that updates URL
   const handleViewChange = (view: CustomerView) => {
@@ -108,35 +159,18 @@ export function CustomerDashboard({
   };
 
   // Address management state
-  const [addresses, setAddresses] = useState([
-    {
-      id: 1,
-      label: "Home",
-      street: "123 High Street",
-      city: "London",
-      postcode: "SW1A 1AA",
-      country: "United Kingdom",
-      isDefault: true
-    },
-    {
-      id: 2,
-      label: "Office",
-      street: "456 Business Park",
-      city: "Manchester",
-      postcode: "M1 1AA",
-      country: "United Kingdom",
-      isDefault: false
-    }
-  ]);
-  const [addressModalOpen, setAddressModalOpen] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<any>(null);
-  const [addressForm, setAddressForm] = useState({
-    label: "",
-    street: "",
-    city: "",
-    postcode: "",
-    country: "United Kingdom"
-  });
+  const [addresses, setAddresses] = useState<Array<{
+    id: number;
+    label: string;
+    street: string;
+    city: string;
+    postcode: string;
+    country: string;
+    isDefault: boolean;
+  }>>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [addressToDelete, setAddressToDelete] = useState<number | null>(null);
 
   // Get user data from localStorage
   const storedFullName = getUserFullName();
@@ -168,32 +202,56 @@ export function CustomerDashboard({
 
   // Address management handlers
   const handleAddAddress = () => {
-    setEditingAddress(null);
-    setAddressForm({
-      label: "",
-      street: "",
-      city: "",
-      postcode: "",
-      country: "United Kingdom"
-    });
-    setAddressModalOpen(true);
+    navigate("/customer/dashboard/profile/addresses/add");
   };
 
   const handleEditAddress = (address: any) => {
-    setEditingAddress(address);
-    setAddressForm({
-      label: address.label,
-      street: address.street,
-      city: address.city,
-      postcode: address.postcode,
-      country: address.country
-    });
-    setAddressModalOpen(true);
+    navigate(`/customer/dashboard/profile/addresses/edit/${address.id}`);
   };
 
   const handleDeleteAddress = (id: number) => {
-    setAddresses(addresses.filter(addr => addr.id !== id));
-    toast.success("Address deleted successfully");
+    setAddressToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteAddress = async () => {
+    if (!addressToDelete) {
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to delete address.");
+      setDeleteModalOpen(false);
+      setAddressToDelete(null);
+      return;
+    }
+
+    try {
+      const response = await deleteAddress({
+        api_token: token,
+        id: addressToDelete
+      });
+
+      if (response.status === "success" || response.success || (response.message && !response.error)) {
+        // Remove from local state
+        setAddresses(addresses.filter(addr => addr.id !== addressToDelete));
+        toast.success(response.message || "Address deleted successfully");
+      } else {
+        toast.error(response.message || response.error || "Failed to delete address. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while deleting address. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setDeleteModalOpen(false);
+      setAddressToDelete(null);
+    }
+  };
+
+  const cancelDeleteAddress = () => {
+    setDeleteModalOpen(false);
+    setAddressToDelete(null);
   };
 
   const handleSetDefault = (id: number) => {
@@ -204,41 +262,6 @@ export function CustomerDashboard({
     toast.success("Default address updated");
   };
 
-  const handleSaveAddress = () => {
-    if (!addressForm.label || !addressForm.street || !addressForm.city || !addressForm.postcode) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    if (editingAddress) {
-      // Update existing address
-      setAddresses(addresses.map(addr =>
-        addr.id === editingAddress.id
-          ? { ...addr, ...addressForm }
-          : addr
-      ));
-      toast.success("Address updated successfully");
-    } else {
-      // Add new address
-      const newAddress = {
-        id: Math.max(...addresses.map(a => a.id), 0) + 1,
-        ...addressForm,
-        isDefault: addresses.length === 0
-      };
-      setAddresses([...addresses, newAddress]);
-      toast.success("Address added successfully");
-    }
-
-    setAddressModalOpen(false);
-    setEditingAddress(null);
-    setAddressForm({
-      label: "",
-      street: "",
-      city: "",
-      postcode: "",
-      country: "United Kingdom"
-    });
-  };
 
   const handleUpdateProfile = async () => {
     const token = getApiToken();
@@ -339,6 +362,7 @@ export function CustomerDashboard({
     { id: "bookings" as CustomerView, label: "My Bookings", icon: Calendar },
     { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
     { id: "profile" as CustomerView, label: "My Profile", icon: User },
+    { id: "addresses" as CustomerView, label: "Addresses", icon: MapPin },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
   ];
@@ -349,6 +373,7 @@ export function CustomerDashboard({
     { id: "bookings" as CustomerView, label: "Bookings", icon: Calendar },
     { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
     { id: "profile" as CustomerView, label: "Profile", icon: User },
+    { id: "addresses" as CustomerView, label: "Addresses", icon: MapPin },
     { id: "certification" as CustomerView, label: "Certification", icon: Award },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
@@ -662,11 +687,16 @@ export function CustomerDashboard({
               className="bg-red-600 hover:bg-red-700"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add New Address
+              New Address
             </Button>
           </div>
 
-          {addresses.length === 0 ? (
+          {isLoadingAddresses ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+              <span className="ml-3 text-gray-600">Loading addresses...</span>
+            </div>
+          ) : addresses.length === 0 ? (
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 mb-4">No saved addresses yet</p>
@@ -709,29 +739,29 @@ export function CustomerDashboard({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEditAddress(address)}
+                      title="Edit address"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
                     {!address.isDefault && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSetDefault(address.id)}
-                          title="Set as default"
-                        >
-                          <Star className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteAddress(address.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSetDefault(address.id)}
+                        title="Set as default"
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteAddress(address.id)}
+                      className="text-red-600 hover:text-red-700"
+                      title="Delete address"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -739,100 +769,6 @@ export function CustomerDashboard({
           )}
         </CardContent>
       </Card>
-
-      {/* Address Modal */}
-      <Dialog open={addressModalOpen} onOpenChange={setAddressModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl text-[#0A1A2F]">
-              {editingAddress ? "Edit Address" : "Add New Address"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingAddress ? "Update your address details" : "Add a new address to your profile"}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="address-label">Address Label *</Label>
-              <Input
-                id="address-label"
-                value={addressForm.label}
-                onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
-                placeholder="e.g., Home, Office, Warehouse"
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="address-street">Street Address *</Label>
-              <Input
-                id="address-street"
-                value={addressForm.street}
-                onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                placeholder="123 Main Street"
-                className="mt-2"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="address-city">City *</Label>
-                <Input
-                  id="address-city"
-                  value={addressForm.city}
-                  onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
-                  placeholder="London"
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="address-postcode">Postcode *</Label>
-                <Input
-                  id="address-postcode"
-                  value={addressForm.postcode}
-                  onChange={(e) => setAddressForm({ ...addressForm, postcode: e.target.value })}
-                  placeholder="SW1A 1AA"
-                  className="mt-2"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="address-country">Country *</Label>
-              <select
-                id="address-country"
-                value={addressForm.country}
-                onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mt-2"
-              >
-                <option>United Kingdom</option>
-                <option>Ireland</option>
-                <option>Scotland</option>
-                <option>Wales</option>
-              </select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAddressModalOpen(false);
-                setEditingAddress(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleSaveAddress}
-            >
-              {editingAddress ? "Update Address" : "Save Address"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 
@@ -950,6 +886,14 @@ export function CustomerDashboard({
           </div>
         );
       case "profile":
+        // Check if we're on the add address route (child of profile)
+        if (isAddAddressRoute) {
+          return <AddAddress />;
+        }
+        // Check if we're on the edit address route (child of profile)
+        if (isEditAddressRoute) {
+          return <EditAddress />;
+        }
         return renderProfile();
       case "certification":
         // Check if we're on the add certification route
@@ -957,6 +901,8 @@ export function CustomerDashboard({
           return <AddCertification />;
         }
         return <ProfessionalCertifications />;
+      case "addresses":
+        return <Addresses />;
       case "settings":
         return renderSettings();
       case "notifications":
@@ -1099,6 +1045,32 @@ export function CustomerDashboard({
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Address</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this address? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={cancelDeleteAddress}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              onClick={confirmDeleteAddress}
+            >
+              Sure
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
