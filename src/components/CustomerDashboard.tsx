@@ -12,6 +12,9 @@ import { EditAddress } from "./EditAddress";
 import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
 import { AddPricing } from "./AddPricing";
 import { EditPricing } from "./EditPricing";
+import { AvailableDatesContent } from "./AvailableDatesContent";
+import { AddAvailableDate } from "./AddAvailableDate";
+import { EditAvailableDate } from "./EditAvailableDate";
 import {
   Flame,
   LogOut,
@@ -35,7 +38,8 @@ import {
   Star,
   Award,
   Loader2,
-  DollarSign
+  DollarSign,
+  CalendarCheck
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import {
@@ -66,7 +70,7 @@ interface CustomerDashboardProps {
   onNavigateHome?: () => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing" | "available_date" | "insurance";
 
 export function CustomerDashboard({
   onLogout,
@@ -80,7 +84,7 @@ export function CustomerDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing", "available_date", "insurance"];
   
   // Check if we're on the add certification route
   const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
@@ -92,17 +96,24 @@ export function CustomerDashboard({
   const isAddPricingRoute = location.pathname === "/customer/dashboard/pricing/add";
   // Check if we're on the edit pricing route
   const isEditPricingRoute = location.pathname.startsWith("/customer/dashboard/pricing/edit/");
+  // Check if we're on the add available date route
+  const isAddAvailableDateRoute = location.pathname === "/customer/dashboard/available_date/add";
+  // Check if we're on the edit available date route
+  const isEditAvailableDateRoute = location.pathname.startsWith("/customer/dashboard/available_date/edit/");
   
   // Determine current view from URL parameter or pathname
   // If on /certification/add route, treat it as certification view
   // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
   // If on /pricing/add or /pricing/edit route, treat it as pricing view
+  // If on /available_date/add or /available_date/edit route, treat it as available_date view
   const currentViewFromUrl: CustomerView = isAddCertificationRoute
     ? "certification"
     : isAddAddressRoute || isEditAddressRoute
     ? "profile"
     : isAddPricingRoute || isEditPricingRoute
     ? "pricing"
+    : isAddAvailableDateRoute || isEditAvailableDateRoute
+    ? "available_date"
     : (view && validViews.includes(view as CustomerView))
       ? (view as CustomerView)
       : "overview";
@@ -118,11 +129,13 @@ export function CustomerDashboard({
       ? "profile"
       : isAddPricingRoute || isEditPricingRoute
       ? "pricing"
+      : isAddAvailableDateRoute || isEditAvailableDateRoute
+      ? "available_date"
       : (view && validViews.includes(view as CustomerView))
         ? (view as CustomerView)
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute]);
+  }, [view, isAddCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute]);
 
   // Fetch addresses when profile view is shown
   useEffect(() => {
@@ -389,6 +402,8 @@ export function CustomerDashboard({
     { id: "addresses" as CustomerView, label: "Addresses", icon: MapPin },
     { id: "certification" as CustomerView, label: "Certification", icon: Award },
     { id: "pricing" as CustomerView, label: "Pricing", icon: DollarSign },
+    { id: "available_date" as CustomerView, label: "Available Date", icon: CalendarCheck },
+    { id: "insurance" as CustomerView, label: "Insurance", icon: Shield },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
   ];
@@ -925,6 +940,33 @@ export function CustomerDashboard({
           return <EditPricing />;
         }
         return <ProfessionalPricingContent />;
+      case "available_date":
+        // Check if we're on the add or edit available date route
+        if (isAddAvailableDateRoute) {
+          return <AddAvailableDate />;
+        }
+        if (isEditAvailableDateRoute) {
+          return <EditAvailableDate />;
+        }
+        return <AvailableDatesContent />;
+      case "insurance":
+        return (
+          <div className="space-y-6">
+            <div className="mb-8">
+              <h1 className="text-[#0A1A2F] mb-2">Insurance</h1>
+              <p className="text-gray-600">
+                Manage your insurance information and documents
+              </p>
+            </div>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-8 text-center">
+                <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Insurance Management</h3>
+                <p className="text-gray-600">Insurance functionality coming soon.</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
       case "addresses":
         return <Addresses />;
       case "settings":
