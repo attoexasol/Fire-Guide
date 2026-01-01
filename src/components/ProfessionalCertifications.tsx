@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Award, CheckCircle2, Calendar, Loader2, Plus } from "lucide-react";
-import { FiEye, FiEdit2, FiTrash2 } from "react-icons/fi";
+// import { FiEye, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { Edit, Eye, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -46,10 +47,10 @@ export function ProfessionalCertifications() {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       });
     } catch (error) {
       return dateString;
@@ -115,7 +116,7 @@ export function ProfessionalCertifications() {
             View and manage your professional certifications and qualifications
           </p>
         </div>
-        <Button 
+        <Button
           className="bg-red-600 hover:bg-red-700 whitespace-nowrap"
           onClick={() => navigate("/customer/dashboard/certification/add")}
         >
@@ -187,23 +188,25 @@ export function ProfessionalCertifications() {
                           aria-label="View certification"
                           type="button"
                         >
-                          <FiEye className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleEdit(cert)}
-                          className="p-1 text-gray-500 hover:text-orange-500 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 rounded"
+                          // className="p-1 text-gray-500 hover:text-orange-500 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 rounded"
+                          className="p-1 text-gray-500 hover:text-orange-500 transition-colors hover:text-blue-600 hover:bg-blue-50 rounded"
                           aria-label="Edit certification"
                           type="button"
                         >
-                          <FiEdit2 className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(cert)}
-                          className="p-1 text-gray-500 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 rounded"
+                          // className="p-1 text-gray-500 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 rounded"
+                          className="p-1 text-gray-500 hover:text-red-600 transition-colors hover:text-red-600 hover:bg-red-50 rounded"
                           aria-label="Delete certification"
                           type="button"
                         >
-                          <FiTrash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

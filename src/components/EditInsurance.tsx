@@ -209,7 +209,7 @@ export function EditInsurance() {
             <div className="space-y-2">
               <Label htmlFor="expire_date">Expiry Date *</Label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                {/* <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" /> */}
                 <Input
                   id="expire_date"
                   type="date"
@@ -223,19 +223,20 @@ export function EditInsurance() {
               <p className="text-sm text-gray-500 mt-1">Select the date when this insurance coverage expires</p>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="flex-1"
+                // className="flex-1"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-red-600 hover:bg-red-700 flex-1"
+                // className="bg-red-600 hover:bg-red-700 flex-1"
+                className="bg-red-600 hover:bg-red-700 "
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -244,7 +245,8 @@ export function EditInsurance() {
                     Updating...
                   </>
                 ) : (
-                  "Update Insurance Coverage"
+                  // "Update Insurance Coverage"
+                  "Update"
                 )}
               </Button>
             </div>
