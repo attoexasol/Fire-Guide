@@ -1116,6 +1116,7 @@ export function CustomerDashboard({
         </aside>
 
         {/* Main Content */}
+        {/*  <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-x-hidden"> */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-y-auto overflow-x-hidden h-[calc(100vh-73px)] lg:ml-64">
           <div className="max-w-9xl mx-auto w-full">
             {renderContent()}

@@ -247,19 +247,20 @@ export function EditAddress() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="flex-1"
+                // className="flex-1"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-red-600 hover:bg-red-700 flex-1"
+                // className="bg-red-600 hover:bg-red-700 flex-1"
+                className="bg-red-600 hover:bg-red-700 "
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -268,7 +269,8 @@ export function EditAddress() {
                     Updating...
                   </>
                 ) : (
-                  "Update Address"
+                  // "Update Address"
+                  "Update"
                 )}
               </Button>
             </div>
