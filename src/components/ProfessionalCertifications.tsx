@@ -148,7 +148,8 @@ export function ProfessionalCertifications() {
                   key={cert.id}
                   className="border border-gray-200 rounded-lg p-4 hover:border-red-200 hover:shadow-sm transition-all"
                 >
-                  <div className="flex items-start justify-between">
+                  {/* <div className="flex items-start justify-between"> */}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -176,12 +177,12 @@ export function ProfessionalCertifications() {
                         </div>
                       </div>
                     </div>
-                    <div className="ml-4 flex-shrink-0 fle items-start gap-2 space-y-4">
+                    <div className="ml-4 flex-shrink-0 lg:flex-col flex justify-between items-start gap-2 space-y-4">
                       <Badge className="bg-green-600 text-white">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Active
                       </Badge>
-                      <div className="fle flex-col gap-1">
+                      <div className="flex lg:flex-row gap-1 flex-row sm:items-center">
                         <button
                           onClick={() => handleView(cert)}
                           className="p-1 text-gray-500 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
