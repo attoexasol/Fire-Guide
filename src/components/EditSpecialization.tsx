@@ -163,12 +163,13 @@ export function EditSpecialization() {
                 variant="outline"
                 onClick={handleBack}
                 disabled={isSubmitting}
+                className="h-10"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-red-600 hover:bg-red-700 h-10"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

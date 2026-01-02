@@ -121,19 +121,19 @@ export function AddAvailableDate() {
               <p className="text-sm text-gray-500 mt-1">Enter the time slot (e.g., 10:00 AM - 1:00 AM)</p>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="flex-1"
+                className="h-10"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-red-600 hover:bg-red-700 flex-1"
+                className="bg-red-600 hover:bg-red-700 h-10"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

@@ -178,19 +178,19 @@ export function AddAddress() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="flex-1"
+                className="h-10"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-red-600 hover:bg-red-700 flex-1"
+                className="bg-red-600 hover:bg-red-700 h-10"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
