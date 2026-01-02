@@ -5588,3 +5588,9 @@ html {
     height: var(--radix-accordion-content-height, var(--bits-accordion-content-height));
   }
 }
+
+
+/* html, body {
+  height: 100%;
+  overflow: hidden;
+} */

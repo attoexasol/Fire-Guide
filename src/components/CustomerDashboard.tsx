@@ -991,7 +991,8 @@ export function CustomerDashboard({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full">
+    //     <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full"> 
+    <div className="h-screen bg-gray-50 overflow-hidden w-full flex flex-col">
       {/* Top Header */}
       <header className="bg-[#0A1A2F] text-white py-3 md:py-4 px-4 md:px-6 sticky top-0 z-50 w-full">
         <div className="flex items-center justify-between w-full max-w-full">
@@ -1044,10 +1045,13 @@ export function CustomerDashboard({
         </div>
       </header>
 
-      <div className="flex w-full overflow-x-hidden">
+{/*  <div className="flex w-full overflow-x-hidden"> */}
+      <div className="flex w-full overflow-hidden flex-1 min-h-0">
         {/* Sidebar - Full Slide-in Panel */}
         <aside
-          className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 lg:top-[73px] lg:h-[calc(100vh-73px)] ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        //  className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 lg:top-[73px] lg:h-[calc(100vh-73px)] $
+        //   {sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
             } ${sidebarOpen ? "top-0 h-screen" : "top-[73px] h-[calc(100vh-73px)]"} lg:!top-[73px] lg:!h-[calc(100vh-73px)]`}
         >
           <div className="p-6 pt-16 lg:pt-6 h-full flex flex-col overflow-hidden">
@@ -1112,7 +1116,7 @@ export function CustomerDashboard({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-y-auto overflow-x-hidden h-[calc(100vh-73px)] lg:ml-64">
           <div className="max-w-9xl mx-auto w-full">
             {renderContent()}
           </div>
