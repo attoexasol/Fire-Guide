@@ -19,6 +19,8 @@ import { EditAvailableDate } from "./EditAvailableDate";
 import { InsuranceContent } from "./InsuranceContent";
 import { AddInsurance } from "./AddInsurance";
 import { EditInsurance } from "./EditInsurance";
+import { AddSpecialization } from "./AddSpecialization";
+import { EditSpecialization } from "./EditSpecialization";
 import {
   Flame,
   LogOut,
@@ -43,7 +45,8 @@ import {
   Award,
   Loader2,
   DollarSign,
-  CalendarCheck
+  CalendarCheck,
+  Tag
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import {
@@ -62,6 +65,7 @@ import { toast } from "sonner@2.0.3";
 import { updateUser, uploadProfileImage } from "../api/authService";
 import { fetchAddresses, deleteAddress } from "../api/addressService";
 import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage, getUserRole } from "../lib/auth";
+import { fetchSpecializations, deleteSpecialization, SpecializationItem } from "../api/specializationsService";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -73,7 +77,7 @@ interface CustomerDashboardProps {
   onNavigateHome?: () => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing" | "available_date" | "insurance";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing" | "available_date" | "insurance" | "specializations";
 
 export function CustomerDashboard({
   onLogout,
@@ -87,7 +91,7 @@ export function CustomerDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing", "available_date", "insurance"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing", "available_date", "insurance", "specializations"];
   
   // Check if we're on the add certification route
   const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
@@ -109,6 +113,10 @@ export function CustomerDashboard({
   const isAddInsuranceRoute = location.pathname === "/customer/dashboard/insurance/add";
   // Check if we're on the edit insurance route
   const isEditInsuranceRoute = location.pathname.startsWith("/customer/dashboard/insurance/edit/");
+  // Check if we're on the add specialization route
+  const isAddSpecializationRoute = location.pathname === "/customer/dashboard/specializations/add";
+  // Check if we're on the edit specialization route
+  const isEditSpecializationRoute = location.pathname.startsWith("/customer/dashboard/specializations/edit/");
   
   // Determine current view from URL parameter or pathname
     // If on /certification/add or /certification/edit route, treat it as certification view
@@ -116,6 +124,7 @@ export function CustomerDashboard({
     // If on /pricing/add or /pricing/edit route, treat it as pricing view
     // If on /available_date/add or /available_date/edit route, treat it as available_date view
     // If on /insurance/add or /insurance/edit route, treat it as insurance view
+    // If on /specializations/add or /specializations/edit route, treat it as specializations view
     const currentViewFromUrl: CustomerView = isAddCertificationRoute || isEditCertificationRoute
       ? "certification"
       : isAddAddressRoute || isEditAddressRoute
@@ -126,6 +135,8 @@ export function CustomerDashboard({
       ? "available_date"
       : isAddInsuranceRoute || isEditInsuranceRoute
       ? "insurance"
+      : isAddSpecializationRoute || isEditSpecializationRoute
+      ? "specializations"
       : (view && validViews.includes(view as CustomerView))
         ? (view as CustomerView)
         : "overview";
@@ -145,11 +156,13 @@ export function CustomerDashboard({
       ? "available_date"
       : isAddInsuranceRoute || isEditInsuranceRoute
       ? "insurance"
+      : isAddSpecializationRoute || isEditSpecializationRoute
+      ? "specializations"
       : (view && validViews.includes(view as CustomerView))
         ? (view as CustomerView)
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isEditCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute]);
+  }, [view, isAddCertificationRoute, isEditCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute, isAddSpecializationRoute, isEditSpecializationRoute]);
 
   // Fetch addresses when profile view is shown
   useEffect(() => {
@@ -188,6 +201,27 @@ export function CustomerDashboard({
     loadAddresses();
   }, [currentView, isAddAddressRoute, isEditAddressRoute]);
 
+  // Fetch specializations when specializations view is shown
+  useEffect(() => {
+    const loadSpecializations = async () => {
+      // Only load if we're on the main specializations view (not on add/edit routes)
+      if (currentView === "specializations" && !isAddSpecializationRoute && !isEditSpecializationRoute) {
+        setIsLoadingSpecializations(true);
+        try {
+          const data = await fetchSpecializations();
+          setSpecializations(data);
+        } catch (error: any) {
+          console.error('Failed to load specializations:', error);
+          toast.error(error.message || 'Failed to load specializations');
+        } finally {
+          setIsLoadingSpecializations(false);
+        }
+      }
+    };
+
+    loadSpecializations();
+  }, [currentView, isAddSpecializationRoute, isEditSpecializationRoute]);
+
   // Navigation handler that updates URL
   const handleViewChange = (view: CustomerView) => {
     setCurrentView(view);
@@ -211,6 +245,11 @@ export function CustomerDashboard({
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<number | null>(null);
+  const [specializations, setSpecializations] = useState<SpecializationItem[]>([]);
+  const [isLoadingSpecializations, setIsLoadingSpecializations] = useState(false);
+  const [deleteSpecializationModalOpen, setDeleteSpecializationModalOpen] = useState(false);
+  const [specializationToDelete, setSpecializationToDelete] = useState<SpecializationItem | null>(null);
+  const [isDeletingSpecialization, setIsDeletingSpecialization] = useState(false);
 
   // Get user data from localStorage
   const storedFullName = getUserFullName();
@@ -425,7 +464,15 @@ export function CustomerDashboard({
   ];
 
   // Select menu items based on role
-  const menuItems = userRole === "PROFESSIONAL" ? professionalMenuItems : customerMenuItems;
+  let menuItems = userRole === "PROFESSIONAL" ? professionalMenuItems : customerMenuItems;
+  
+  // Add Specializations menu item for Admin users
+  if (userRole === "ADMIN") {
+    menuItems = [
+      ...menuItems,
+      { id: "specializations" as CustomerView, label: "Specializations", icon: Tag }
+    ];
+  }
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -985,6 +1032,197 @@ export function CustomerDashboard({
         return renderSettings();
       case "notifications":
         return renderNotifications();
+      case "specializations":
+        // Check if we're on the add specialization route
+        if (isAddSpecializationRoute) {
+          return <AddSpecialization />;
+        }
+        // Check if we're on the edit specialization route
+        if (isEditSpecializationRoute) {
+          return <EditSpecialization />;
+        }
+        return (
+          <div className="space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h1 className="text-3xl text-[#0A1A2F] mb-2">Specializations</h1>
+                <p className="text-gray-600">Manage professional specializations and categories.</p>
+              </div>
+              <Button
+                className="bg-red-600 hover:bg-red-700 whitespace-nowrap"
+                onClick={() => navigate("/customer/dashboard/specializations/add")}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Specializations
+              </Button>
+            </div>
+            <Card>
+              <CardContent className="p-6">
+                {isLoadingSpecializations ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
+                    <span className="text-gray-600">Loading specializations...</span>
+                  </div>
+                ) : specializations.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Tag className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg mb-2">No specializations found</p>
+                    <p className="text-sm">No specializations have been added yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {specializations.map((specialization) => {
+                      const createdDate = new Date(specialization.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      });
+                      const updatedDate = specialization.updated_at && specialization.updated_at !== specialization.created_at
+                        ? new Date(specialization.updated_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
+                        : null;
+
+                      return (
+                        <div
+                          key={specialization.id}
+                          className="border border-gray-200 rounded-lg p-4 hover:border-red-200 hover:shadow-sm transition-all"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <Tag className="w-5 h-5 text-red-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-gray-900 mb-1">{specialization.title}</h4>
+                                  <div className="text-xs text-gray-500 space-y-1">
+                                    <div>
+                                      Created: {createdDate}
+                                      {specialization.creator && ` • By ${specialization.creator.full_name}`}
+                                    </div>
+                                    {updatedDate && (
+                                      <div>
+                                        Updated: {updatedDate}
+                                        {specialization.updater && ` • By ${specialization.updater.full_name}`}
+                                      </div>
+                                    )}
+                                    {specialization.professional && (
+                                      <div>
+                                        Professional ID: {specialization.professional.id}
+                                        {specialization.professional.name && ` • ${specialization.professional.name}`}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                              <Badge className="bg-green-600 text-white">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Active
+                              </Badge>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => navigate(`/customer/dashboard/specializations/edit/${specialization.id}`)}
+                                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors hover:bg-blue-50 rounded"
+                                  aria-label="Edit specialization"
+                                  type="button"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSpecializationToDelete(specialization);
+                                    setDeleteSpecializationModalOpen(true);
+                                  }}
+                                  className="p-1 text-gray-500 hover:text-red-600 transition-colors hover:bg-red-50 rounded"
+                                  aria-label="Delete specialization"
+                                  type="button"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={deleteSpecializationModalOpen} onOpenChange={setDeleteSpecializationModalOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl text-[#0A1A2F]">
+                    Delete Specialization
+                  </DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete "{specializationToDelete?.title}"? This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteSpecializationModalOpen(false);
+                      setSpecializationToDelete(null);
+                    }}
+                    disabled={isDeletingSpecialization}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={async () => {
+                      if (!specializationToDelete) return;
+
+                      const token = getApiToken();
+                      if (!token) {
+                        toast.error("Please log in to delete specialization.");
+                        setDeleteSpecializationModalOpen(false);
+                        setSpecializationToDelete(null);
+                        return;
+                      }
+                      
+                      setIsDeletingSpecialization(true);
+                      try {
+                        const response = await deleteSpecialization({
+                          api_token: token,
+                          id: specializationToDelete.id
+                        });
+
+                        if (response.status === "success" || response.success || (response.message && !response.error)) {
+                          toast.success(response.message || "Specialization deleted successfully!");
+                          setDeleteSpecializationModalOpen(false);
+                          setSpecializationToDelete(null);
+                          // Refresh the specializations list
+                          const data = await fetchSpecializations();
+                          setSpecializations(data);
+                        } else {
+                          toast.error(response.message || response.error || "Failed to delete specialization. Please try again.");
+                        }
+                      } catch (error: any) {
+                        const errorMessage = error?.message || error?.error || "An error occurred while deleting specialization. Please try again.";
+                        toast.error(errorMessage);
+                      } finally {
+                        setIsDeletingSpecialization(false);
+                      }
+                    }}
+                    disabled={isDeletingSpecialization}
+                  >
+                    {isDeletingSpecialization ? "Deleting..." : "Sure"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
       default:
         return renderOverview();
     }

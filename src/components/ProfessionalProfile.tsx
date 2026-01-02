@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -8,6 +8,7 @@ import { fetchQualifications, QualificationCertificationResponse } from "../api/
 import { fetchInsuranceCoverages, InsuranceItem } from "../api/insuranceService";
 import { fetchExperiences, ExperienceResponse } from "../api/experiencesService";
 import { fetchReviews, ReviewResponse } from "../api/reviewsService";
+import { fetchAvailableDates, AvailableDateItem } from "../api/availableDatesService";
 import { toast } from "sonner";
 
 interface ProfessionalProfileProps {
@@ -26,6 +27,8 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
   const [isLoadingExperiences, setIsLoadingExperiences] = useState(true);
   const [reviews, setReviews] = useState<ReviewResponse[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [availableDatesData, setAvailableDatesData] = useState<AvailableDateItem[]>([]);
+  const [isLoadingAvailableDates, setIsLoadingAvailableDates] = useState(true);
   const [persistedProfessional, setPersistedProfessional] = useState<any>(null);
 
   // Restore professional data from sessionStorage on mount if not provided in props
@@ -115,6 +118,24 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     };
 
     loadReviews();
+  }, []);
+
+  // Fetch available dates on component mount
+  useEffect(() => {
+    const loadAvailableDates = async () => {
+      try {
+        setIsLoadingAvailableDates(true);
+        const data = await fetchAvailableDates();
+        setAvailableDatesData(data);
+      } catch (error: any) {
+        console.error('Failed to load available dates:', error);
+        toast.error(error.message || 'Failed to load available dates');
+      } finally {
+        setIsLoadingAvailableDates(false);
+      }
+    };
+
+    loadAvailableDates();
   }, []);
 
   // Provide default professional data with proper fallbacks
@@ -349,11 +370,28 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     { service: "Large property (26-100 people)", price: "£850" }
   ];
 
-  const availableDates = [
-    { date: "2025-11-21", slots: ["9:00 AM", "2:00 PM"] },
-    { date: "2025-11-22", slots: ["10:00 AM", "3:00 PM"] },
-    { date: "2025-11-25", slots: ["9:00 AM", "11:00 AM", "2:00 PM"] }
-  ];
+  // Transform API data to match component's expected format
+  // Group by date and collect all slots for each date
+  const availableDates = useMemo(() => {
+    if (!availableDatesData || availableDatesData.length === 0) {
+      return [];
+    }
+
+    // Group by date
+    const groupedByDate = availableDatesData.reduce((acc, item) => {
+      if (!acc[item.date]) {
+        acc[item.date] = [];
+      }
+      acc[item.date].push(item.slot);
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    // Convert to array format expected by component
+    return Object.entries(groupedByDate).map(([date, slots]) => ({
+      date,
+      slots
+    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [availableDatesData]);
 
   const renderStars = (rating: number) => {
     return (
@@ -380,8 +418,10 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
+         <a href="/" className="flex items-center gap-2">
           <Flame className="w-8 h-8 text-red-500" />
-          <span className="text-xl">Fire Guide</span>
+         <span className="text-xl">Fire Guide</span>
+         </a>
         </div>
       </header>
 
@@ -389,7 +429,7 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
       <div className="bg-white py-4 px-6 border-b">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <a href="#" className="hover:text-red-600 transition-colors">Home</a>
+            <a href="/" className="hover:text-red-600 transition-colors">Home</a>
             <ChevronRight className="w-4 h-4" />
             <a href="#" className="hover:text-red-600 transition-colors">Compare Professionals</a>
             <ChevronRight className="w-4 h-4" />
@@ -664,40 +704,52 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                     <CardTitle className="text-[#0A1A2F]">Available Dates</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {availableDates.map((dateInfo) => (
-                        <div
-                          key={dateInfo.date}
-                          className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                            selectedDate === dateInfo.date
-                              ? "border-red-600 bg-red-50"
-                              : "border-gray-200 hover:border-red-300"
-                          }`}
-                          onClick={() => setSelectedDate(dateInfo.date)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium text-gray-900">
-                              {formatDate(dateInfo.date)}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {dateInfo.slots.length} slots
-                            </Badge>
-                          </div>
-                          {selectedDate === dateInfo.date && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {dateInfo.slots.map((slot, index) => (
-                                <button
-                                  key={index}
-                                  className="px-3 py-1 text-xs bg-white border border-red-600 text-red-600 rounded hover:bg-red-600 hover:text-white transition-colors"
-                                >
-                                  {slot}
-                                </button>
-                              ))}
+                    {isLoadingAvailableDates ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
+                        <span className="text-gray-600">Loading available dates...</span>
+                      </div>
+                    ) : availableDates.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm">No available dates</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {availableDates.map((dateInfo) => (
+                          <div
+                            key={dateInfo.date}
+                            className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                              selectedDate === dateInfo.date
+                                ? "border-red-600 bg-red-50"
+                                : "border-gray-200 hover:border-red-300"
+                            }`}
+                            onClick={() => setSelectedDate(dateInfo.date)}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-gray-900">
+                                {formatDate(dateInfo.date)}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {dateInfo.slots.length} slot{dateInfo.slots.length !== 1 ? 's' : ''}
+                              </Badge>
                             </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                            {selectedDate === dateInfo.date && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {dateInfo.slots.map((slot, index) => (
+                                  <button
+                                    key={index}
+                                    className="px-3 py-1 text-xs bg-white border border-red-600 text-red-600 rounded hover:bg-red-600 hover:text-white transition-colors"
+                                  >
+                                    {slot}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

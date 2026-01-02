@@ -141,7 +141,7 @@ export function SmartQuestionnaire({ service, onComplete, onBack }: SmartQuestio
       <div className="bg-gray-50 py-4 px-6 border-b">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <a href="#" className="hover:text-red-600 transition-colors">Home</a>
+            <a href="/" className="hover:text-red-600 transition-colors">Home</a>
             <ChevronRight className="w-4 h-4" />
             <a href="#" className="hover:text-red-600 transition-colors">Select Service</a>
             <ChevronRight className="w-4 h-4" />
