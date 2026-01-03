@@ -1,10 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Bell, Calendar, DollarSign, AlertCircle, CheckCircle, Info, Trash2, Filter, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface Notification {
   id: number;

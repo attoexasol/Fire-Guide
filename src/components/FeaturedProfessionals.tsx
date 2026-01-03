@@ -79,15 +79,11 @@ export function FeaturedProfessionals({ onViewProfile }: FeaturedProfessionalsPr
               onClick={onViewProfile}
             >
               {/* Professional Image - Full Width Block */}
-              <div className="relative w-full leading-[0]">
+              <div className="relative w-full overflow-hidden">
                 <ImageWithFallback
                   src={professional.image}
                   alt={professional.name}
-                  className="w-full h-[200px] md:h-48 object-cover block leading-[0]"
-                  style={{
-                    objectPosition: 'calc(50% + 40px) -2px',
-                    display: 'block'
-                  }}
+                  className="w-full h-[200px] md:h-48 object-cover block"
                 />
                 <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />

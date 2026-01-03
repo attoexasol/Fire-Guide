@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { 
   Mail, 
   Phone, 
@@ -22,7 +22,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Footer } from "./Footer";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import logoImage from "figma:asset/69744b74419586d01801e7417ef517136baf5cfb.png";
 
 interface AboutContactProps {

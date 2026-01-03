@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Search, Star, MoreVertical, Mail, Phone, MapPin, CheckCircle, Clock, XCircle, Eye, Ban, Award, FileText, Download, AlertCircle, Edit2, Image, File } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -22,7 +22,7 @@ import {
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function AdminProfessionals() {
   const [searchTerm, setSearchTerm] = useState("");

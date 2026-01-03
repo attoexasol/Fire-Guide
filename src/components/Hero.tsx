@@ -1,5 +1,5 @@
+import React, { useState, useEffect } from "react";
 import { CheckCircle } from "lucide-react";
-import { useState, useEffect } from "react";
 import heroImage1 from "figma:asset/189ec7e3689608dad914f59dd7c02d25da91583d.png";
 import heroImage2 from "figma:asset/06f1b3e41c2783f18bdafecd74ab9e64333871d6.png";
 import heroImage3 from "figma:asset/e0dbc899d99d79876818127d318a196dc1afa811.png";

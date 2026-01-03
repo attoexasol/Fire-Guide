@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { ServiceCard, Service } from "./ServiceCard";
 import { fetchServices, ServiceResponse } from "../api/servicesService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface ServicesGridProps {
   onSelectService: () => void;

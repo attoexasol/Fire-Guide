@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { createSpecialization } from "../api/specializationsService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ArrowLeft, Loader2, Tag } from "lucide-react";
 
 export function AddSpecialization() {

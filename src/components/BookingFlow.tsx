@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { AppointmentSelection } from "./AppointmentSelection";
 import { CustomerDetailsForm } from "./CustomerDetailsForm";
 import { PaymentPage } from "./PaymentPage";

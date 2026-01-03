@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { BookingFlow } from "../BookingFlow";

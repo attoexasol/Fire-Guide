@@ -5,7 +5,7 @@ import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { registerUser, loginUser, sendOtp, verifyOtp, resetPassword } from "../api/authService";
 import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole, setProfessionalId } from "../lib/auth";

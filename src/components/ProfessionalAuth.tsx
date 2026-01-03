@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Mail, ArrowRight, Shield, Briefcase, CheckCircle, Calendar, TrendingUp, Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface ProfessionalAuthProps {

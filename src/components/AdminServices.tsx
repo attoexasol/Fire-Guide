@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Flame, ClipboardCheck, Bell, DoorOpen, Lightbulb, Plus, Edit, Save, X } from "lucide-react";
+import React, { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Flame, ClipboardCheck, Bell, DoorOpen, Lightbulb, Plus, Edit, Save, X, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -8,10 +9,17 @@ import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { ServiceCard, Service } from "./ServiceCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { updateService, UpdateServiceRequest, createService, CreateServiceRequest } from "../api/servicesService";
+import { getApiToken } from "../lib/auth";
 
 export function AdminServices() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  // Check if we're on the add service route
+  const isAddServiceRoute = location.pathname === "/admin/dashboard/services/add";
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [services, setServices] = useState<Service[]>([
     {
@@ -79,6 +87,16 @@ export function AdminServices() {
     active: true
   });
 
+  // Form data for Add Service page
+  const [addServiceForm, setAddServiceForm] = useState({
+    service_name: "",
+    type: "DELIVERY",
+    status: "ACTIVE",
+    price: "",
+    description: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleEdit = (service: Service) => {
     setEditingService({ ...service });
   };
@@ -87,11 +105,39 @@ export function AdminServices() {
     setEditingService(null);
   };
 
-  const handleSaveEdit = () => {
-    if (editingService) {
-      setServices(services.map(s => s.id === editingService.id ? editingService : s));
-      setEditingService(null);
-      toast.success("Service updated successfully!");
+  const handleSaveEdit = async () => {
+    if (!editingService) return;
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to update service.");
+      return;
+    }
+
+    try {
+      // Map the Service type to API format
+      const updateData: UpdateServiceRequest = {
+        api_token: token,
+        id: editingService.id,
+        service_name: editingService.name,
+        type: "DELIVERY", // Default type, you may want to add this to the Service interface
+        status: editingService.active ? "ACTIVE" : "INACTIVE",
+        price: editingService.basePrice.replace("£", "").replace(",", ""),
+        description: editingService.description || ""
+      };
+
+      const response = await updateService(updateData);
+
+      if (response.status === "success" || response.success || (response.message && !response.error)) {
+        setServices(services.map(s => s.id === editingService.id ? editingService : s));
+        setEditingService(null);
+        toast.success(response.message || "Service updated successfully!");
+      } else {
+        toast.error(response.message || response.error || "Failed to update service. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while updating service. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -124,6 +170,195 @@ export function AdminServices() {
     toast.success("Service added successfully!");
   };
 
+  const handleAddServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!addServiceForm.service_name.trim() || !addServiceForm.description.trim() || !addServiceForm.price.trim()) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to add a service.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const createData: CreateServiceRequest = {
+        api_token: token,
+        service_name: addServiceForm.service_name.trim(),
+        type: addServiceForm.type,
+        status: addServiceForm.status,
+        price: addServiceForm.price.trim(),
+        description: addServiceForm.description.trim()
+      };
+
+      const response = await createService(createData);
+
+      if (response.status === "success" || response.success || (response.message && !response.error)) {
+        toast.success(response.message || "Service created successfully!");
+        // Reset form
+        setAddServiceForm({
+          service_name: "",
+          type: "DELIVERY",
+          status: "ACTIVE",
+          price: "",
+          description: ""
+        });
+        // Navigate back to services list
+        navigate("/admin/dashboard/services");
+      } else {
+        toast.error(response.message || response.error || "Failed to create service. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while adding the service. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBackToServices = () => {
+    navigate("/admin/dashboard/services");
+  };
+
+  // Render Add Service form if on add route
+  if (isAddServiceRoute) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          onClick={handleBackToServices}
+          className="mb-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Services
+        </Button>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl text-[#0A1A2F]">Add New Service</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAddServiceSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="service_name" className="text-sm font-medium">
+                  Service Name <span className="text-red-600">*</span>
+                </Label>
+                <Input
+                  id="service_name"
+                  value={addServiceForm.service_name}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, service_name: e.target.value })}
+                  className="mt-2 h-11"
+                  placeholder="e.g., Fire Safety Training"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="type" className="text-sm font-medium">
+                  Type <span className="text-red-600">*</span>
+                </Label>
+                <select
+                  id="type"
+                  value={addServiceForm.type}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, type: e.target.value })}
+                  className="mt-2 w-full h-11 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  required
+                >
+                  <option value="DELIVERY">DELIVERY</option>
+                  <option value="CONSULTATION">CONSULTATION</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="status" className="text-sm font-medium">
+                  Status <span className="text-red-600">*</span>
+                </Label>
+                <select
+                  id="status"
+                  value={addServiceForm.status}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, status: e.target.value })}
+                  className="mt-2 w-full h-11 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  required
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="price" className="text-sm font-medium">
+                  Price <span className="text-red-600">*</span>
+                </Label>
+                <Input
+                  id="price"
+                  type="text"
+                  value={addServiceForm.price}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                      setAddServiceForm({ ...addServiceForm, price: value });
+                    }
+                  }}
+                  className="mt-2 h-11"
+                  placeholder="150"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="description" className="text-sm font-medium">
+                  Description <span className="text-red-600">*</span>
+                </Label>
+                <Textarea
+                  id="description"
+                  value={addServiceForm.description}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, description: e.target.value })}
+                  className="mt-2"
+                  rows={4}
+                  placeholder="Describe the service..."
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBackToServices}
+                  disabled={isSubmitting}
+                  className="h-10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-red-600 hover:bg-red-700 h-10"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Add Service
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -134,13 +369,15 @@ export function AdminServices() {
             Manage fire safety services offered on the platform
           </p>
         </div>
-        <Button
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-red-600 hover:bg-red-700 h-11"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Service
-        </Button>
+        {!isAddServiceRoute && (
+          <Button
+            onClick={() => navigate("/admin/dashboard/services/add")}
+            className="bg-red-600 hover:bg-red-700 h-11"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Service
+          </Button>
+        )}
       </div>
 
       {/* Info Card */}

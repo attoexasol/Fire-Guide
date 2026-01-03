@@ -6,10 +6,10 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { updateInsuranceCoverage, fetchInsuranceCoverages, InsuranceItem } from "../api/insuranceService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ArrowLeft, Loader2, Shield, DollarSign, Calendar } from "lucide-react";
 
-export function EditInsurance() {
+function EditInsurance() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const insuranceId = id ? parseInt(id, 10) : null;
@@ -255,3 +255,5 @@ export function EditInsurance() {
     </div>
   );
 }
+
+export { EditInsurance };

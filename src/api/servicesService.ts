@@ -303,3 +303,164 @@ export const storeSelectedService = async (data: SelectedServiceStoreRequest): P
   }
 };
 
+// TypeScript types for Update Service request
+export interface UpdateServiceRequest {
+  api_token: string;
+  id: number;
+  service_name: string;
+  type: string;
+  status: string;
+  price: string;
+  description: string;
+}
+
+export interface UpdateServiceResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: ServiceResponse;
+}
+
+/**
+ * Update a service
+ * @param data - Service update data including api_token, id, service_name, type, status, price, and description
+ * @returns Promise with the API response
+ */
+export const updateService = async (data: UpdateServiceRequest): Promise<UpdateServiceResponse> => {
+  try {
+    const response = await apiClient.post<UpdateServiceResponse>('/services/update', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to update service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Create Service request
+export interface CreateServiceRequest {
+  api_token: string;
+  service_name: string;
+  type: string;
+  status: string;
+  price: string;
+  description: string;
+}
+
+export interface CreateServiceResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: ServiceResponse;
+}
+
+/**
+ * Create a new service
+ * @param data - Service creation data including api_token, service_name, type, status, price, and description
+ * @returns Promise with the API response
+ */
+export const createService = async (data: CreateServiceRequest): Promise<CreateServiceResponse> => {
+  try {
+    const response = await apiClient.post<CreateServiceResponse>('/services/store', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Delete Service request
+export interface DeleteServiceRequest {
+  api_token: string;
+  id: number;
+}
+
+export interface DeleteServiceResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Delete a service
+ * @param data - Service deletion data including api_token and id
+ * @returns Promise with the API response
+ */
+export const deleteService = async (data: DeleteServiceRequest): Promise<DeleteServiceResponse> => {
+  try {
+    const response = await apiClient.post<DeleteServiceResponse>(
+      '/services/delete',
+      {
+        api_token: data.api_token,
+        id: data.id
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to delete service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+

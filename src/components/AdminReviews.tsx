@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Search, Star, CheckCircle, XCircle, Eye, Flag, AlertTriangle, MessageSquare, Mail } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -16,7 +16,7 @@ import {
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function AdminReviews() {
   const [searchTerm, setSearchTerm] = useState("");

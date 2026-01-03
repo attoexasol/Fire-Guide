@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Search, DollarSign, TrendingUp, TrendingDown, Download, Filter, Settings, Eye, Send, CheckCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -16,7 +16,7 @@ import {
 } from "./ui/dialog";
 import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState("");

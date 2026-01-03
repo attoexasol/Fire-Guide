@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -34,8 +34,14 @@ export function AppointmentSelection({
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  type DayInfo = {
+    date: string;
+    day: number;
+    isAvailable: boolean;
+  } | null;
+
   // Generate calendar days for current month
-  const generateCalendarDays = () => {
+  const generateCalendarDays = (): DayInfo[] => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -43,7 +49,7 @@ export function AppointmentSelection({
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
 
-    const days = [];
+    const days: DayInfo[] = [];
     
     // Add empty cells for days before month starts
     for (let i = 0; i < startingDayOfWeek; i++) {

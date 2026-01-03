@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Search, Calendar, MapPin, Clock, User, ChevronRight, Filter, X, CheckCircle, AlertCircle, Phone, Mail, Home, FileText, Navigation } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";

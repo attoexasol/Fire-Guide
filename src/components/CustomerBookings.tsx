@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Booking } from "../App";
 
 interface CustomerBookingsProps {

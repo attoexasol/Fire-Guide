@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { isAuthenticated, getUserInfo, setUserInfo, removeAuthToken } from "../lib/auth";
 
 export interface Booking {

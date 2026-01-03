@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { updatePrice, fetchPrices } from "../api/pricingService";
 import { getApiToken } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ArrowLeft, Loader2, DollarSign } from "lucide-react";
 
 export function EditPricing() {

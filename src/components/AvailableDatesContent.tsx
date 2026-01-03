@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   CalendarCheck, 
@@ -21,7 +21,7 @@ import {
 } from "./ui/dialog";
 import { fetchAvailableDates, deleteAvailableDate, AvailableDateItem } from "../api/availableDatesService";
 import { getApiToken } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function AvailableDatesContent() {
   const navigate = useNavigate();

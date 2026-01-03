@@ -21,6 +21,12 @@ import { AddInsurance } from "./AddInsurance";
 import { EditInsurance } from "./EditInsurance";
 import { AddSpecialization } from "./AddSpecialization";
 import { EditSpecialization } from "./EditSpecialization";
+import { EditService } from "./EditService";
+import { AddService } from "./AddService";
+import { AddExperience } from "./AddExperience";
+import { EditExperience } from "./EditExperience";
+import { AddReview } from "./AddReview";
+import { EditReview } from "./EditReview";
 import {
   Flame,
   LogOut,
@@ -46,7 +52,14 @@ import {
   Loader2,
   DollarSign,
   CalendarCheck,
-  Tag
+  Tag,
+  ClipboardCheck,
+  DoorOpen,
+  Lightbulb,
+  FileText,
+  Save,
+  ArrowLeft,
+  Sparkles
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import {
@@ -61,11 +74,17 @@ import { Booking } from "../App";
 import { Payment } from "../App";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { toast } from "sonner@2.0.3";
+import { Textarea } from "./ui/textarea";
+import { CardHeader, CardTitle } from "./ui/card";
+import { toast } from "sonner";
 import { updateUser, uploadProfileImage } from "../api/authService";
 import { fetchAddresses, deleteAddress } from "../api/addressService";
 import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage, getUserRole } from "../lib/auth";
 import { fetchSpecializations, deleteSpecialization, SpecializationItem } from "../api/specializationsService";
+import { fetchServices, ServiceResponse, createService, CreateServiceRequest, updateService, UpdateServiceRequest, deleteService, DeleteServiceRequest } from "../api/servicesService";
+import { fetchExperiences, ExperienceResponse, deleteExperience } from "../api/experiencesService";
+import { fetchReviews, ReviewResponse, deleteReview } from "../api/reviewsService";
+import { ServiceCard, Service } from "./ServiceCard";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -77,7 +96,7 @@ interface CustomerDashboardProps {
   onNavigateHome?: () => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing" | "available_date" | "insurance" | "specializations";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing" | "available_date" | "insurance" | "specializations" | "services" | "experiences" | "reviews";
 
 export function CustomerDashboard({
   onLogout,
@@ -91,7 +110,7 @@ export function CustomerDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing", "available_date", "insurance", "specializations"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing", "available_date", "insurance", "specializations", "services", "experiences", "reviews"];
   
   // Check if we're on the add certification route
   const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
@@ -117,6 +136,18 @@ export function CustomerDashboard({
   const isAddSpecializationRoute = location.pathname === "/customer/dashboard/specializations/add";
   // Check if we're on the edit specialization route
   const isEditSpecializationRoute = location.pathname.startsWith("/customer/dashboard/specializations/edit/");
+  // Check if we're on the add service route
+  const isAddServiceRoute = location.pathname === "/customer/dashboard/services/add";
+  // Check if we're on the edit service route
+  const isEditServiceRoute = location.pathname.startsWith("/customer/dashboard/services/edit/");
+  // Check if we're on the add experience route
+  const isAddExperienceRoute = location.pathname === "/customer/dashboard/experiences/add";
+  // Check if we're on the edit experience route
+  const isEditExperienceRoute = location.pathname.startsWith("/customer/dashboard/experiences/edit/");
+  // Check if we're on the add review route
+  const isAddReviewRoute = location.pathname === "/customer/dashboard/reviews/add";
+  // Check if we're on the edit review route
+  const isEditReviewRoute = location.pathname.startsWith("/customer/dashboard/reviews/edit/");
   
   // Determine current view from URL parameter or pathname
     // If on /certification/add or /certification/edit route, treat it as certification view
@@ -125,6 +156,9 @@ export function CustomerDashboard({
     // If on /available_date/add or /available_date/edit route, treat it as available_date view
     // If on /insurance/add or /insurance/edit route, treat it as insurance view
     // If on /specializations/add or /specializations/edit route, treat it as specializations view
+    // If on /services/add route, treat it as services view
+    // If on /experiences/add or /experiences/edit route, treat it as experiences view
+    // If on /reviews/add or /reviews/edit route, treat it as reviews view
     const currentViewFromUrl: CustomerView = isAddCertificationRoute || isEditCertificationRoute
       ? "certification"
       : isAddAddressRoute || isEditAddressRoute
@@ -137,6 +171,12 @@ export function CustomerDashboard({
       ? "insurance"
       : isAddSpecializationRoute || isEditSpecializationRoute
       ? "specializations"
+      : isAddServiceRoute || isEditServiceRoute
+      ? "services"
+      : isAddExperienceRoute || isEditExperienceRoute
+      ? "experiences"
+      : isAddReviewRoute || isEditReviewRoute
+      ? "reviews"
       : (view && validViews.includes(view as CustomerView))
         ? (view as CustomerView)
         : "overview";
@@ -158,11 +198,17 @@ export function CustomerDashboard({
       ? "insurance"
       : isAddSpecializationRoute || isEditSpecializationRoute
       ? "specializations"
+      : isAddServiceRoute || isEditServiceRoute
+      ? "services"
+      : isAddExperienceRoute || isEditExperienceRoute
+      ? "experiences"
+      : isAddReviewRoute || isEditReviewRoute
+      ? "reviews"
       : (view && validViews.includes(view as CustomerView))
         ? (view as CustomerView)
         : "overview";
     setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isEditCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute, isAddSpecializationRoute, isEditSpecializationRoute]);
+  }, [view, isAddCertificationRoute, isEditCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute, isAddSpecializationRoute, isEditSpecializationRoute, isAddServiceRoute, isEditServiceRoute, isAddExperienceRoute, isEditExperienceRoute, isAddReviewRoute, isEditReviewRoute]);
 
   // Fetch addresses when profile view is shown
   useEffect(() => {
@@ -222,6 +268,88 @@ export function CustomerDashboard({
     loadSpecializations();
   }, [currentView, isAddSpecializationRoute, isEditSpecializationRoute]);
 
+  // Fetch services when services view is shown
+  useEffect(() => {
+    const loadServices = async () => {
+      if (currentView === "services" && !isAddServiceRoute && !isEditServiceRoute) {
+        setIsLoadingServices(true);
+        try {
+          const apiServices = await fetchServices();
+          // Map API services to Service interface
+          const defaultIcons = [ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb];
+          const colorOptions = ["red", "blue", "orange", "green", "purple"];
+          
+          const mappedServices: Service[] = apiServices.map((apiService, index) => {
+            const iconIndex = index % defaultIcons.length;
+            const colorIndex = index % colorOptions.length;
+            return {
+              id: apiService.id,
+              name: apiService.service_name || "Service",
+              icon: apiService.icon || undefined,
+              iconComponent: defaultIcons[iconIndex],
+              description: apiService.description || "No description available",
+              basePrice: apiService.price ? `£${parseFloat(apiService.price).toFixed(2)}` : "£0.00",
+              active: apiService.status?.toUpperCase() === "ACTIVE",
+              popular: false,
+              color: colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple"
+            };
+          });
+          setServices(mappedServices);
+        } catch (error: any) {
+          console.error('Failed to load services:', error);
+          toast.error(error.message || 'Failed to load services');
+          setServices([]);
+        } finally {
+          setIsLoadingServices(false);
+        }
+      }
+    };
+
+    loadServices();
+  }, [currentView, isAddServiceRoute, isEditServiceRoute]);
+
+  // Fetch experiences when experiences view is shown
+  useEffect(() => {
+    const loadExperiences = async () => {
+      if (currentView === "experiences" && !isAddExperienceRoute && !isEditExperienceRoute) {
+        setIsLoadingExperiences(true);
+        try {
+          const data = await fetchExperiences();
+          setExperiences(data);
+        } catch (error: any) {
+          console.error('Failed to load experiences:', error);
+          toast.error(error.message || 'Failed to load experiences');
+          setExperiences([]);
+        } finally {
+          setIsLoadingExperiences(false);
+        }
+      }
+    };
+
+    loadExperiences();
+  }, [currentView, isAddExperienceRoute, isEditExperienceRoute, location.pathname]);
+
+  // Fetch reviews when reviews view is shown
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (currentView === "reviews" && !isAddReviewRoute && !isEditReviewRoute) {
+        setIsLoadingReviews(true);
+        try {
+          const data = await fetchReviews();
+          setReviews(data);
+        } catch (error: any) {
+          console.error('Failed to load reviews:', error);
+          toast.error(error.message || 'Failed to load reviews');
+          setReviews([]);
+        } finally {
+          setIsLoadingReviews(false);
+        }
+      }
+    };
+
+    loadReviews();
+  }, [currentView, isAddReviewRoute, isEditReviewRoute, location.pathname]);
+
   // Navigation handler that updates URL
   const handleViewChange = (view: CustomerView) => {
     setCurrentView(view);
@@ -250,6 +378,29 @@ export function CustomerDashboard({
   const [deleteSpecializationModalOpen, setDeleteSpecializationModalOpen] = useState(false);
   const [specializationToDelete, setSpecializationToDelete] = useState<SpecializationItem | null>(null);
   const [isDeletingSpecialization, setIsDeletingSpecialization] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [addServiceForm, setAddServiceForm] = useState({
+    service_name: "",
+    type: "DELIVERY",
+    status: "ACTIVE",
+    price: "",
+    description: ""
+  });
+  const [isSubmittingService, setIsSubmittingService] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
+  const [deleteServiceModalOpen, setDeleteServiceModalOpen] = useState(false);
+  const [isDeletingService, setIsDeletingService] = useState(false);
+  const [experiences, setExperiences] = useState<ExperienceResponse[]>([]);
+  const [isLoadingExperiences, setIsLoadingExperiences] = useState(false);
+  const [experienceToDelete, setExperienceToDelete] = useState<ExperienceResponse | null>(null);
+  const [deleteExperienceModalOpen, setDeleteExperienceModalOpen] = useState(false);
+  const [isDeletingExperience, setIsDeletingExperience] = useState(false);
+  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState<ReviewResponse | null>(null);
+  const [deleteReviewModalOpen, setDeleteReviewModalOpen] = useState(false);
+  const [isDeletingReview, setIsDeletingReview] = useState(false);
 
   // Get user data from localStorage
   const storedFullName = getUserFullName();
@@ -466,11 +617,14 @@ export function CustomerDashboard({
   // Select menu items based on role
   let menuItems = userRole === "PROFESSIONAL" ? professionalMenuItems : customerMenuItems;
   
-  // Add Specializations menu item for Admin users
+  // Add Service Management section for Admin users
   if (userRole === "ADMIN") {
     menuItems = [
       ...menuItems,
-      { id: "specializations" as CustomerView, label: "Specializations", icon: Tag }
+      { id: "specializations" as CustomerView, label: "Specializations", icon: Tag },
+      { id: "services" as CustomerView, label: "Service", icon: FileText },
+      { id: "experiences" as CustomerView, label: "Experiences", icon: Sparkles },
+      { id: "reviews" as CustomerView, label: "Review", icon: Star }
     ];
   }
 
@@ -1217,6 +1371,678 @@ export function CustomerDashboard({
                     disabled={isDeletingSpecialization}
                   >
                     {isDeletingSpecialization ? "Deleting..." : "Sure"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
+      case "services":
+        // Check if we're on the edit service route
+        if (isEditServiceRoute) {
+          return <EditService />;
+        }
+        // Check if we're on the add service route
+        if (isAddServiceRoute) {
+          return <AddService />;
+        }
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-[20px] text-[#0A1A2F] mb-2">Service Management</h1>
+                <p className="text-[14px] text-gray-600">
+                  Manage fire safety services offered on the platform
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate("/customer/dashboard/services/add")}
+                className="bg-red-600 hover:bg-red-700 h-11"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Service
+              </Button>
+            </div>
+
+            <Card className="bg-blue-50 border-blue-200 rounded-xl">
+              <CardContent className="p-4">
+                <p className="text-sm text-blue-900">
+                  <strong>Automatic Sync:</strong> Services created, edited, or deleted here automatically
+                  appear across Landing Page, Customer Portal, and Professional Portal. Only "Active" services
+                  are visible to customers.
+                </p>
+              </CardContent>
+            </Card>
+
+            {isLoadingServices ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
+                <span className="text-gray-600">Loading services...</span>
+              </div>
+            ) : services.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg mb-2">No services found</p>
+                <p className="text-sm">No services have been added yet.</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6">
+                {services.map((service) => (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    variant="admin"
+                    showActions={true}
+                    onEdit={(id: number) => {
+                      navigate(`/customer/dashboard/services/edit/${id}`);
+                    }}
+                    onDelete={(id) => {
+                      const serviceToDeleteItem = services.find(s => s.id === id);
+                      if (serviceToDeleteItem) {
+                        setServiceToDelete(serviceToDeleteItem);
+                        setDeleteServiceModalOpen(true);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={deleteServiceModalOpen} onOpenChange={setDeleteServiceModalOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl text-[#0A1A2F]">
+                    Delete Service
+                  </DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete "{serviceToDelete?.name}"? This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteServiceModalOpen(false);
+                      setServiceToDelete(null);
+                    }}
+                    disabled={isDeletingService}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={async () => {
+                      if (!serviceToDelete) return;
+
+                      const token = getApiToken();
+                      if (!token) {
+                        toast.error("Please log in to delete service.");
+                        setDeleteServiceModalOpen(false);
+                        setServiceToDelete(null);
+                        return;
+                      }
+
+                      setIsDeletingService(true);
+                      try {
+                        const response = await deleteService({
+                          api_token: token,
+                          id: serviceToDelete.id
+                        });
+
+                        if (response.status === "success" || response.success || (response.message && !response.error)) {
+                          toast.success(response.message || "Service deleted successfully!");
+                          setDeleteServiceModalOpen(false);
+                          setServiceToDelete(null);
+                          // Refresh the services list
+                          try {
+                            const apiServices = await fetchServices();
+                            const defaultIcons = [ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb];
+                            const colorOptions = ["red", "blue", "orange", "green", "purple"];
+                            const mappedServices: Service[] = apiServices.map((apiService, index) => {
+                              const iconIndex = index % defaultIcons.length;
+                              const colorIndex = index % colorOptions.length;
+                              return {
+                                id: apiService.id,
+                                name: apiService.service_name || "Service",
+                                icon: apiService.icon || undefined,
+                                iconComponent: defaultIcons[iconIndex],
+                                description: apiService.description || "No description available",
+                                basePrice: apiService.price ? `£${parseFloat(apiService.price).toFixed(2)}` : "£0.00",
+                                active: apiService.status?.toUpperCase() === "ACTIVE",
+                                popular: false,
+                                color: colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple"
+                              };
+                            });
+                            setServices(mappedServices);
+                          } catch (error: any) {
+                            console.error('Failed to refresh services:', error);
+                          }
+                        } else {
+                          toast.error(response.message || response.error || "Failed to delete service. Please try again.");
+                        }
+                      } catch (error: any) {
+                        const errorMessage = error?.message || error?.error || "An error occurred while deleting service. Please try again.";
+                        toast.error(errorMessage);
+                      } finally {
+                        setIsDeletingService(false);
+                      }
+                    }}
+                    disabled={isDeletingService}
+                  >
+                    {isDeletingService ? "Deleting..." : "Sure"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
+      case "experiences":
+        // Check if we're on the add experience route
+        if (isAddExperienceRoute) {
+          return <AddExperience />;
+        }
+        // Check if we're on the edit experience route
+        if (isEditExperienceRoute) {
+          return <EditExperience />;
+        }
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-[20px] text-[#0A1A2F] mb-2">Experiences</h1>
+                <p className="text-[14px] text-gray-600">
+                  Manage professional experiences and assessments
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate("/customer/dashboard/experiences/add")}
+                className="bg-red-600 hover:bg-red-700 h-11"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Experience
+              </Button>
+            </div>
+
+            {isLoadingExperiences ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
+                <span className="text-gray-600">Loading experiences...</span>
+              </div>
+            ) : experiences.length === 0 ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-center py-12 text-gray-500">
+                    <Sparkles className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg mb-2">No experiences found</p>
+                    <p className="text-sm">No experiences have been added yet.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {experiences.map((experience) => {
+                  const createdDate = new Date(experience.created_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  });
+                  const updatedDate = experience.updated_at && experience.updated_at !== experience.created_at
+                    ? new Date(experience.updated_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })
+                    : null;
+                  const yearsExperienceDate = experience.years_experience
+                    ? new Date(experience.years_experience).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })
+                    : 'N/A';
+
+                  return (
+                    <Card key={experience.id} className="border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex flex-col gap-5">
+                          {/* Header Section */}
+                          <div className="flex items-center justify-between gap-10">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-purple-50 rounded flex items-center justify-center flex-shrink-0">
+                                <Sparkles className="w-4 h-4 text-purple-600" />
+                              </div>
+                              <h4 className="font-semibold text-sm text-gray-900">Experience #{experience.id}</h4>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Badge className="bg-green-600 text-white px-2 py-0.5 text-xs">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Active
+                              </Badge>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => navigate(`/customer/dashboard/experiences/edit/${experience.id}`)}
+                                  className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors hover:bg-blue-50 rounded"
+                                  aria-label="Edit experience"
+                                  type="button"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setExperienceToDelete(experience);
+                                    setDeleteExperienceModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-gray-500 hover:text-red-600 transition-colors hover:bg-red-50 rounded"
+                                  aria-label="Delete experience"
+                                  type="button"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Main Content - Flex Layout */}
+                          <div className="flex flex-wrap gap-x-8 gap-y-3 w-full">
+                            {/* Years Experience */}
+                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Years Experience:</span>
+                              <span className="text-xs text-gray-900">{yearsExperienceDate}</span>
+                            </div>
+
+                            {/* Assessment */}
+                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Assessment:</span>
+                              <span className="text-xs text-gray-900 break-words">{experience.assessment || 'N/A'}</span>
+                            </div>
+
+                            {/* Specialization */}
+                            {experience.specialization && (
+                              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                                <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Specialization:</span>
+                                <Badge variant="outline" className="text-xs px-1.5 py-0 border-gray-300">
+                                  {experience.specialization.title}
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Professional */}
+                            {experience.professional && (
+                              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                                <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Professional:</span>
+                                <span className="text-xs text-gray-900">
+                                  ID: {experience.professional.id}
+                                  {experience.professional.name && ` • ${experience.professional.name}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer Section */}
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-gray-100">
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>Created: {createdDate}</span>
+                              {experience.creator && (
+                                <>
+                                  <span className="text-gray-300">•</span>
+                                  <span>By {experience.creator.full_name}</span>
+                                </>
+                              )}
+                            </div>
+                            {updatedDate && (
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>Updated: {updatedDate}</span>
+                                {experience.updater && (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span>By {experience.updater.full_name}</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={deleteExperienceModalOpen} onOpenChange={setDeleteExperienceModalOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl text-[#0A1A2F]">
+                    Delete Experience
+                  </DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete Experience #{experienceToDelete?.id}? This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteExperienceModalOpen(false);
+                      setExperienceToDelete(null);
+                    }}
+                    disabled={isDeletingExperience}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={async () => {
+                      if (!experienceToDelete) return;
+
+                      const token = getApiToken();
+                      if (!token) {
+                        toast.error("Please log in to delete experience.");
+                        setDeleteExperienceModalOpen(false);
+                        setExperienceToDelete(null);
+                        return;
+                      }
+
+                      setIsDeletingExperience(true);
+                      try {
+                        const response = await deleteExperience({
+                          api_token: token,
+                          id: experienceToDelete.id
+                        });
+
+                        if (response.status === "success" || response.success || (response.message && !response.error)) {
+                          toast.success(response.message || "Experience deleted successfully!");
+                          setDeleteExperienceModalOpen(false);
+                          setExperienceToDelete(null);
+                          // Refresh the experiences list
+                          const data = await fetchExperiences();
+                          setExperiences(data);
+                        } else {
+                          toast.error(response.message || response.error || "Failed to delete experience. Please try again.");
+                        }
+                      } catch (error: any) {
+                        console.error('Failed to delete experience:', error);
+                        toast.error(error.message || error.error || 'Failed to delete experience');
+                      } finally {
+                        setIsDeletingExperience(false);
+                      }
+                    }}
+                    disabled={isDeletingExperience}
+                  >
+                    {isDeletingExperience ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Delete"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
+      case "reviews":
+        // Check if we're on the add review route
+        if (isAddReviewRoute) {
+          return <AddReview />;
+        }
+        // Check if we're on the edit review route
+        if (isEditReviewRoute) {
+          return <EditReview />;
+        }
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-[20px] text-[#0A1A2F] mb-2">Reviews</h1>
+                <p className="text-[14px] text-gray-600">
+                  Manage reviews and ratings
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate("/customer/dashboard/reviews/add")}
+                className="bg-red-600 hover:bg-red-700 h-11"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Review
+              </Button>
+            </div>
+
+            {isLoadingReviews ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
+                <span className="text-gray-600">Loading reviews...</span>
+              </div>
+            ) : reviews.length === 0 ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-center py-12 text-gray-500">
+                    <Star className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg mb-2">No reviews found</p>
+                    <p className="text-sm">No reviews have been added yet.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => {
+                  const createdDate = new Date(review.created_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  });
+                  const updatedDate = review.updated_at && review.updated_at !== review.created_at
+                    ? new Date(review.updated_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })
+                    : null;
+                  const rating = parseInt(review.rating) || 0;
+
+                  return (
+                    <Card key={review.id} className="border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex flex-col gap-5">
+                          {/* Header Section */}
+                          <div className="flex items-center justify-between gap-10">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-yellow-50 rounded flex items-center justify-center flex-shrink-0">
+                                <Star className="w-4 h-4 text-yellow-600 fill-yellow-600" />
+                              </div>
+                              <h4 className="font-semibold text-sm text-gray-900">Review #{review.id}</h4>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`w-4 h-4 ${
+                                        i < rating
+                                          ? "text-yellow-500 fill-yellow-500"
+                                          : "text-gray-300"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <Badge className="bg-green-600 text-white px-2 py-0.5 text-xs">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  {rating}/5
+                                </Badge>
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => navigate(`/customer/dashboard/reviews/edit/${review.id}`)}
+                                  className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors hover:bg-blue-50 rounded"
+                                  aria-label="Edit review"
+                                  type="button"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setReviewToDelete(review);
+                                    setDeleteReviewModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-gray-500 hover:text-red-600 transition-colors hover:bg-red-50 rounded"
+                                  aria-label="Delete review"
+                                  type="button"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Main Content - Flex Layout */}
+                          <div className="flex flex-wrap gap-x-8 gap-y-3 w-full">
+                            {/* Name */}
+                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Name:</span>
+                              <span className="text-xs text-gray-900">{review.name || 'N/A'}</span>
+                            </div>
+
+                            {/* Rating */}
+                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Rating:</span>
+                              <div className="flex items-center gap-1">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3 h-3 ${
+                                      i < rating
+                                        ? "text-yellow-500 fill-yellow-500"
+                                        : "text-gray-300"
+                                    }`}
+                                  />
+                                ))}
+                                <span className="text-xs text-gray-700 ml-1">({rating}/5)</span>
+                              </div>
+                            </div>
+
+                            {/* Feedback */}
+                            <div className="flex items-start gap-3 w-full">
+                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Feedback:</span>
+                              <span className="text-xs text-gray-900 break-words flex-1">{review.feedback || 'N/A'}</span>
+                            </div>
+
+                            {/* Professional */}
+                            {review.professional && (
+                              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                                <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Professional:</span>
+                                <span className="text-xs text-gray-900">
+                                  ID: {review.professional.id}
+                                  {review.professional.name && ` • ${review.professional.name}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer Section */}
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-gray-100">
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>Created: {createdDate}</span>
+                              {review.creator && (
+                                <>
+                                  <span className="text-gray-300">•</span>
+                                  <span>By {review.creator.full_name}</span>
+                                </>
+                              )}
+                            </div>
+                            {updatedDate && (
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>Updated: {updatedDate}</span>
+                                {review.updater && (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span>By {review.updater.full_name}</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={deleteReviewModalOpen} onOpenChange={setDeleteReviewModalOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl text-[#0A1A2F]">
+                    Delete Review
+                  </DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete Review #{reviewToDelete?.id}? This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteReviewModalOpen(false);
+                      setReviewToDelete(null);
+                    }}
+                    disabled={isDeletingReview}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={async () => {
+                      if (!reviewToDelete) return;
+
+                      const token = getApiToken();
+                      if (!token) {
+                        toast.error("Please log in to delete review.");
+                        setDeleteReviewModalOpen(false);
+                        setReviewToDelete(null);
+                        return;
+                      }
+
+                      setIsDeletingReview(true);
+                      try {
+                        const response = await deleteReview({
+                          api_token: token,
+                          id: reviewToDelete.id
+                        });
+
+                        if (response.status === "success" || response.success || (response.message && !response.error)) {
+                          toast.success(response.message || "Review deleted successfully!");
+                          setDeleteReviewModalOpen(false);
+                          setReviewToDelete(null);
+                          // Refresh the reviews list
+                          const data = await fetchReviews();
+                          setReviews(data);
+                        } else {
+                          toast.error(response.message || response.error || "Failed to delete review. Please try again.");
+                        }
+                      } catch (error: any) {
+                        console.error('Failed to delete review:', error);
+                        toast.error(error.message || error.error || 'Failed to delete review');
+                      } finally {
+                        setIsDeletingReview(false);
+                      }
+                    }}
+                    disabled={isDeletingReview}
+                  >
+                    {isDeletingReview ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Delete"
+                    )}
                   </Button>
                 </DialogFooter>
               </DialogContent>

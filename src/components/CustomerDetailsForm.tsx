@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -174,8 +174,10 @@ export function CustomerDetailsForm({
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <Flame className="w-8 h-8 text-red-500" />
-          <span className="text-xl">Fire Guide</span>
+          <a href="/" className="flex items-center gap-2">
+            <Flame className="w-8 h-8 text-red-500" />
+            <span className="text-xl">Fire Guide</span>
+          </a>
         </div>
       </header>
 

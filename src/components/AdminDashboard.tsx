@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -20,7 +20,8 @@ import {
   X,
   LogOut,
   Flame,
-  User
+  User,
+  Sparkles
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -40,15 +41,22 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "settings" | "notifications";
+type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "settings" | "notifications" | "experiences";
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications"];
+  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications", "experiences"];
+  
+  // Check if we're on a services/add route - treat it as services view
+  const isServicesAddRoute = location.pathname === "/admin/dashboard/services/add";
   
   // Determine current view from URL parameter, default to "dashboard"
-  const currentViewFromUrl: AdminView = (view && validViews.includes(view as AdminView)) 
+  // If on services/add route, treat it as services view
+  const currentViewFromUrl: AdminView = isServicesAddRoute
+    ? "services"
+    : (view && validViews.includes(view as AdminView)) 
     ? (view as AdminView) 
     : "dashboard";
   
@@ -57,8 +65,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
-    setCurrentView(currentViewFromUrl);
-  }, [currentViewFromUrl]);
+    const newView = isServicesAddRoute
+      ? "services"
+      : (view && validViews.includes(view as AdminView)) 
+      ? (view as AdminView) 
+      : "dashboard";
+    setCurrentView(newView);
+  }, [view, isServicesAddRoute]);
 
   // Navigation handler that updates URL
   const handleViewChange = (view: AdminView) => {
@@ -82,6 +95,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: "payments" as AdminView, label: "Payments", icon: CreditCard },
     { id: "reviews" as AdminView, label: "Reviews", icon: Star },
     { id: "services" as AdminView, label: "Services", icon: FileText },
+    { id: "experiences" as AdminView, label: "Experiences", icon: Sparkles },
     { id: "notifications" as AdminView, label: "Notifications", icon: Bell },
     { id: "settings" as AdminView, label: "Settings", icon: Settings },
   ];
@@ -274,6 +288,26 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <AdminReviews />;
       case "services":
         return <AdminServices />;
+      case "experiences":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-[20px] text-[#0A1A2F] mb-2">Experiences</h1>
+              <p className="text-[14px] text-gray-600">
+                Manage user experiences and testimonials
+              </p>
+            </div>
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center py-12 text-gray-500">
+                  <Sparkles className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg mb-2">Experiences Management</p>
+                  <p className="text-sm">This section is coming soon.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
       case "notifications":
         return <AdminNotifications />;
       case "settings":

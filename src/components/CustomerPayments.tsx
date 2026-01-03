@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Payment } from "../App";
 
 interface CustomerPaymentsProps {

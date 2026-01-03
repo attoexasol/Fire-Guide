@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   DollarSign, 
@@ -25,7 +25,7 @@ import {
 } from "./ui/dialog";
 import { fetchPrices, deletePrice, PriceItem } from "../api/pricingService";
 import { getApiToken } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function ProfessionalPricingContent() {
   const navigate = useNavigate();
@@ -233,10 +233,10 @@ export function ProfessionalPricingContent() {
                           Update Price
                         </Label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                          {/* <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
                             £
-                          </span>
-                          <Input
+                          </span> */}
+                          {/* <Input
                             id={`price-${priceItem.id}`}
                             type="text"
                             inputMode="decimal"
@@ -244,7 +244,14 @@ export function ProfessionalPricingContent() {
                             value={priceItem.price}
                             onChange={(e) => updatePrice(priceItem.id, e.target.value)}
                             className="pl-7 text-lg h-12"
-                          />
+                          /> */}
+
+                          <p
+                            id={`price-${priceItem.id}`}
+                            className="pl-7 text-lg h-12 flex items-center"
+                          >
+                              £{Number(priceItem.price || 0).toFixed(2)}
+                          </p>
                         </div>
                       </div>
                       

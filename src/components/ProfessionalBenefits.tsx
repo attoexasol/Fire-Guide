@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { CheckCircle, TrendingUp, Shield, CreditCard, Star, MapPin, ArrowRight, Menu, User } from "lucide-react";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";

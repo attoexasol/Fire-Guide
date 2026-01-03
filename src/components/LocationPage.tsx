@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Flame, ChevronRight, MapPin, ArrowLeft, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";

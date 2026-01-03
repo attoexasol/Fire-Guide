@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Flame, ChevronRight, MapPin, Star, CheckCircle, Shield, Award, Briefcase, Calendar, SlidersHorizontal, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
 import { fetchProfessionals, ProfessionalResponse } from "../api/professionalsService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface Professional {
   id: number;
@@ -177,8 +177,10 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <Flame className="w-8 h-8 text-red-500" />
-          <span className="text-xl">Fire Guide</span>
+          <a href="/" className="flex items-center gap-2">
+            <Flame className="w-8 h-8 text-red-500" />
+            <span className="text-xl">Fire Guide</span>
+          </a>
         </div>
       </header>
 

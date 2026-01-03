@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { createAvailableDate } from "../api/availableDatesService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ArrowLeft, Loader2, CalendarCheck, Clock } from "lucide-react";
 
 export function AddAvailableDate() {

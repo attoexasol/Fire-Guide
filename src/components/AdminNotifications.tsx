@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Bell, Users, DollarSign, AlertCircle, CheckCircle, Info, Trash2, Send, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -9,7 +9,7 @@ import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface Notification {
   id: number;

@@ -1,5 +1,5 @@
+import React, { useEffect, useState } from "react";
 import { Star, CheckCircle } from "lucide-react";
-import { useEffect, useState } from "react";
 
 export function RecentActivityTicker() {
   const activities = [

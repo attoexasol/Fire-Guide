@@ -1,3 +1,4 @@
+import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { SmartQuestionnaire } from "../SmartQuestionnaire";

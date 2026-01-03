@@ -136,6 +136,14 @@ export default function Routes() {
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route 
+        path="/admin/dashboard/services/add" 
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/admin/dashboard/:view" 
         element={
           <ProtectedRoute requiredRole="admin">
@@ -244,6 +252,54 @@ export default function Routes() {
       />
       <Route 
         path="/customer/dashboard/specializations/edit/:id" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/experiences/add" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/experiences/edit/:id" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/reviews/add" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/reviews/edit/:id" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/services/add" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <CustomerDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/customer/dashboard/services/edit/:id" 
         element={
           <ProtectedRoute requiredRole="customer">
             <CustomerDashboardPage />

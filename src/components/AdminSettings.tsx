@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Save, Globe, Search, Zap, Bell, Shield, CreditCard } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 import { Switch } from "./ui/switch";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function AdminSettings() {
   const [seoTitle, setSeoTitle] = useState("Fire Guide - Book Fire Safety Services Instantly");

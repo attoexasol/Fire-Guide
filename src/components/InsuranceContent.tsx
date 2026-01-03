@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Shield, 
@@ -22,7 +22,7 @@ import {
 } from "./ui/dialog";
 import { fetchInsuranceCoverages, deleteInsuranceCoverage, InsuranceItem } from "../api/insuranceService";
 import { getApiToken } from "../lib/auth";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function InsuranceContent() {
   const navigate = useNavigate();

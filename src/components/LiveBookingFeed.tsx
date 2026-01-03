@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { CheckCircle, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 

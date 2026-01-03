@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Flame, ChevronRight, Building2, Users, Layers, Calendar, FileText, ChevronLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
