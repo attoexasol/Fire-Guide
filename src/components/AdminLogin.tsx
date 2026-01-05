@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Mail, Lock, ArrowRight, Shield } from "lucide-react";
+import { Mail, Lock, ArrowRight, Shield,} from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -40,34 +40,35 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
       // Check if login was successful
       if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
         // Extract token from response (check multiple possible locations)
-        const token = response.data?.token || 
-                     response.data?.api_token || 
-                     response.token || 
-                     response.api_token ||
-                     response.data?.data?.token ||
-                     response.data?.data?.api_token;
+        const token = response.data?.token ||
+          response.data?.api_token ||
+          response.token ||
+          response.api_token ||
+          response.data?.data?.token ||
+          response.data?.data?.api_token;
 
         if (token && typeof token === 'string' && token.trim().length > 0) {
           // Store token securely
           setAuthToken(token.trim());
           // Store email for reference
           setUserEmail(email.trim().toLowerCase());
-          
+
           // Store user info - extract first name from full_name
           const fullName = response.data?.full_name || response.data?.user_name || response.data?.name || "Admin";
           setUserInfo(fullName, "admin");
-          
+
           // Store phone number if available in response
           if (response.data?.phone) {
             setUserPhone(response.data.phone);
           }
-          
+
           // Store role from backend response - check multiple possible locations
-          const role = response.data?.role || response.data?.data?.role;
+          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
+          const role = response.data?.role || response.data?.data?.role || response.role;
           if (role) {
-            setUserRole(role);
+            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
           }
-          
+
           toast.success("Welcome back! Signed in successfully.");
           const firstName = fullName.trim().split(' ')[0]; // Extract first name for callback
           onLoginSuccess(firstName);
@@ -112,9 +113,9 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
             <div className="flex items-center cursor-pointer" onClick={onBack}>
               <img src={logoImage} alt="Fire Guide" className="h-12" />
             </div>
-            
+
             <div className="hidden md:flex items-center gap-4">
-              <button 
+              <button
                 onClick={onBack}
                 className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer"
               >
@@ -200,8 +201,8 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
                   {/* Remember Me / Forgot Password */}
                   <div className="flex items-center justify-between text-sm">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         className="w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500"
                       />
                       <span className="text-gray-600">Remember me</span>

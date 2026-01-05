@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { 
   LayoutDashboard,
@@ -16,8 +16,7 @@ import {
   Flame,
   Briefcase,
   TrendingUp,
-  FileText,
-  Award
+  FileText
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
@@ -30,7 +29,6 @@ import { ProfessionalNotifications } from "./ProfessionalNotifications";
 import { ProfessionalProfileContent } from "./ProfessionalProfileContent";
 import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
 import { ProfessionalAvailabilityContent } from "./ProfessionalAvailabilityContent";
-import { ProfessionalCertifications } from "./ProfessionalCertifications";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface ProfessionalDashboardProps {
@@ -38,12 +36,12 @@ interface ProfessionalDashboardProps {
   onNavigateToReports: () => void;
 }
 
-type ProfessionalView = "dashboard" | "profile" | "pricing" | "availability" | "bookings" | "payments" | "verification" | "certification" | "settings" | "notifications";
+type ProfessionalView = "dashboard" | "profile" | "pricing" | "availability" | "bookings" | "payments" | "verification" | "settings" | "notifications";
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
   const navigate = useNavigate();
   const { view } = useParams<{ view?: string }>();
-  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing", "availability", "bookings", "payments", "verification", "certification", "settings", "notifications"];
+  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing", "availability", "bookings", "payments", "verification", "settings", "notifications"];
   
   // Determine current view from URL parameter, default to "dashboard"
   const currentViewFromUrl: ProfessionalView = (view && validViews.includes(view as ProfessionalView)) 
@@ -52,13 +50,13 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
   
   const [activeMenu, setActiveMenu] = useState<ProfessionalView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
     setActiveMenu(currentViewFromUrl);
   }, [currentViewFromUrl]);
-
-  // Navigation handler that updates URL
+  
+  // Handler to update both state and URL
   const handleViewChange = (view: ProfessionalView) => {
     setActiveMenu(view);
     if (view === "dashboard") {
@@ -76,7 +74,6 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     { id: "bookings" as ProfessionalView, label: "Bookings", icon: Calendar },
     { id: "payments" as ProfessionalView, label: "Payments", icon: CreditCard },
     { id: "verification" as ProfessionalView, label: "Verification Status", icon: ShieldCheck },
-    { id: "certification" as ProfessionalView, label: "Certification", icon: Award },
     { id: "notifications" as ProfessionalView, label: "Notifications", icon: Bell },
     { id: "settings" as ProfessionalView, label: "Settings", icon: Settings },
   ];
@@ -161,8 +158,6 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         return <ProfessionalPricingContent />;
       case "availability":
         return <ProfessionalAvailabilityContent />;
-      case "certification":
-        return <ProfessionalCertifications />;
       default:
         return renderDashboard();
     }
@@ -435,13 +430,13 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
       </header>
 
       <div className="flex pt-14">
-        {/* Sidebar */}
+        {/* Sidebar - Fixed below header, never scrolls */}
         <aside
-          className={`fixed lg:sticky lg:translate-x-0 top-[56px] left-0 h-[calc(100vh-56px)] w-64 bg-white border-r shadow-lg lg:shadow-none transition-all duration-300 ease-in-out z-40 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          className={`fixed top-[56px] left-0 h-[calc(100vh-56px)] w-64 bg-white border-r shadow-lg lg:shadow-none transition-all duration-300 ease-in-out z-40 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           }`}
         >
-          <div className="p-6 h-full flex flex-col">
+          <div className="p-6 h-full flex flex-col overflow-y-auto">
             {/* Close button for mobile */}
             <button
               onClick={() => setSidebarOpen(false)}
@@ -472,8 +467,11 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-8">
+        {/* Spacer for fixed sidebar on large screens */}
+        <div className="hidden lg:block w-64 flex-shrink-0"></div>
+
+        {/* Main Content - Original layout, centered */}
+        <main className="flex-1 p-6 lg:p-8 w-full min-w-0">
           <div className="max-w-7xl mx-auto">
             {renderContent()}
           </div>

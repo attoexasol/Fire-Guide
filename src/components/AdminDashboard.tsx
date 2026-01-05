@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -19,9 +19,7 @@ import {
   Menu,
   X,
   LogOut,
-  Flame,
-  User,
-  Sparkles
+  Flame
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -35,45 +33,32 @@ import { AdminServices } from "./AdminServices";
 import { AdminSettings } from "./AdminSettings";
 import { AdminNotifications } from "./AdminNotifications";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
-import { getUserRole } from "../lib/auth";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "settings" | "notifications" | "experiences";
+type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "settings" | "notifications";
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications", "experiences"];
-  
-  // Check if we're on a services/add route - treat it as services view
-  const isServicesAddRoute = location.pathname === "/admin/dashboard/services/add";
+  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications"];
   
   // Determine current view from URL parameter, default to "dashboard"
-  // If on services/add route, treat it as services view
-  const currentViewFromUrl: AdminView = isServicesAddRoute
-    ? "services"
-    : (view && validViews.includes(view as AdminView)) 
+  const currentViewFromUrl: AdminView = (view && validViews.includes(view as AdminView)) 
     ? (view as AdminView) 
     : "dashboard";
   
   const [currentView, setCurrentView] = useState<AdminView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
+  
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
-    const newView = isServicesAddRoute
-      ? "services"
-      : (view && validViews.includes(view as AdminView)) 
-      ? (view as AdminView) 
-      : "dashboard";
-    setCurrentView(newView);
-  }, [view, isServicesAddRoute]);
-
-  // Navigation handler that updates URL
+    setCurrentView(currentViewFromUrl);
+  }, [currentViewFromUrl]);
+  
+  // Handler to update both state and URL
   const handleViewChange = (view: AdminView) => {
     setCurrentView(view);
     if (view === "dashboard") {
@@ -83,11 +68,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
-  // Get user role from localStorage (stored during login)
-  const userRole = getUserRole();
-
-  // Define all available admin menu items
-  const allAdminMenuItems = [
+  const menuItems = [
     { id: "dashboard" as AdminView, label: "Dashboard", icon: LayoutDashboard },
     { id: "customers" as AdminView, label: "Customers", icon: Users },
     { id: "professionals" as AdminView, label: "Professionals", icon: Briefcase },
@@ -95,14 +76,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: "payments" as AdminView, label: "Payments", icon: CreditCard },
     { id: "reviews" as AdminView, label: "Reviews", icon: Star },
     { id: "services" as AdminView, label: "Services", icon: FileText },
-    { id: "experiences" as AdminView, label: "Experiences", icon: Sparkles },
     { id: "notifications" as AdminView, label: "Notifications", icon: Bell },
     { id: "settings" as AdminView, label: "Settings", icon: Settings },
   ];
-
-  // Filter menu items based on role - for ADMIN role, show all admin menu items
-  // This structure allows for future role-based filtering (e.g., SUPER_ADMIN, MODERATOR, etc.)
-  const menuItems = userRole === "ADMIN" ? allAdminMenuItems : allAdminMenuItems;
 
   const renderDashboard = () => (
     <div className="space-y-6">
@@ -288,26 +264,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <AdminReviews />;
       case "services":
         return <AdminServices />;
-      case "experiences":
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-[20px] text-[#0A1A2F] mb-2">Experiences</h1>
-              <p className="text-[14px] text-gray-600">
-                Manage user experiences and testimonials
-              </p>
-            </div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center py-12 text-gray-500">
-                  <Sparkles className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg mb-2">Experiences Management</p>
-                  <p className="text-sm">This section is coming soon.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
       case "notifications":
         return <AdminNotifications />;
       case "settings":
@@ -318,7 +274,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0A1A2F] via-[#0d2238] to-[#0A1A2F]">
+    <div className="min-h-screen ">
       {/* Top Header - FIXED AND STICKY */}
       <header className="fixed top-0 left-0 right-0 bg-[#1a2942] border-b border-white/10 z-50">
         <div className="flex items-center justify-between px-6 h-14">
@@ -361,11 +317,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </header>
 
       <div className="flex pt-14">
-        {/* Sidebar - Mobile & Desktop with smooth animations */}
+        {/* Sidebar - Fixed below header, never scrolls */}
         <aside
-          className={`${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } fixed lg:sticky lg:translate-x-0 top-[56px] left-0 h-[calc(100vh-56px)] w-56 bg-white border-r border-gray-200 shadow-lg lg:shadow-none transition-all duration-300 ease-in-out z-40`}
+          className={`fixed top-[56px] left-0 h-[calc(100vh-56px)] w-56 bg-white border-r border-gray-200 shadow-lg lg:shadow-none transition-all duration-300 ease-in-out z-40 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
         >
           {/* Close button for mobile */}
           <button
@@ -375,45 +331,40 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <X className="w-5 h-5" />
           </button>
 
-          <nav className="p-4 space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    handleViewChange(item.id);
-                    if (window.innerWidth < 1024) {
-                      setSidebarOpen(false);
-                    }
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-                    isActive
-                      ? "bg-red-50 text-red-600"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-            
-            {/* Display user role */}
-            {userRole && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700">
-                  <User className="w-4 h-4" />
-                  <span className="capitalize">{userRole.toLowerCase()}</span>
-                </div>
-              </div>
-            )}
-          </nav>
+          <div className="h-full overflow-y-auto">
+            <nav className="p-4 space-y-1">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleViewChange(item.id);
+                      if (window.innerWidth < 1024) {
+                        setSidebarOpen(false);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? "bg-red-50 text-red-600"
+                        : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-8 bg-white">
+        {/* Spacer for fixed sidebar on large screens */}
+        <div className="hidden lg:block w-56 flex-shrink-0"></div>
+
+        {/* Main Content - Original layout, centered */}
+        <main className="flex-1 p-6 lg:p-8 bg-white w-full min-w-0">
           <div className="max-w-7xl mx-auto">
             {renderContent()}
           </div>

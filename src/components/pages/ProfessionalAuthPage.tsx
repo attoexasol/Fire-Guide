@@ -1,7 +1,8 @@
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ProfessionalAuth } from "../ProfessionalAuth";
-import { setUserInfo } from "../../lib/auth";
+import { setUserInfo, getUserRole } from "../../lib/auth";
 
 export default function ProfessionalAuthPage() {
   const navigate = useNavigate();
@@ -10,9 +11,36 @@ export default function ProfessionalAuthPage() {
   return (
     <ProfessionalAuth
       onAuthSuccess={(name: string) => {
-        setCurrentUser({ name, role: "professional" });
-        setUserInfo(name, "professional");
-        navigate("/professional/dashboard");
+        // Get user role from backend FIRST (stored during auth)
+        const userRole = getUserRole();
+        
+        // Set user info based on actual role from backend
+        if (userRole === "USER") {
+          setCurrentUser({ name, role: "customer" });
+          setUserInfo(name, "customer");
+        } else if (userRole === "PROFESSIONAL") {
+          setCurrentUser({ name, role: "professional" });
+          setUserInfo(name, "professional");
+        } else if (userRole === "ADMIN") {
+          setCurrentUser({ name, role: "admin" });
+          setUserInfo(name, "admin");
+        } else {
+          // Fallback to professional if role not found
+          setCurrentUser({ name, role: "professional" });
+          setUserInfo(name, "professional");
+        }
+        
+        // Redirect immediately based on role
+        if (userRole === "USER") {
+          navigate("/customer/dashboard", { replace: true });
+        } else if (userRole === "PROFESSIONAL") {
+          navigate("/professional/dashboard", { replace: true });
+        } else if (userRole === "ADMIN") {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          // Fallback to professional dashboard if role is not set
+          navigate("/professional/dashboard", { replace: true });
+        }
       }}
       onBack={() => navigate("/")}
       onNavigateHome={() => navigate("/")}

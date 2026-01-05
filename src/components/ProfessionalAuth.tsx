@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { toast } from "sonner";
+import { sendOtp, verifyOtp } from "../api/authService";
+import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole, setProfessionalId } from "../lib/auth";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface ProfessionalAuthProps {
@@ -50,13 +52,26 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
     }
     
     setIsLoading(true);
-    setTimeout(() => {
-      toast.success("OTP sent to your email!");
-      setStep("otp");
-      setTimer(60);
+    try {
+      const response = await sendOtp({
+        email: email.trim().toLowerCase(),
+      });
+
+      // Check if OTP was sent successfully
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        toast.success("OTP sent to your email!");
+        setStep("otp");
+        setTimer(60);
+        setTimeout(() => otpInputs.current[0]?.focus(), 100);
+      } else {
+        toast.error(response.message || response.error || "Failed to send OTP. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while sending OTP. Please try again.";
+      toast.error(errorMessage);
+    } finally {
       setIsLoading(false);
-      setTimeout(() => otpInputs.current[0]?.focus(), 100);
-    }, 1000);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -125,24 +140,144 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      if (isSignUp) {
-        toast.success("Welcome to Fire Guide! Your account is pending approval.");
-        onAuthSuccess(contactName || businessName || "Professional User");
+    try {
+      const otpCode = otp.join("");
+      const response = await verifyOtp({
+        email: email.trim().toLowerCase(),
+        otp: otpCode,
+      });
+
+      // Check if OTP was verified successfully
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        // Extract token from response (check multiple possible locations)
+        const responseAny = response as any;
+        const token = 
+          response.data?.api_token ||
+          response.data?.token ||
+          responseAny.token ||
+          responseAny.api_token ||
+          response.data?.data?.token ||
+          response.data?.data?.api_token;
+
+        if (token && typeof token === 'string' && token.trim().length > 0) {
+          // Store token securely
+          setAuthToken(token.trim());
+          // Store email for reference
+          setUserEmail(email.trim().toLowerCase());
+          
+          // Extract user name from response or use form data
+          const fullName = 
+            response.data?.full_name || 
+            response.data?.user_name || 
+            response.data?.name || 
+            (isSignUp ? (contactName || businessName) : contactName) ||
+            "Professional User";
+          
+          // Store user info
+          setUserInfo(fullName, "professional");
+          
+          // Store phone number if available
+          if (response.data?.phone) {
+            setUserPhone(response.data.phone);
+          } else if (isSignUp && phone) {
+            setUserPhone(phone);
+          }
+          
+          // Store role from backend response - check multiple possible locations
+          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
+          const role = response.data?.role || response.data?.data?.role;
+          if (role) {
+            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
+          }
+          
+          // Store professional_id if available in response
+          const professionalId = response.data?.professional?.id || response.data?.professional_id;
+          if (professionalId) {
+            setProfessionalId(professionalId);
+          }
+
+          // Success message and navigation
+          if (isSignUp) {
+            toast.success("Welcome to Fire Guide! Your account is pending approval.");
+          } else {
+            toast.success("Welcome back!");
+          }
+          
+          // Call onAuthSuccess which will navigate to dashboard
+          onAuthSuccess(fullName);
+        } else {
+          // OTP verified but no token returned - still proceed
+          const fullName = 
+            response.data?.full_name || 
+            response.data?.user_name || 
+            response.data?.name || 
+            (isSignUp ? (contactName || businessName) : contactName) ||
+            "Professional User";
+          
+          setUserEmail(email.trim().toLowerCase());
+          setUserInfo(fullName, "professional");
+          
+          // Store role from backend response - check multiple possible locations
+          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
+          const role = response.data?.role || response.data?.data?.role;
+          if (role) {
+            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
+          }
+          
+          // Store professional_id if available in response
+          const professionalId = response.data?.professional?.id || response.data?.professional_id;
+          if (professionalId) {
+            setProfessionalId(professionalId);
+          }
+          
+          if (isSignUp) {
+            toast.success("Welcome to Fire Guide! Your account is pending approval.");
+          } else {
+            toast.success("Welcome back!");
+          }
+          
+          onAuthSuccess(fullName);
+        }
       } else {
-        toast.success("Welcome back!");
-        onAuthSuccess(contactName || "Professional User");
+        toast.error(response.message || response.error || "Invalid OTP. Please try again.");
       }
-    }, 1500);
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while verifying OTP. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleResendOTP = () => {
+  const handleResendOTP = async () => {
     if (timer > 0) return;
-    setOtp(["", "", "", "", "", ""]);
-    setTimer(60);
-    toast.success("OTP resent to your email!");
-    otpInputs.current[0]?.focus();
+    
+    if (!email || !email.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await sendOtp({
+        email: email.trim().toLowerCase(),
+      });
+
+      // Check if OTP was sent successfully
+      if (response.success || response.status === "success" || response.status === true || (response.data && !response.error)) {
+        setOtp(["", "", "", "", "", ""]);
+        setTimer(60);
+        toast.success("OTP resent to your email!");
+        otpInputs.current[0]?.focus();
+      } else {
+        toast.error(response.message || response.error || "Failed to resend OTP. Please try again.");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.error || "An error occurred while resending OTP. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const isOtpComplete = otp.every(digit => digit !== "");
@@ -625,7 +760,7 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
                           {otp.map((digit, index) => (
                             <Input
                               key={index}
-                              ref={(el) => (otpInputs.current[index] = el)}
+                              ref={(el) => { otpInputs.current[index] = el; return; }}
                               type="text"
                               inputMode="numeric"
                               maxLength={1}

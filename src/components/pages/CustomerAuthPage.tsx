@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { CustomerAuth } from "../CustomerAuth";
-import { setUserInfo } from "../../lib/auth";
+import { setUserInfo, getUserRole } from "../../lib/auth";
 
 export default function CustomerAuthPage() {
   const navigate = useNavigate();
@@ -16,12 +16,29 @@ export default function CustomerAuthPage() {
   return (
     <CustomerAuth
       onAuthSuccess={(name: string) => {
-        setIsCustomerLoggedIn(true);
-        setCurrentUser({ name, role: "customer" });
-        setUserInfo(name, "customer");
+        // Get user role from backend FIRST (stored during auth)
+        const userRole = getUserRole();
         
-        // Add demo bookings and payments for testing
-        if (customerBookings.length === 0) {
+        // Set user info based on actual role from backend
+        if (userRole === "USER") {
+          setIsCustomerLoggedIn(true);
+          setCurrentUser({ name, role: "customer" });
+          setUserInfo(name, "customer");
+        } else if (userRole === "PROFESSIONAL") {
+          setCurrentUser({ name, role: "professional" });
+          setUserInfo(name, "professional");
+        } else if (userRole === "ADMIN") {
+          setCurrentUser({ name, role: "admin" });
+          setUserInfo(name, "admin");
+        } else {
+          // Fallback to customer if role not found
+          setIsCustomerLoggedIn(true);
+          setCurrentUser({ name, role: "customer" });
+          setUserInfo(name, "customer");
+        }
+        
+        // Add demo bookings and payments for testing (only for USER role)
+        if (userRole === "USER" && customerBookings.length === 0) {
           const demoBookings = [
             {
               id: "demo-1",
@@ -112,7 +129,18 @@ export default function CustomerAuthPage() {
           setCustomerBookings(demoBookings);
           setCustomerPayments(demoPayments);
         }
-        navigate("/customer/dashboard");
+        
+        // Redirect immediately based on role
+        if (userRole === "USER") {
+          navigate("/customer/dashboard", { replace: true });
+        } else if (userRole === "PROFESSIONAL") {
+          navigate("/professional/dashboard", { replace: true });
+        } else if (userRole === "ADMIN") {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          // Fallback to customer dashboard if role is not set
+          navigate("/customer/dashboard", { replace: true });
+        }
       }}
       onBack={() => navigate("/")}
     />

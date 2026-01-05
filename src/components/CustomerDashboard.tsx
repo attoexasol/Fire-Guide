@@ -1,38 +1,15 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
-import { ProfessionalCertifications } from "./ProfessionalCertifications";
-import { AddCertification } from "./AddCertification";
-import { EditCertification } from "./EditCertification";
-import { Addresses } from "./Addresses";
-import { AddAddress } from "./AddAddress";
-import { EditAddress } from "./EditAddress";
-import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
-import { AddPricing } from "./AddPricing";
-import { EditPricing } from "./EditPricing";
-import { AvailableDatesContent } from "./AvailableDatesContent";
-import { AddAvailableDate } from "./AddAvailableDate";
-import { EditAvailableDate } from "./EditAvailableDate";
-import { InsuranceContent } from "./InsuranceContent";
-import { AddInsurance } from "./AddInsurance";
-import { EditInsurance } from "./EditInsurance";
-import { AddSpecialization } from "./AddSpecialization";
-import { EditSpecialization } from "./EditSpecialization";
-import { EditService } from "./EditService";
-import { AddService } from "./AddService";
-import { AddExperience } from "./AddExperience";
-import { EditExperience } from "./EditExperience";
-import { AddReview } from "./AddReview";
-import { EditReview } from "./EditReview";
-import {
-  Flame,
-  LogOut,
-  User,
-  Calendar,
-  CreditCard,
+import { 
+  Flame, 
+  LogOut, 
+  User, 
+  Calendar, 
+  CreditCard, 
   Home,
   Bell,
   Settings,
@@ -47,21 +24,11 @@ import {
   Plus,
   Edit,
   Trash2,
-  Star,
-  Award,
-  Loader2,
-  DollarSign,
-  CalendarCheck,
-  Tag,
-  ClipboardCheck,
-  DoorOpen,
-  Lightbulb,
-  FileText,
-  Save,
-  ArrowLeft,
-  Sparkles
+  Star
 } from "lucide-react";
 import { Badge } from "./ui/badge";
+import { Booking } from "../App";
+import { Payment } from "../App";
 import {
   Dialog,
   DialogContent,
@@ -70,21 +37,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Booking } from "../App";
-import { Payment } from "../App";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
-import { CardHeader, CardTitle } from "./ui/card";
-import { toast } from "sonner";
-import { updateUser, uploadProfileImage } from "../api/authService";
-import { fetchAddresses, deleteAddress } from "../api/addressService";
-import { getApiToken, getUserEmail, getUserFullName, getUserPhone, setUserFullName, setUserPhone, getUserProfileImage, setUserProfileImage, getUserRole } from "../lib/auth";
-import { fetchSpecializations, deleteSpecialization, SpecializationItem } from "../api/specializationsService";
-import { fetchServices, ServiceResponse, createService, CreateServiceRequest, updateService, UpdateServiceRequest, deleteService, DeleteServiceRequest } from "../api/servicesService";
-import { fetchExperiences, ExperienceResponse, deleteExperience } from "../api/experiencesService";
-import { fetchReviews, ReviewResponse, deleteReview } from "../api/reviewsService";
-import { ServiceCard, Service } from "./ServiceCard";
+import { toast } from "sonner@2.0.3";
+import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -93,264 +49,36 @@ interface CustomerDashboardProps {
   payments: Payment[];
   onUpdateBooking: (bookingId: string, updates: Partial<Booking>) => void;
   onDeleteBooking: (bookingId: string) => void;
-  onNavigateHome?: () => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "certification" | "addresses" | "settings" | "notifications" | "pricing" | "available_date" | "insurance" | "specializations" | "services" | "experiences" | "reviews";
+type CustomerView = "overview" | "bookings" | "payments" | "profile" | "settings" | "notifications";
 
-export function CustomerDashboard({
-  onLogout,
+export function CustomerDashboard({ 
+  onLogout, 
   onBookNewService,
   bookings,
   payments,
   onUpdateBooking,
-  onDeleteBooking,
-  onNavigateHome
+  onDeleteBooking
 }: CustomerDashboardProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "certification", "addresses", "settings", "notifications", "pricing", "available_date", "insurance", "specializations", "services", "experiences", "reviews"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "settings", "notifications"];
   
-  // Check if we're on the add certification route
-  const isAddCertificationRoute = location.pathname === "/customer/dashboard/certification/add";
-  // Check if we're on the edit certification route
-  const isEditCertificationRoute = location.pathname.startsWith("/customer/dashboard/certification/edit/");
-  // Check if we're on the add address route (child of profile)
-  const isAddAddressRoute = location.pathname === "/customer/dashboard/profile/addresses/add";
-  // Check if we're on the edit address route (child of profile)
-  const isEditAddressRoute = location.pathname.startsWith("/customer/dashboard/profile/addresses/edit/");
-  // Check if we're on the add pricing route
-  const isAddPricingRoute = location.pathname === "/customer/dashboard/pricing/add";
-  // Check if we're on the edit pricing route
-  const isEditPricingRoute = location.pathname.startsWith("/customer/dashboard/pricing/edit/");
-  // Check if we're on the add available date route
-  const isAddAvailableDateRoute = location.pathname === "/customer/dashboard/available_date/add";
-  // Check if we're on the edit available date route
-  const isEditAvailableDateRoute = location.pathname.startsWith("/customer/dashboard/available_date/edit/");
-  // Check if we're on the add insurance route
-  const isAddInsuranceRoute = location.pathname === "/customer/dashboard/insurance/add";
-  // Check if we're on the edit insurance route
-  const isEditInsuranceRoute = location.pathname.startsWith("/customer/dashboard/insurance/edit/");
-  // Check if we're on the add specialization route
-  const isAddSpecializationRoute = location.pathname === "/customer/dashboard/specializations/add";
-  // Check if we're on the edit specialization route
-  const isEditSpecializationRoute = location.pathname.startsWith("/customer/dashboard/specializations/edit/");
-  // Check if we're on the add service route
-  const isAddServiceRoute = location.pathname === "/customer/dashboard/services/add";
-  // Check if we're on the edit service route
-  const isEditServiceRoute = location.pathname.startsWith("/customer/dashboard/services/edit/");
-  // Check if we're on the add experience route
-  const isAddExperienceRoute = location.pathname === "/customer/dashboard/experiences/add";
-  // Check if we're on the edit experience route
-  const isEditExperienceRoute = location.pathname.startsWith("/customer/dashboard/experiences/edit/");
-  // Check if we're on the add review route
-  const isAddReviewRoute = location.pathname === "/customer/dashboard/reviews/add";
-  // Check if we're on the edit review route
-  const isEditReviewRoute = location.pathname.startsWith("/customer/dashboard/reviews/edit/");
-  
-  // Determine current view from URL parameter or pathname
-    // If on /certification/add or /certification/edit route, treat it as certification view
-    // If on /profile/addresses/add or /profile/addresses/edit route, treat it as profile view
-    // If on /pricing/add or /pricing/edit route, treat it as pricing view
-    // If on /available_date/add or /available_date/edit route, treat it as available_date view
-    // If on /insurance/add or /insurance/edit route, treat it as insurance view
-    // If on /specializations/add or /specializations/edit route, treat it as specializations view
-    // If on /services/add route, treat it as services view
-    // If on /experiences/add or /experiences/edit route, treat it as experiences view
-    // If on /reviews/add or /reviews/edit route, treat it as reviews view
-    const currentViewFromUrl: CustomerView = isAddCertificationRoute || isEditCertificationRoute
-      ? "certification"
-      : isAddAddressRoute || isEditAddressRoute
-      ? "profile"
-      : isAddPricingRoute || isEditPricingRoute
-      ? "pricing"
-      : isAddAvailableDateRoute || isEditAvailableDateRoute
-      ? "available_date"
-      : isAddInsuranceRoute || isEditInsuranceRoute
-      ? "insurance"
-      : isAddSpecializationRoute || isEditSpecializationRoute
-      ? "specializations"
-      : isAddServiceRoute || isEditServiceRoute
-      ? "services"
-      : isAddExperienceRoute || isEditExperienceRoute
-      ? "experiences"
-      : isAddReviewRoute || isEditReviewRoute
-      ? "reviews"
-      : (view && validViews.includes(view as CustomerView))
-        ? (view as CustomerView)
-        : "overview";
+  // Determine current view from URL parameter, default to "overview"
+  const currentViewFromUrl: CustomerView = (view && validViews.includes(view as CustomerView)) 
+    ? (view as CustomerView) 
+    : "overview";
   
   const [currentView, setCurrentView] = useState<CustomerView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
+  
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
-    const newView = isAddCertificationRoute || isEditCertificationRoute
-      ? "certification"
-      : isAddAddressRoute || isEditAddressRoute
-      ? "profile"
-      : isAddPricingRoute || isEditPricingRoute
-      ? "pricing"
-      : isAddAvailableDateRoute || isEditAvailableDateRoute
-      ? "available_date"
-      : isAddInsuranceRoute || isEditInsuranceRoute
-      ? "insurance"
-      : isAddSpecializationRoute || isEditSpecializationRoute
-      ? "specializations"
-      : isAddServiceRoute || isEditServiceRoute
-      ? "services"
-      : isAddExperienceRoute || isEditExperienceRoute
-      ? "experiences"
-      : isAddReviewRoute || isEditReviewRoute
-      ? "reviews"
-      : (view && validViews.includes(view as CustomerView))
-        ? (view as CustomerView)
-        : "overview";
-    setCurrentView(newView);
-  }, [view, isAddCertificationRoute, isEditCertificationRoute, isAddAddressRoute, isEditAddressRoute, isAddPricingRoute, isEditPricingRoute, isAddAvailableDateRoute, isEditAvailableDateRoute, isAddInsuranceRoute, isEditInsuranceRoute, isAddSpecializationRoute, isEditSpecializationRoute, isAddServiceRoute, isEditServiceRoute, isAddExperienceRoute, isEditExperienceRoute, isAddReviewRoute, isEditReviewRoute]);
-
-  // Fetch addresses when profile view is shown
-  useEffect(() => {
-    const loadAddresses = async () => {
-      if (currentView === "profile" && !isAddAddressRoute && !isEditAddressRoute) {
-        const token = getApiToken();
-        if (!token) {
-          return;
-        }
-
-        setIsLoadingAddresses(true);
-        try {
-          const response = await fetchAddresses(token);
-          if (response.status === "success" && response.data) {
-            // Map API response to local address format
-            const mappedAddresses = response.data.map((addr) => ({
-              id: addr.id,
-              label: addr.tag,
-              street: addr.adress_line,
-              city: addr.city,
-              postcode: addr.postal_code,
-              country: addr.country,
-              isDefault: addr.is_default_address === 1
-            }));
-            setAddresses(mappedAddresses);
-          }
-        } catch (error: any) {
-          console.error('Failed to load addresses:', error);
-          // Don't show error toast on initial load, just log it
-        } finally {
-          setIsLoadingAddresses(false);
-        }
-      }
-    };
-
-    loadAddresses();
-  }, [currentView, isAddAddressRoute, isEditAddressRoute]);
-
-  // Fetch specializations when specializations view is shown
-  useEffect(() => {
-    const loadSpecializations = async () => {
-      // Only load if we're on the main specializations view (not on add/edit routes)
-      if (currentView === "specializations" && !isAddSpecializationRoute && !isEditSpecializationRoute) {
-        setIsLoadingSpecializations(true);
-        try {
-          const data = await fetchSpecializations();
-          setSpecializations(data);
-        } catch (error: any) {
-          console.error('Failed to load specializations:', error);
-          toast.error(error.message || 'Failed to load specializations');
-        } finally {
-          setIsLoadingSpecializations(false);
-        }
-      }
-    };
-
-    loadSpecializations();
-  }, [currentView, isAddSpecializationRoute, isEditSpecializationRoute]);
-
-  // Fetch services when services view is shown
-  useEffect(() => {
-    const loadServices = async () => {
-      if (currentView === "services" && !isAddServiceRoute && !isEditServiceRoute) {
-        setIsLoadingServices(true);
-        try {
-          const apiServices = await fetchServices();
-          // Map API services to Service interface
-          const defaultIcons = [ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb];
-          const colorOptions = ["red", "blue", "orange", "green", "purple"];
-          
-          const mappedServices: Service[] = apiServices.map((apiService, index) => {
-            const iconIndex = index % defaultIcons.length;
-            const colorIndex = index % colorOptions.length;
-            return {
-              id: apiService.id,
-              name: apiService.service_name || "Service",
-              icon: apiService.icon || undefined,
-              iconComponent: defaultIcons[iconIndex],
-              description: apiService.description || "No description available",
-              basePrice: apiService.price ? `£${parseFloat(apiService.price).toFixed(2)}` : "£0.00",
-              active: apiService.status?.toUpperCase() === "ACTIVE",
-              popular: false,
-              color: colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple"
-            };
-          });
-          setServices(mappedServices);
-        } catch (error: any) {
-          console.error('Failed to load services:', error);
-          toast.error(error.message || 'Failed to load services');
-          setServices([]);
-        } finally {
-          setIsLoadingServices(false);
-        }
-      }
-    };
-
-    loadServices();
-  }, [currentView, isAddServiceRoute, isEditServiceRoute]);
-
-  // Fetch experiences when experiences view is shown
-  useEffect(() => {
-    const loadExperiences = async () => {
-      if (currentView === "experiences" && !isAddExperienceRoute && !isEditExperienceRoute) {
-        setIsLoadingExperiences(true);
-        try {
-          const data = await fetchExperiences();
-          setExperiences(data);
-        } catch (error: any) {
-          console.error('Failed to load experiences:', error);
-          toast.error(error.message || 'Failed to load experiences');
-          setExperiences([]);
-        } finally {
-          setIsLoadingExperiences(false);
-        }
-      }
-    };
-
-    loadExperiences();
-  }, [currentView, isAddExperienceRoute, isEditExperienceRoute, location.pathname]);
-
-  // Fetch reviews when reviews view is shown
-  useEffect(() => {
-    const loadReviews = async () => {
-      if (currentView === "reviews" && !isAddReviewRoute && !isEditReviewRoute) {
-        setIsLoadingReviews(true);
-        try {
-          const data = await fetchReviews();
-          setReviews(data);
-        } catch (error: any) {
-          console.error('Failed to load reviews:', error);
-          toast.error(error.message || 'Failed to load reviews');
-          setReviews([]);
-        } finally {
-          setIsLoadingReviews(false);
-        }
-      }
-    };
-
-    loadReviews();
-  }, [currentView, isAddReviewRoute, isEditReviewRoute, location.pathname]);
-
-  // Navigation handler that updates URL
+    setCurrentView(currentViewFromUrl);
+  }, [currentViewFromUrl]);
+  
+  // Handler to update both state and URL
   const handleViewChange = (view: CustomerView) => {
     setCurrentView(view);
     if (view === "overview") {
@@ -359,69 +87,41 @@ export function CustomerDashboard({
       navigate(`/customer/dashboard/${view}`, { replace: true });
     }
   };
-
+  
   // Address management state
-  const [addresses, setAddresses] = useState<Array<{
-    id: number;
-    label: string;
-    street: string;
-    city: string;
-    postcode: string;
-    country: string;
-    isDefault: boolean;
-  }>>([]);
-  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [addressToDelete, setAddressToDelete] = useState<number | null>(null);
-  const [specializations, setSpecializations] = useState<SpecializationItem[]>([]);
-  const [isLoadingSpecializations, setIsLoadingSpecializations] = useState(false);
-  const [deleteSpecializationModalOpen, setDeleteSpecializationModalOpen] = useState(false);
-  const [specializationToDelete, setSpecializationToDelete] = useState<SpecializationItem | null>(null);
-  const [isDeletingSpecialization, setIsDeletingSpecialization] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
-  const [isLoadingServices, setIsLoadingServices] = useState(false);
-  const [addServiceForm, setAddServiceForm] = useState({
-    service_name: "",
-    type: "DELIVERY",
-    status: "ACTIVE",
-    price: "",
-    description: ""
+  const [addresses, setAddresses] = useState([
+    {
+      id: 1,
+      label: "Home",
+      street: "123 High Street",
+      city: "London",
+      postcode: "SW1A 1AA",
+      country: "United Kingdom",
+      isDefault: true
+    },
+    {
+      id: 2,
+      label: "Office",
+      street: "456 Business Park",
+      city: "Manchester",
+      postcode: "M1 1AA",
+      country: "United Kingdom",
+      isDefault: false
+    }
+  ]);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any>(null);
+  const [addressForm, setAddressForm] = useState({
+    label: "",
+    street: "",
+    city: "",
+    postcode: "",
+    country: "United Kingdom"
   });
-  const [isSubmittingService, setIsSubmittingService] = useState(false);
-  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
-  const [deleteServiceModalOpen, setDeleteServiceModalOpen] = useState(false);
-  const [isDeletingService, setIsDeletingService] = useState(false);
-  const [experiences, setExperiences] = useState<ExperienceResponse[]>([]);
-  const [isLoadingExperiences, setIsLoadingExperiences] = useState(false);
-  const [experienceToDelete, setExperienceToDelete] = useState<ExperienceResponse | null>(null);
-  const [deleteExperienceModalOpen, setDeleteExperienceModalOpen] = useState(false);
-  const [isDeletingExperience, setIsDeletingExperience] = useState(false);
-  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
-  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
-  const [reviewToDelete, setReviewToDelete] = useState<ReviewResponse | null>(null);
-  const [deleteReviewModalOpen, setDeleteReviewModalOpen] = useState(false);
-  const [isDeletingReview, setIsDeletingReview] = useState(false);
 
-  // Get user data from localStorage
-  const storedFullName = getUserFullName();
-  const storedEmail = getUserEmail();
-  const storedPhone = getUserPhone();
-  const storedProfileImage = getUserProfileImage();
-
-  // Use stored data or fallback to defaults
-  const customerName = storedFullName || "User";
-  const customerEmail = storedEmail || "user@example.com";
-  const customerPhone = storedPhone || "";
-
-  // Profile form state - initialize with stored user data
-  const [profileForm, setProfileForm] = useState({
-    full_name: customerName,
-    phone: customerPhone
-  });
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(storedProfileImage);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Mock customer data
+  const customerName = "John Smith";
+  const customerEmail = "john.smith@example.com";
 
   // Calculate stats from real data
   const upcomingBookings = bookings.filter(b => b.status === "upcoming").length;
@@ -432,56 +132,32 @@ export function CustomerDashboard({
 
   // Address management handlers
   const handleAddAddress = () => {
-    navigate("/customer/dashboard/profile/addresses/add");
+    setEditingAddress(null);
+    setAddressForm({
+      label: "",
+      street: "",
+      city: "",
+      postcode: "",
+      country: "United Kingdom"
+    });
+    setAddressModalOpen(true);
   };
 
   const handleEditAddress = (address: any) => {
-    navigate(`/customer/dashboard/profile/addresses/edit/${address.id}`);
+    setEditingAddress(address);
+    setAddressForm({
+      label: address.label,
+      street: address.street,
+      city: address.city,
+      postcode: address.postcode,
+      country: address.country
+    });
+    setAddressModalOpen(true);
   };
 
   const handleDeleteAddress = (id: number) => {
-    setAddressToDelete(id);
-    setDeleteModalOpen(true);
-  };
-
-  const confirmDeleteAddress = async () => {
-    if (!addressToDelete) {
-      return;
-    }
-
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Please log in to delete address.");
-      setDeleteModalOpen(false);
-      setAddressToDelete(null);
-      return;
-    }
-
-    try {
-      const response = await deleteAddress({
-        api_token: token,
-        id: addressToDelete
-      });
-
-      if (response.status === "success" || response.success || (response.message && !response.error)) {
-        // Remove from local state
-        setAddresses(addresses.filter(addr => addr.id !== addressToDelete));
-        toast.success(response.message || "Address deleted successfully");
-      } else {
-        toast.error(response.message || response.error || "Failed to delete address. Please try again.");
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || error?.error || "An error occurred while deleting address. Please try again.";
-      toast.error(errorMessage);
-    } finally {
-      setDeleteModalOpen(false);
-      setAddressToDelete(null);
-    }
-  };
-
-  const cancelDeleteAddress = () => {
-    setDeleteModalOpen(false);
-    setAddressToDelete(null);
+    setAddresses(addresses.filter(addr => addr.id !== id));
+    toast.success("Address deleted successfully");
   };
 
   const handleSetDefault = (id: number) => {
@@ -492,141 +168,50 @@ export function CustomerDashboard({
     toast.success("Default address updated");
   };
 
-
-  const handleUpdateProfile = async () => {
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Please log in to update your profile.");
+  const handleSaveAddress = () => {
+    if (!addressForm.label || !addressForm.street || !addressForm.city || !addressForm.postcode) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
-    if (!profileForm.full_name || !profileForm.phone) {
-      toast.error("Please fill in all required fields.");
-      return;
+    if (editingAddress) {
+      // Update existing address
+      setAddresses(addresses.map(addr =>
+        addr.id === editingAddress.id
+          ? { ...addr, ...addressForm }
+          : addr
+      ));
+      toast.success("Address updated successfully");
+    } else {
+      // Add new address
+      const newAddress = {
+        id: Math.max(...addresses.map(a => a.id), 0) + 1,
+        ...addressForm,
+        isDefault: addresses.length === 0
+      };
+      setAddresses([...addresses, newAddress]);
+      toast.success("Address added successfully");
     }
 
-    setIsUpdatingProfile(true);
-    try {
-      const response = await updateUser({
-        api_token: token,
-        full_name: profileForm.full_name,
-        phone: profileForm.phone
-      });
-
-      if (response.success || response.status === "success" || (response.data && !response.error)) {
-        // Update localStorage with the new values
-        setUserFullName(profileForm.full_name);
-        setUserPhone(profileForm.phone);
-        toast.success("Profile updated successfully!");
-      } else {
-        toast.error(response.message || response.error || "Failed to update profile. Please try again.");
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || error?.error || "An error occurred while updating your profile. Please try again.";
-      toast.error(errorMessage);
-    } finally {
-      setIsUpdatingProfile(false);
-    }
+    setAddressModalOpen(false);
+    setEditingAddress(null);
+    setAddressForm({
+      label: "",
+      street: "",
+      city: "",
+      postcode: "",
+      country: "United Kingdom"
+    });
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please select a valid image file.");
-      return;
-    }
-
-    // Validate file size (e.g., max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      toast.error("Image size must be less than 5MB.");
-      return;
-    }
-
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Please log in to upload a profile image.");
-      return;
-    }
-
-    setIsUploadingImage(true);
-    try {
-      const response = await uploadProfileImage({
-        api_token: token,
-        file: file
-      });
-
-      if (response.status === true && response.image_url) {
-        // Update state and localStorage
-        setProfileImage(response.image_url);
-        setUserProfileImage(response.image_url);
-        toast.success(response.message || "Profile image updated successfully!");
-      } else {
-        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || error?.error || "An error occurred while uploading your profile image. Please try again.";
-      toast.error(errorMessage);
-    } finally {
-      setIsUploadingImage(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-
-
-  const handleChangePhotoClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  // Get user role from backend (checks both user_role and fireguide_user_role)
-  const userRole = getUserRole();
-
-  // Define customer menu items
-  const customerMenuItems = [
+  const menuItems = [
     { id: "overview" as CustomerView, label: "Overview", icon: LayoutDashboard },
     { id: "bookings" as CustomerView, label: "My Bookings", icon: Calendar },
     { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
     { id: "profile" as CustomerView, label: "My Profile", icon: User },
-    { id: "addresses" as CustomerView, label: "Addresses", icon: MapPin },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
   ];
-
-  // Define professional menu items
-  const professionalMenuItems = [
-    { id: "overview" as CustomerView, label: "Dashboard", icon: LayoutDashboard },
-    { id: "bookings" as CustomerView, label: "Bookings", icon: Calendar },
-    { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
-    { id: "profile" as CustomerView, label: "Profile", icon: User },
-    { id: "addresses" as CustomerView, label: "Addresses", icon: MapPin },
-    { id: "certification" as CustomerView, label: "Certification", icon: Award },
-    { id: "pricing" as CustomerView, label: "Pricing", icon: DollarSign },
-    { id: "available_date" as CustomerView, label: "Available Date", icon: CalendarCheck },
-    { id: "insurance" as CustomerView, label: "Insurance", icon: Shield },
-    { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
-    { id: "settings" as CustomerView, label: "Settings", icon: Settings },
-  ];
-
-  // Select menu items based on role
-  let menuItems = userRole === "PROFESSIONAL" ? professionalMenuItems : customerMenuItems;
-  
-  // Add Service Management section for Admin users
-  if (userRole === "ADMIN") {
-    menuItems = [
-      ...menuItems,
-      { id: "specializations" as CustomerView, label: "Specializations", icon: Tag },
-      { id: "services" as CustomerView, label: "Service", icon: FileText },
-      { id: "experiences" as CustomerView, label: "Experiences", icon: Sparkles },
-      { id: "reviews" as CustomerView, label: "Review", icon: Star }
-    ];
-  }
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -635,7 +220,7 @@ export function CustomerDashboard({
           <h1 className="text-2xl md:text-3xl text-[#0A1A2F] mb-2">Welcome back, {customerName}!</h1>
           <p className="text-gray-600 text-sm md:text-base">Here's an overview of your fire safety services.</p>
         </div>
-        <Button
+        <Button 
           onClick={onBookNewService}
           className="bg-red-600 hover:bg-red-700 w-full md:w-auto h-12 md:h-10"
         >
@@ -646,7 +231,7 @@ export function CustomerDashboard({
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <Card
+        <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
           onClick={() => handleViewChange("bookings")}
         >
@@ -667,7 +252,7 @@ export function CustomerDashboard({
           </CardContent>
         </Card>
 
-        <Card
+        <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
           onClick={() => handleViewChange("bookings")}
         >
@@ -688,7 +273,7 @@ export function CustomerDashboard({
           </CardContent>
         </Card>
 
-        <Card
+        <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
           onClick={() => handleViewChange("payments")}
         >
@@ -716,8 +301,8 @@ export function CustomerDashboard({
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[#0A1A2F]">Upcoming Bookings</h3>
-              <Button
-                variant="link"
+              <Button 
+                variant="link" 
                 className="text-red-600 p-0 h-auto"
                 onClick={() => handleViewChange("bookings")}
               >
@@ -728,7 +313,7 @@ export function CustomerDashboard({
               <div className="text-center py-8">
                 <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-600 mb-4">No upcoming bookings</p>
-                <Button
+                <Button 
                   onClick={onBookNewService}
                   className="bg-red-600 hover:bg-red-700"
                 >
@@ -741,8 +326,8 @@ export function CustomerDashboard({
                   .filter(b => b.status === "upcoming")
                   .slice(0, 3)
                   .map((booking) => (
-                    <div
-                      key={booking.id}
+                    <div 
+                      key={booking.id} 
                       className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                       onClick={() => handleViewChange("bookings")}
                     >
@@ -824,42 +409,13 @@ export function CustomerDashboard({
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center gap-6 mb-6">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-red-100 flex items-center justify-center">
-                {profileImage ? (
-                  <img
-                    src={profileImage}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User className="w-12 h-12 text-red-600" />
-                )}
-              </div>
-              {isUploadingImage && (
-                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                  <div className="text-white text-xs">Uploading...</div>
-                </div>
-              )}
+            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
+              <User className="w-12 h-12 text-red-600" />
             </div>
             <div>
-              <h2 className="text-2xl text-[#0A1A2F] mb-1">{profileForm.full_name || customerName}</h2>
+              <h2 className="text-2xl text-[#0A1A2F] mb-1">{customerName}</h2>
               <p className="text-gray-600">{customerEmail}</p>
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <Button
-                variant="outline"
-                className="mt-3"
-                onClick={handleChangePhotoClick}
-                disabled={isUploadingImage}
-              >
-                {isUploadingImage ? "Uploading..." : "Change Photo"}
-              </Button>
+              <Button variant="outline" className="mt-3">Change Photo</Button>
             </div>
           </div>
 
@@ -867,30 +423,26 @@ export function CustomerDashboard({
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Full Name</label>
-                <input
-                  type="text"
+                <input 
+                  type="text" 
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  value={profileForm.full_name}
-                  onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
+                  defaultValue={customerName}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Email Address</label>
-                <input
-                  type="email"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50"
-                  value={customerEmail}
-                  disabled
-                  readOnly
+                <input 
+                  type="email" 
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  defaultValue={customerEmail}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Phone Number</label>
-                <input
-                  type="tel"
+                <input 
+                  type="tel" 
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  value={profileForm.phone}
-                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  defaultValue="07123 456789"
                 />
               </div>
               <div>
@@ -904,20 +456,8 @@ export function CustomerDashboard({
             </div>
 
             <div className="pt-4 flex gap-3">
-              <Button
-                className="bg-red-600 hover:bg-red-700"
-                onClick={handleUpdateProfile}
-                disabled={isUpdatingProfile}
-              >
-                {isUpdatingProfile ? "Saving..." : "Save Changes"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setProfileForm({ full_name: customerName, phone: customerPhone })}
-                disabled={isUpdatingProfile}
-              >
-                Cancel
-              </Button>
+              <Button className="bg-red-600 hover:bg-red-700">Save Changes</Button>
+              <Button variant="outline">Cancel</Button>
             </div>
           </div>
         </CardContent>
@@ -928,25 +468,20 @@ export function CustomerDashboard({
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl text-[#0A1A2F]">Saved Addresses</h3>
-            <Button
+            <Button 
               onClick={handleAddAddress}
               className="bg-red-600 hover:bg-red-700"
             >
               <Plus className="w-4 h-4 mr-2" />
-              New Address
+              Add New Address
             </Button>
           </div>
 
-          {isLoadingAddresses ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-red-600" />
-              <span className="ml-3 text-gray-600">Loading addresses...</span>
-            </div>
-          ) : addresses.length === 0 ? (
+          {addresses.length === 0 ? (
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 mb-4">No saved addresses yet</p>
-              <Button
+              <Button 
                 variant="outline"
                 onClick={handleAddAddress}
               >
@@ -957,8 +492,8 @@ export function CustomerDashboard({
           ) : (
             <div className="space-y-4">
               {addresses.map((address) => (
-                <div
-                  key={address.id}
+                <div 
+                  key={address.id} 
                   className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:border-red-300 transition-colors"
                 >
                   <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -985,29 +520,29 @@ export function CustomerDashboard({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEditAddress(address)}
-                      title="Edit address"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
                     {!address.isDefault && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleSetDefault(address.id)}
-                        title="Set as default"
-                      >
-                        <Star className="w-4 h-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSetDefault(address.id)}
+                          title="Set as default"
+                        >
+                          <Star className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAddress(address.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteAddress(address.id)}
-                      className="text-red-600 hover:text-red-700"
-                      title="Delete address"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 </div>
               ))}
@@ -1015,6 +550,100 @@ export function CustomerDashboard({
           )}
         </CardContent>
       </Card>
+
+      {/* Address Modal */}
+      <Dialog open={addressModalOpen} onOpenChange={setAddressModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-[#0A1A2F]">
+              {editingAddress ? "Edit Address" : "Add New Address"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingAddress ? "Update your address details" : "Add a new address to your profile"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="address-label">Address Label *</Label>
+              <Input
+                id="address-label"
+                value={addressForm.label}
+                onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
+                placeholder="e.g., Home, Office, Warehouse"
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="address-street">Street Address *</Label>
+              <Input
+                id="address-street"
+                value={addressForm.street}
+                onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                placeholder="123 Main Street"
+                className="mt-2"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="address-city">City *</Label>
+                <Input
+                  id="address-city"
+                  value={addressForm.city}
+                  onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                  placeholder="London"
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="address-postcode">Postcode *</Label>
+                <Input
+                  id="address-postcode"
+                  value={addressForm.postcode}
+                  onChange={(e) => setAddressForm({ ...addressForm, postcode: e.target.value })}
+                  placeholder="SW1A 1AA"
+                  className="mt-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="address-country">Country *</Label>
+              <select
+                id="address-country"
+                value={addressForm.country}
+                onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mt-2"
+              >
+                <option>United Kingdom</option>
+                <option>Ireland</option>
+                <option>Scotland</option>
+                <option>Wales</option>
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setAddressModalOpen(false);
+                setEditingAddress(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleSaveAddress}
+            >
+              {editingAddress ? "Update Address" : "Save Address"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -1114,7 +743,7 @@ export function CustomerDashboard({
               <h1 className="text-3xl text-[#0A1A2F] mb-2">My Bookings</h1>
               <p className="text-gray-600">View and manage all your fire safety service bookings.</p>
             </div>
-            <CustomerBookings
+            <CustomerBookings 
               bookings={bookings}
               onUpdateBooking={onUpdateBooking}
               onDeleteBooking={onDeleteBooking}
@@ -1132,933 +761,20 @@ export function CustomerDashboard({
           </div>
         );
       case "profile":
-        // Check if we're on the add address route (child of profile)
-        if (isAddAddressRoute) {
-          return <AddAddress />;
-        }
-        // Check if we're on the edit address route (child of profile)
-        if (isEditAddressRoute) {
-          return <EditAddress />;
-        }
         return renderProfile();
-      case "certification":
-        // Check if we're on the add certification route
-        if (isAddCertificationRoute) {
-          return <AddCertification />;
-        }
-        // Check if we're on the edit certification route
-        if (isEditCertificationRoute) {
-          return <EditCertification />;
-        }
-        return <ProfessionalCertifications />;
-      case "pricing":
-        // Check if we're on the add pricing route
-        if (isAddPricingRoute) {
-          return <AddPricing />;
-        }
-        // Check if we're on the edit pricing route
-        if (isEditPricingRoute) {
-          return <EditPricing />;
-        }
-        return <ProfessionalPricingContent />;
-      case "available_date":
-        // Check if we're on the add or edit available date route
-        if (isAddAvailableDateRoute) {
-          return <AddAvailableDate />;
-        }
-        if (isEditAvailableDateRoute) {
-          return <EditAvailableDate />;
-        }
-        return <AvailableDatesContent />;
-      case "insurance":
-        // Check if we're on the add insurance route
-        if (isAddInsuranceRoute) {
-          return <AddInsurance />;
-        }
-        // Check if we're on the edit insurance route
-        if (isEditInsuranceRoute) {
-          return <EditInsurance />;
-        }
-        return <InsuranceContent />;
-      case "addresses":
-        return <Addresses />;
       case "settings":
         return renderSettings();
       case "notifications":
         return renderNotifications();
-      case "specializations":
-        // Check if we're on the add specialization route
-        if (isAddSpecializationRoute) {
-          return <AddSpecialization />;
-        }
-        // Check if we're on the edit specialization route
-        if (isEditSpecializationRoute) {
-          return <EditSpecialization />;
-        }
-        return (
-          <div className="space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h1 className="text-3xl text-[#0A1A2F] mb-2">Specializations</h1>
-                <p className="text-gray-600">Manage professional specializations and categories.</p>
-              </div>
-              <Button
-                className="bg-red-600 hover:bg-red-700 whitespace-nowrap"
-                onClick={() => navigate("/customer/dashboard/specializations/add")}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Specializations
-              </Button>
-            </div>
-            <Card>
-              <CardContent className="p-6">
-                {isLoadingSpecializations ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
-                    <span className="text-gray-600">Loading specializations...</span>
-                  </div>
-                ) : specializations.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Tag className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg mb-2">No specializations found</p>
-                    <p className="text-sm">No specializations have been added yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {specializations.map((specialization) => {
-                      const createdDate = new Date(specialization.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      });
-                      const updatedDate = specialization.updated_at && specialization.updated_at !== specialization.created_at
-                        ? new Date(specialization.updated_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })
-                        : null;
-
-                      return (
-                        <div
-                          key={specialization.id}
-                          className="border border-gray-200 rounded-lg p-4 hover:border-red-200 hover:shadow-sm transition-all"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  <Tag className="w-5 h-5 text-red-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-gray-900 mb-1">{specialization.title}</h4>
-                                  <div className="text-xs text-gray-500 space-y-1">
-                                    <div>
-                                      Created: {createdDate}
-                                      {specialization.creator && ` • By ${specialization.creator.full_name}`}
-                                    </div>
-                                    {updatedDate && (
-                                      <div>
-                                        Updated: {updatedDate}
-                                        {specialization.updater && ` • By ${specialization.updater.full_name}`}
-                                      </div>
-                                    )}
-                                    {specialization.professional && (
-                                      <div>
-                                        Professional ID: {specialization.professional.id}
-                                        {specialization.professional.name && ` • ${specialization.professional.name}`}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                              <Badge className="bg-green-600 text-white">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Active
-                              </Badge>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => navigate(`/customer/dashboard/specializations/edit/${specialization.id}`)}
-                                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors hover:bg-blue-50 rounded"
-                                  aria-label="Edit specialization"
-                                  type="button"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSpecializationToDelete(specialization);
-                                    setDeleteSpecializationModalOpen(true);
-                                  }}
-                                  className="p-1 text-gray-500 hover:text-red-600 transition-colors hover:bg-red-50 rounded"
-                                  aria-label="Delete specialization"
-                                  type="button"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Delete Confirmation Modal */}
-            <Dialog open={deleteSpecializationModalOpen} onOpenChange={setDeleteSpecializationModalOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl text-[#0A1A2F]">
-                    Delete Specialization
-                  </DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete "{specializationToDelete?.title}"? This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteSpecializationModalOpen(false);
-                      setSpecializationToDelete(null);
-                    }}
-                    disabled={isDeletingSpecialization}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={async () => {
-                      if (!specializationToDelete) return;
-
-                      const token = getApiToken();
-                      if (!token) {
-                        toast.error("Please log in to delete specialization.");
-                        setDeleteSpecializationModalOpen(false);
-                        setSpecializationToDelete(null);
-                        return;
-                      }
-                      
-                      setIsDeletingSpecialization(true);
-                      try {
-                        const response = await deleteSpecialization({
-                          api_token: token,
-                          id: specializationToDelete.id
-                        });
-
-                        if (response.status === "success" || response.success || (response.message && !response.error)) {
-                          toast.success(response.message || "Specialization deleted successfully!");
-                          setDeleteSpecializationModalOpen(false);
-                          setSpecializationToDelete(null);
-                          // Refresh the specializations list
-                          const data = await fetchSpecializations();
-                          setSpecializations(data);
-                        } else {
-                          toast.error(response.message || response.error || "Failed to delete specialization. Please try again.");
-                        }
-                      } catch (error: any) {
-                        const errorMessage = error?.message || error?.error || "An error occurred while deleting specialization. Please try again.";
-                        toast.error(errorMessage);
-                      } finally {
-                        setIsDeletingSpecialization(false);
-                      }
-                    }}
-                    disabled={isDeletingSpecialization}
-                  >
-                    {isDeletingSpecialization ? "Deleting..." : "Sure"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      case "services":
-        // Check if we're on the edit service route
-        if (isEditServiceRoute) {
-          return <EditService />;
-        }
-        // Check if we're on the add service route
-        if (isAddServiceRoute) {
-          return <AddService />;
-        }
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-[20px] text-[#0A1A2F] mb-2">Service Management</h1>
-                <p className="text-[14px] text-gray-600">
-                  Manage fire safety services offered on the platform
-                </p>
-              </div>
-              <Button
-                onClick={() => navigate("/customer/dashboard/services/add")}
-                className="bg-red-600 hover:bg-red-700 h-11"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Service
-              </Button>
-            </div>
-
-            <Card className="bg-blue-50 border-blue-200 rounded-xl">
-              <CardContent className="p-4">
-                <p className="text-sm text-blue-900">
-                  <strong>Automatic Sync:</strong> Services created, edited, or deleted here automatically
-                  appear across Landing Page, Customer Portal, and Professional Portal. Only "Active" services
-                  are visible to customers.
-                </p>
-              </CardContent>
-            </Card>
-
-            {isLoadingServices ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
-                <span className="text-gray-600">Loading services...</span>
-              </div>
-            ) : services.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg mb-2">No services found</p>
-                <p className="text-sm">No services have been added yet.</p>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-6">
-                {services.map((service) => (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    variant="admin"
-                    showActions={true}
-                    onEdit={(id: number) => {
-                      navigate(`/customer/dashboard/services/edit/${id}`);
-                    }}
-                    onDelete={(id) => {
-                      const serviceToDeleteItem = services.find(s => s.id === id);
-                      if (serviceToDeleteItem) {
-                        setServiceToDelete(serviceToDeleteItem);
-                        setDeleteServiceModalOpen(true);
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            <Dialog open={deleteServiceModalOpen} onOpenChange={setDeleteServiceModalOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl text-[#0A1A2F]">
-                    Delete Service
-                  </DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete "{serviceToDelete?.name}"? This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteServiceModalOpen(false);
-                      setServiceToDelete(null);
-                    }}
-                    disabled={isDeletingService}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={async () => {
-                      if (!serviceToDelete) return;
-
-                      const token = getApiToken();
-                      if (!token) {
-                        toast.error("Please log in to delete service.");
-                        setDeleteServiceModalOpen(false);
-                        setServiceToDelete(null);
-                        return;
-                      }
-
-                      setIsDeletingService(true);
-                      try {
-                        const response = await deleteService({
-                          api_token: token,
-                          id: serviceToDelete.id
-                        });
-
-                        if (response.status === "success" || response.success || (response.message && !response.error)) {
-                          toast.success(response.message || "Service deleted successfully!");
-                          setDeleteServiceModalOpen(false);
-                          setServiceToDelete(null);
-                          // Refresh the services list
-                          try {
-                            const apiServices = await fetchServices();
-                            const defaultIcons = [ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb];
-                            const colorOptions = ["red", "blue", "orange", "green", "purple"];
-                            const mappedServices: Service[] = apiServices.map((apiService, index) => {
-                              const iconIndex = index % defaultIcons.length;
-                              const colorIndex = index % colorOptions.length;
-                              return {
-                                id: apiService.id,
-                                name: apiService.service_name || "Service",
-                                icon: apiService.icon || undefined,
-                                iconComponent: defaultIcons[iconIndex],
-                                description: apiService.description || "No description available",
-                                basePrice: apiService.price ? `£${parseFloat(apiService.price).toFixed(2)}` : "£0.00",
-                                active: apiService.status?.toUpperCase() === "ACTIVE",
-                                popular: false,
-                                color: colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple"
-                              };
-                            });
-                            setServices(mappedServices);
-                          } catch (error: any) {
-                            console.error('Failed to refresh services:', error);
-                          }
-                        } else {
-                          toast.error(response.message || response.error || "Failed to delete service. Please try again.");
-                        }
-                      } catch (error: any) {
-                        const errorMessage = error?.message || error?.error || "An error occurred while deleting service. Please try again.";
-                        toast.error(errorMessage);
-                      } finally {
-                        setIsDeletingService(false);
-                      }
-                    }}
-                    disabled={isDeletingService}
-                  >
-                    {isDeletingService ? "Deleting..." : "Sure"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      case "experiences":
-        // Check if we're on the add experience route
-        if (isAddExperienceRoute) {
-          return <AddExperience />;
-        }
-        // Check if we're on the edit experience route
-        if (isEditExperienceRoute) {
-          return <EditExperience />;
-        }
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-[20px] text-[#0A1A2F] mb-2">Experiences</h1>
-                <p className="text-[14px] text-gray-600">
-                  Manage professional experiences and assessments
-                </p>
-              </div>
-              <Button
-                onClick={() => navigate("/customer/dashboard/experiences/add")}
-                className="bg-red-600 hover:bg-red-700 h-11"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Experience
-              </Button>
-            </div>
-
-            {isLoadingExperiences ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
-                <span className="text-gray-600">Loading experiences...</span>
-              </div>
-            ) : experiences.length === 0 ? (
-              <Card>
-                <CardContent className="p-6">
-                  <div className="text-center py-12 text-gray-500">
-                    <Sparkles className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg mb-2">No experiences found</p>
-                    <p className="text-sm">No experiences have been added yet.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {experiences.map((experience) => {
-                  const createdDate = new Date(experience.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  });
-                  const updatedDate = experience.updated_at && experience.updated_at !== experience.created_at
-                    ? new Date(experience.updated_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })
-                    : null;
-                  const yearsExperienceDate = experience.years_experience
-                    ? new Date(experience.years_experience).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })
-                    : 'N/A';
-
-                  return (
-                    <Card key={experience.id} className="border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex flex-col gap-5">
-                          {/* Header Section */}
-                          <div className="flex items-center justify-between gap-10">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-purple-50 rounded flex items-center justify-center flex-shrink-0">
-                                <Sparkles className="w-4 h-4 text-purple-600" />
-                              </div>
-                              <h4 className="font-semibold text-sm text-gray-900">Experience #{experience.id}</h4>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Badge className="bg-green-600 text-white px-2 py-0.5 text-xs">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Active
-                              </Badge>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => navigate(`/customer/dashboard/experiences/edit/${experience.id}`)}
-                                  className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors hover:bg-blue-50 rounded"
-                                  aria-label="Edit experience"
-                                  type="button"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setExperienceToDelete(experience);
-                                    setDeleteExperienceModalOpen(true);
-                                  }}
-                                  className="p-1.5 text-gray-500 hover:text-red-600 transition-colors hover:bg-red-50 rounded"
-                                  aria-label="Delete experience"
-                                  type="button"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Main Content - Flex Layout */}
-                          <div className="flex flex-wrap gap-x-8 gap-y-3 w-full">
-                            {/* Years Experience */}
-                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Years Experience:</span>
-                              <span className="text-xs text-gray-900">{yearsExperienceDate}</span>
-                            </div>
-
-                            {/* Assessment */}
-                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Assessment:</span>
-                              <span className="text-xs text-gray-900 break-words">{experience.assessment || 'N/A'}</span>
-                            </div>
-
-                            {/* Specialization */}
-                            {experience.specialization && (
-                              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                                <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Specialization:</span>
-                                <Badge variant="outline" className="text-xs px-1.5 py-0 border-gray-300">
-                                  {experience.specialization.title}
-                                </Badge>
-                              </div>
-                            )}
-
-                            {/* Professional */}
-                            {experience.professional && (
-                              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                                <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Professional:</span>
-                                <span className="text-xs text-gray-900">
-                                  ID: {experience.professional.id}
-                                  {experience.professional.name && ` • ${experience.professional.name}`}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Footer Section */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-gray-100">
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <span>Created: {createdDate}</span>
-                              {experience.creator && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span>By {experience.creator.full_name}</span>
-                                </>
-                              )}
-                            </div>
-                            {updatedDate && (
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span>Updated: {updatedDate}</span>
-                                {experience.updater && (
-                                  <>
-                                    <span className="text-gray-300">•</span>
-                                    <span>By {experience.updater.full_name}</span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            <Dialog open={deleteExperienceModalOpen} onOpenChange={setDeleteExperienceModalOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl text-[#0A1A2F]">
-                    Delete Experience
-                  </DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete Experience #{experienceToDelete?.id}? This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteExperienceModalOpen(false);
-                      setExperienceToDelete(null);
-                    }}
-                    disabled={isDeletingExperience}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={async () => {
-                      if (!experienceToDelete) return;
-
-                      const token = getApiToken();
-                      if (!token) {
-                        toast.error("Please log in to delete experience.");
-                        setDeleteExperienceModalOpen(false);
-                        setExperienceToDelete(null);
-                        return;
-                      }
-
-                      setIsDeletingExperience(true);
-                      try {
-                        const response = await deleteExperience({
-                          api_token: token,
-                          id: experienceToDelete.id
-                        });
-
-                        if (response.status === "success" || response.success || (response.message && !response.error)) {
-                          toast.success(response.message || "Experience deleted successfully!");
-                          setDeleteExperienceModalOpen(false);
-                          setExperienceToDelete(null);
-                          // Refresh the experiences list
-                          const data = await fetchExperiences();
-                          setExperiences(data);
-                        } else {
-                          toast.error(response.message || response.error || "Failed to delete experience. Please try again.");
-                        }
-                      } catch (error: any) {
-                        console.error('Failed to delete experience:', error);
-                        toast.error(error.message || error.error || 'Failed to delete experience');
-                      } finally {
-                        setIsDeletingExperience(false);
-                      }
-                    }}
-                    disabled={isDeletingExperience}
-                  >
-                    {isDeletingExperience ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Deleting...
-                      </>
-                    ) : (
-                      "Delete"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      case "reviews":
-        // Check if we're on the add review route
-        if (isAddReviewRoute) {
-          return <AddReview />;
-        }
-        // Check if we're on the edit review route
-        if (isEditReviewRoute) {
-          return <EditReview />;
-        }
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-[20px] text-[#0A1A2F] mb-2">Reviews</h1>
-                <p className="text-[14px] text-gray-600">
-                  Manage reviews and ratings
-                </p>
-              </div>
-              <Button
-                onClick={() => navigate("/customer/dashboard/reviews/add")}
-                className="bg-red-600 hover:bg-red-700 h-11"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Review
-              </Button>
-            </div>
-
-            {isLoadingReviews ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-red-600 mr-2" />
-                <span className="text-gray-600">Loading reviews...</span>
-              </div>
-            ) : reviews.length === 0 ? (
-              <Card>
-                <CardContent className="p-6">
-                  <div className="text-center py-12 text-gray-500">
-                    <Star className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg mb-2">No reviews found</p>
-                    <p className="text-sm">No reviews have been added yet.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {reviews.map((review) => {
-                  const createdDate = new Date(review.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  });
-                  const updatedDate = review.updated_at && review.updated_at !== review.created_at
-                    ? new Date(review.updated_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })
-                    : null;
-                  const rating = parseInt(review.rating) || 0;
-
-                  return (
-                    <Card key={review.id} className="border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex flex-col gap-5">
-                          {/* Header Section */}
-                          <div className="flex items-center justify-between gap-10">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-yellow-50 rounded flex items-center justify-center flex-shrink-0">
-                                <Star className="w-4 h-4 text-yellow-600 fill-yellow-600" />
-                              </div>
-                              <h4 className="font-semibold text-sm text-gray-900">Review #{review.id}</h4>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1">
-                                  {[...Array(5)].map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`w-4 h-4 ${
-                                        i < rating
-                                          ? "text-yellow-500 fill-yellow-500"
-                                          : "text-gray-300"
-                                      }`}
-                                    />
-                                  ))}
-                                </div>
-                                <Badge className="bg-green-600 text-white px-2 py-0.5 text-xs">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  {rating}/5
-                                </Badge>
-                              </div>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => navigate(`/customer/dashboard/reviews/edit/${review.id}`)}
-                                  className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors hover:bg-blue-50 rounded"
-                                  aria-label="Edit review"
-                                  type="button"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setReviewToDelete(review);
-                                    setDeleteReviewModalOpen(true);
-                                  }}
-                                  className="p-1.5 text-gray-500 hover:text-red-600 transition-colors hover:bg-red-50 rounded"
-                                  aria-label="Delete review"
-                                  type="button"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Main Content - Flex Layout */}
-                          <div className="flex flex-wrap gap-x-8 gap-y-3 w-full">
-                            {/* Name */}
-                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Name:</span>
-                              <span className="text-xs text-gray-900">{review.name || 'N/A'}</span>
-                            </div>
-
-                            {/* Rating */}
-                            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Rating:</span>
-                              <div className="flex items-center gap-1">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`w-3 h-3 ${
-                                      i < rating
-                                        ? "text-yellow-500 fill-yellow-500"
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                                <span className="text-xs text-gray-700 ml-1">({rating}/5)</span>
-                              </div>
-                            </div>
-
-                            {/* Feedback */}
-                            <div className="flex items-start gap-3 w-full">
-                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Feedback:</span>
-                              <span className="text-xs text-gray-900 break-words flex-1">{review.feedback || 'N/A'}</span>
-                            </div>
-
-                            {/* Professional */}
-                            {review.professional && (
-                              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                                <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Professional:</span>
-                                <span className="text-xs text-gray-900">
-                                  ID: {review.professional.id}
-                                  {review.professional.name && ` • ${review.professional.name}`}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Footer Section */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-gray-100">
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <span>Created: {createdDate}</span>
-                              {review.creator && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span>By {review.creator.full_name}</span>
-                                </>
-                              )}
-                            </div>
-                            {updatedDate && (
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span>Updated: {updatedDate}</span>
-                                {review.updater && (
-                                  <>
-                                    <span className="text-gray-300">•</span>
-                                    <span>By {review.updater.full_name}</span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            <Dialog open={deleteReviewModalOpen} onOpenChange={setDeleteReviewModalOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl text-[#0A1A2F]">
-                    Delete Review
-                  </DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete Review #{reviewToDelete?.id}? This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteReviewModalOpen(false);
-                      setReviewToDelete(null);
-                    }}
-                    disabled={isDeletingReview}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={async () => {
-                      if (!reviewToDelete) return;
-
-                      const token = getApiToken();
-                      if (!token) {
-                        toast.error("Please log in to delete review.");
-                        setDeleteReviewModalOpen(false);
-                        setReviewToDelete(null);
-                        return;
-                      }
-
-                      setIsDeletingReview(true);
-                      try {
-                        const response = await deleteReview({
-                          api_token: token,
-                          id: reviewToDelete.id
-                        });
-
-                        if (response.status === "success" || response.success || (response.message && !response.error)) {
-                          toast.success(response.message || "Review deleted successfully!");
-                          setDeleteReviewModalOpen(false);
-                          setReviewToDelete(null);
-                          // Refresh the reviews list
-                          const data = await fetchReviews();
-                          setReviews(data);
-                        } else {
-                          toast.error(response.message || response.error || "Failed to delete review. Please try again.");
-                        }
-                      } catch (error: any) {
-                        console.error('Failed to delete review:', error);
-                        toast.error(error.message || error.error || 'Failed to delete review');
-                      } finally {
-                        setIsDeletingReview(false);
-                      }
-                    }}
-                    disabled={isDeletingReview}
-                  >
-                    {isDeletingReview ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Deleting...
-                      </>
-                    ) : (
-                      "Delete"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
       default:
         return renderOverview();
     }
   };
 
   return (
-    //     <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full"> 
-    <div className="h-screen bg-gray-50 overflow-hidden w-full flex flex-col">
-      {/* Top Header */}
-      <header className="bg-[#0A1A2F] text-white py-3 md:py-4 px-4 md:px-6 sticky top-0 z-50 w-full">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full">
+      {/* Top Header - Fixed height like admin dashboard */}
+      <header className="bg-[#0A1A2F] text-white px-4 md:px-6 fixed top-0 left-0 right-0 z-50 w-full h-14 flex items-center">
         <div className="flex items-center justify-between w-full max-w-full">
           <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-shrink">
             <Button
@@ -2069,11 +785,8 @@ export function CustomerDashboard({
             >
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
-            <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={onNavigateHome}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 flex-shrink-0" aria-hidden="true">
-                <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path>
-              </svg>
-              <span className="text-lg font-semibold text-white">Fire Guide</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <img src={logoImage} alt="Fire Guide" className="h-10 w-auto flex-shrink-0" />
               <Badge variant="outline" className="text-white border-white hidden md:inline-flex">Customer</Badge>
             </div>
           </div>
@@ -2109,16 +822,14 @@ export function CustomerDashboard({
         </div>
       </header>
 
-{/*  <div className="flex w-full overflow-x-hidden"> */}
-      <div className="flex w-full overflow-hidden flex-1 min-h-0">
-        {/* Sidebar - Full Slide-in Panel */}
+      <div className="flex pt-14 w-full overflow-x-hidden">
+        {/* Sidebar - Fixed below header, full height like admin dashboard */}
         <aside
-        //  className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 lg:top-[73px] lg:h-[calc(100vh-73px)] $
-        //   {sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          className={`fixed lg:sticky left-0 bg-white border-r w-64 z-30 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } ${sidebarOpen ? "top-0 h-screen" : "top-[73px] h-[calc(100vh-73px)]"} lg:!top-[73px] lg:!h-[calc(100vh-73px)]`}
+          className={`fixed top-14 left-0 h-[calc(100vh-56px)] bg-white border-r w-64 z-30 transition-transform ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
         >
-          <div className="p-6 pt-16 lg:pt-6 h-full flex flex-col overflow-hidden">
+          <div className="p-6 h-full flex flex-col overflow-y-auto">
             {/* Close button for mobile */}
             <button
               onClick={() => setSidebarOpen(false)}
@@ -2127,7 +838,7 @@ export function CustomerDashboard({
               <X className="w-5 h-5" />
             </button>
 
-            <nav className="space-y-2 flex-1 mt-6 lg:mt-0 overflow-y-auto min-h-0">
+            <nav className="space-y-2 flex-1 mt-6 lg:mt-0">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
@@ -2138,32 +849,22 @@ export function CustomerDashboard({
                       handleViewChange(item.id);
                       setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all min-h-[44px] ${isActive
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      isActive
                         ? "bg-red-50 text-red-600 font-medium"
                         : "text-gray-600 hover:bg-gray-50"
-                      }`}
+                    }`}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span className="flex-1 text-left">{item.label}</span>
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
                     {item.id === "notifications" && bookings.filter(b => b.status === "upcoming").length > 0 && (
-                      <Badge className="ml-auto bg-red-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs flex-shrink-0">
+                      <Badge className="ml-auto bg-red-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs">
                         {bookings.filter(b => b.status === "upcoming").length}
                       </Badge>
                     )}
-                  </button>
+                  </button> 
                 );
               })}
-              
-              {userRole && (
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 cursor-default min-h-[44px]">
-                  <User className="w-5 h-5 flex-shrink-0" />
-                  <span className="flex-1 text-left">
-                    {userRole === "PROFESSIONAL" ? "Professional" : 
-                     userRole === "ADMIN" ? "Admin" : "User"}
-                  </span>
-                </button>
-              )}
-
             </nav>
 
             <div className="space-y-2 pt-4 border-t">
@@ -2179,10 +880,12 @@ export function CustomerDashboard({
           </div>
         </aside>
 
-        {/* Main Content */}
-        {/*  <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-x-hidden"> */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-y-auto overflow-x-hidden h-[calc(100vh-73px)] lg:ml-64">
-          <div className="max-w-9xl mx-auto w-full">
+        {/* Spacer for fixed sidebar on large screens */}
+        <div className="hidden lg:block w-64 flex-shrink-0"></div>
+
+        {/* Main Content - Original layout, centered */}
+        <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto w-full">
             {renderContent()}
           </div>
         </main>
@@ -2195,32 +898,6 @@ export function CustomerDashboard({
           onClick={() => setSidebarOpen(false)}
         />
       )}
-
-      {/* Delete Confirmation Modal */}
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Address</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this address? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={cancelDeleteAddress}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={confirmDeleteAddress}
-            >
-              Sure
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

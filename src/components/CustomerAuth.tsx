@@ -85,9 +85,10 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
             setUserPhone(response.data.phone);
           }
           // Store role from backend response - check multiple possible locations
-          const role = response.data?.role || response.data?.data?.role;
+          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
+          const role = response.data?.role || response.data?.data?.role || response.role;
           if (role) {
-            setUserRole(role);
+            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
           }
           // Store professional_id if available in response (for PROFESSIONAL role)
           const professionalId = response.data?.professional?.id;
@@ -172,9 +173,10 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
             setUserPhone(phone);
           }
           // Store role from backend response - overwrites existing and removes legacy key
-          const role = response.data?.role || signUpRole;
+          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
+          const role = response.data?.role || response.data?.data?.role || response.role || signUpRole;
           if (role) {
-            setUserRole(role);
+            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
           }
           // Store professional_id if available in response (for PROFESSIONAL role)
           const professionalId = response.data?.professional?.id;
