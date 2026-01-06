@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { CustomerBookings } from "./CustomerBookings";
 import { CustomerPayments } from "./CustomerPayments";
 import { 
@@ -39,8 +39,12 @@ import {
 } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest } from "../api/authService";
+import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
+import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
+import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -62,8 +66,24 @@ export function CustomerDashboard({
   onDeleteBooking
 }: CustomerDashboardProps) {
   const navigate = useNavigate();
-  const { view } = useParams<{ view?: string }>();
+  const location = useLocation();
+  const { view, id: addressIdParam } = useParams<{ view?: string; id?: string }>();
   const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "settings", "notifications"];
+  
+  // Check if we're on the add or edit address route
+  const isAddAddressRoute = location.pathname === "/customer/dashboard/profile/addresses/add";
+  const isEditAddressRoute = location.pathname.startsWith("/customer/dashboard/profile/addresses/edit/");
+  
+  // Safely parse address ID from URL parameter
+  let addressIdToEdit: number | null = null;
+  if (isEditAddressRoute && addressIdParam) {
+    const parsedId = parseInt(addressIdParam, 10);
+    if (!isNaN(parsedId) && parsedId > 0) {
+      addressIdToEdit = parsedId;
+    } else {
+      console.error("Invalid address ID in URL:", addressIdParam);
+    }
+  }
   
   // Determine current view from URL parameter, default to "overview"
   const currentViewFromUrl: CustomerView = (view && validViews.includes(view as CustomerView)) 
@@ -75,8 +95,115 @@ export function CustomerDashboard({
   
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
-    setCurrentView(currentViewFromUrl);
-  }, [currentViewFromUrl]);
+    // If on add or edit address route, set view to profile
+    if (isAddAddressRoute || isEditAddressRoute) {
+      setCurrentView("profile");
+    } else {
+      setCurrentView(currentViewFromUrl);
+    }
+  }, [currentViewFromUrl, isAddAddressRoute, isEditAddressRoute]);
+
+  // Fetch addresses from API
+  useEffect(() => {
+    const loadAddresses = async () => {
+      const token = getApiToken();
+      if (!token) {
+        return;
+      }
+
+      setIsLoadingAddresses(true);
+      try {
+        const response = await fetchAddresses(token);
+        if (response.status === "success" && response.data) {
+          setAddresses(response.data);
+        } else {
+          console.error("Failed to fetch addresses:", response.message || response.error);
+          // Set empty array on error to show empty state
+          setAddresses([]);
+        }
+      } catch (error: any) {
+        console.error("Error fetching addresses:", error);
+        toast.error(error?.message || "Failed to load addresses. Please try again.");
+        // Set empty array on error to show empty state
+        setAddresses([]);
+      } finally {
+        setIsLoadingAddresses(false);
+      }
+    };
+
+    // Fetch addresses when profile view is active or when component mounts
+    loadAddresses();
+  }, [currentView, isAddAddressRoute, isEditAddressRoute]); // Refetch when view changes or after adding/editing address
+
+  // Load address data when on edit route
+  useEffect(() => {
+    const loadAddressForEdit = async () => {
+      if (!isEditAddressRoute || !addressIdToEdit) {
+        return;
+      }
+
+      const token = getApiToken();
+      if (!token) {
+        toast.error("Please log in to edit address.");
+        navigate("/customer/dashboard/profile");
+        return;
+      }
+
+      setIsLoadingEditAddress(true);
+      try {
+        // Always fetch from API to ensure we have the latest data
+        const response = await fetchAddresses(token);
+        
+        if (response.status === "success" && response.data) {
+          // Update addresses state
+          setAddresses(response.data);
+          
+          // Validate address ID type matching (ensure both are numbers for comparison)
+          const addressToEdit = response.data.find(addr => {
+            const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
+            const editId = addressIdToEdit;
+            return addrId === editId && !isNaN(addrId) && !isNaN(editId);
+          });
+          
+          if (addressToEdit) {
+            setEditAddressForm({
+              tag: addressToEdit.tag,
+              adress_line: addressToEdit.adress_line,
+              city: addressToEdit.city,
+              postal_code: addressToEdit.postal_code,
+              country: addressToEdit.country,
+              is_default_address: addressToEdit.is_default_address === 1,
+              is_favourite_address: addressToEdit.is_favourite_address === 1
+            });
+          } else {
+            toast.error("Address not found. It may have been deleted.");
+            navigate("/customer/dashboard/profile");
+          }
+        } else {
+          toast.error(response.message || response.error || "Failed to load address data");
+          navigate("/customer/dashboard/profile");
+        }
+      } catch (error: any) {
+        console.error("Error loading address for edit:", error);
+        
+        // Handle 404 specifically
+        if (error?.status === 404 || error?.response?.status === 404) {
+          toast.error("Address not found. It may have been deleted.");
+        } else if (error?.message?.includes("404") || error?.error?.includes("404")) {
+          toast.error("Address not found. It may have been deleted.");
+        } else if (error?.message?.toLowerCase().includes("not found")) {
+          toast.error("Address not found. It may have been deleted.");
+        } else {
+          toast.error(error?.message || error?.error || "Failed to load address. Please try again.");
+        }
+        navigate("/customer/dashboard/profile");
+      } finally {
+        setIsLoadingEditAddress(false);
+      }
+    };
+
+    loadAddressForEdit();
+  }, [isEditAddressRoute, addressIdToEdit, navigate]);
   
   // Handler to update both state and URL
   const handleViewChange = (view: CustomerView) => {
@@ -89,26 +216,8 @@ export function CustomerDashboard({
   };
   
   // Address management state
-  const [addresses, setAddresses] = useState([
-    {
-      id: 1,
-      label: "Home",
-      street: "123 High Street",
-      city: "London",
-      postcode: "SW1A 1AA",
-      country: "United Kingdom",
-      isDefault: true
-    },
-    {
-      id: 2,
-      label: "Office",
-      street: "456 Business Park",
-      city: "Manchester",
-      postcode: "M1 1AA",
-      country: "United Kingdom",
-      isDefault: false
-    }
-  ]);
+  const [addresses, setAddresses] = useState<AddressResponse[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<any>(null);
   const [addressForm, setAddressForm] = useState({
@@ -118,10 +227,74 @@ export function CustomerDashboard({
     postcode: "",
     country: "United Kingdom"
   });
+  
+  // Add Address form state
+  const [addAddressForm, setAddAddressForm] = useState({
+    tag: "",
+    adress_line: "",
+    city: "",
+    postal_code: "",
+    country: "United Kingdom",
+    is_default_address: false,
+    is_favourite_address: false
+  });
+  const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
 
-  // Mock customer data
-  const customerName = "John Smith";
-  const customerEmail = "john.smith@example.com";
+  // Edit Address form state
+  const [editAddressForm, setEditAddressForm] = useState({
+    tag: "",
+    adress_line: "",
+    city: "",
+    postal_code: "",
+    country: "United Kingdom",
+    is_default_address: false,
+    is_favourite_address: false
+  });
+  const [isUpdatingAddress, setIsUpdatingAddress] = useState(false);
+  const [isLoadingEditAddress, setIsLoadingEditAddress] = useState(false);
+
+  // Delete Address confirmation modal state
+  const [isDeleteAddressModalOpen, setIsDeleteAddressModalOpen] = useState(false);
+  const [addressIdToDelete, setAddressIdToDelete] = useState<number | null>(null);
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false);
+
+  // Load user data from localStorage or use defaults
+  const getUserData = () => {
+    const userInfo = getUserInfo();
+    return {
+      name: userInfo?.name || "John Smith",
+      email: "john.smith@example.com", // Email should come from API in real implementation
+      phone: "07123 456789" // Phone should come from API in real implementation
+    };
+  };
+
+  const initialUserData = getUserData();
+  const [customerName, setCustomerName] = useState(initialUserData.name);
+  const [customerEmail] = useState(initialUserData.email); // Email typically not editable
+  
+  // Profile image state
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(() => {
+    // Load from localStorage on mount
+    const storedImage = localStorage.getItem('customer_profile_image');
+    return storedImage || null;
+  });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Profile form state - initialize with current user data
+  const [profileForm, setProfileForm] = useState({
+    full_name: initialUserData.name,
+    phone: initialUserData.phone
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  
+  // Update form when customer name changes (e.g., after successful update)
+  useEffect(() => {
+    setProfileForm({
+      full_name: customerName,
+      phone: profileForm.phone
+    });
+  }, [customerName]);
 
   // Calculate stats from real data
   const upcomingBookings = bookings.filter(b => b.status === "upcoming").length;
@@ -130,67 +303,545 @@ export function CustomerDashboard({
     .filter(p => p.status === "paid")
     .reduce((sum, p) => sum + parseFloat(p.amount.replace("£", "").replace(",", "")), 0);
 
-  // Address management handlers
-  const handleAddAddress = () => {
-    setEditingAddress(null);
-    setAddressForm({
-      label: "",
-      street: "",
-      city: "",
-      postcode: "",
-      country: "United Kingdom"
-    });
-    setAddressModalOpen(true);
+  // Profile image upload handlers
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
   };
 
-  const handleEditAddress = (address: any) => {
-    setEditingAddress(address);
-    setAddressForm({
-      label: address.label,
-      street: address.street,
-      city: address.city,
-      postcode: address.postcode,
-      country: address.country
-    });
-    setAddressModalOpen(true);
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select an image file.");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB.");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to upload profile image.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const uploadData: UploadProfileImageRequest = {
+        api_token: token,
+        file: file
+      };
+
+      const response = await uploadProfileImage(uploadData);
+
+      if (response.status === true || response.image_url) {
+        const imageUrl = response.image_url || "";
+        setProfileImageUrl(imageUrl);
+        // Store in localStorage to persist across sessions
+        localStorage.setItem('customer_profile_image', imageUrl);
+        toast.success(response.message || "Profile image updated successfully!");
+      } else {
+        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error uploading profile image:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while uploading the image. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsUploadingImage(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Profile update handler
+  const handleSaveProfile = async () => {
+    if (!profileForm.full_name.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    if (!profileForm.phone.trim()) {
+      toast.error("Please enter your phone number.");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to update profile.");
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      const updateData: UpdateUserRequest = {
+        api_token: token,
+        full_name: profileForm.full_name.trim(),
+        phone: profileForm.phone.trim()
+      };
+
+      const response = await updateUser(updateData);
+
+      if (response.status === "success" || response.success === true || response.message) {
+        // Update local state
+        setCustomerName(profileForm.full_name.trim());
+        // Update localStorage if needed
+        const userInfo = getUserInfo();
+        if (userInfo) {
+          setUserInfo(profileForm.full_name.trim(), userInfo.role);
+        }
+        toast.success(response.message || "Profile updated successfully!");
+      } else {
+        toast.error(response.message || response.error || "Failed to update profile. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while updating the profile. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  // Address management handlers
+  const handleAddAddress = () => {
+    navigate("/customer/dashboard/profile/addresses/add");
+  };
+
+  const handleAddAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!addAddressForm.tag.trim() || !addAddressForm.adress_line.trim() || 
+        !addAddressForm.city.trim() || !addAddressForm.postal_code.trim()) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to add an address.");
+      return;
+    }
+
+    setIsSubmittingAddress(true);
+    try {
+      const addressData: StoreAddressRequest = {
+        api_token: token,
+        tag: addAddressForm.tag.trim(),
+        adress_line: addAddressForm.adress_line.trim(),
+        city: addAddressForm.city.trim(),
+        postal_code: addAddressForm.postal_code.trim(),
+        country: addAddressForm.country,
+        is_default_address: addAddressForm.is_default_address,
+        is_favourite_address: addAddressForm.is_favourite_address
+      };
+
+      const response = await storeAddress(addressData);
+
+      if (response.status === "success" || response.success || (response.message && !response.error)) {
+        toast.success(response.message || "Address added successfully!");
+        // Reset form
+        setAddAddressForm({
+          tag: "",
+          adress_line: "",
+          city: "",
+          postal_code: "",
+          country: "United Kingdom",
+          is_default_address: false,
+          is_favourite_address: false
+        });
+        // Fetch updated addresses list
+        const token = getApiToken();
+        if (token) {
+          try {
+            const addressesResponse = await fetchAddresses(token);
+            if (addressesResponse.status === "success" && addressesResponse.data) {
+              setAddresses(addressesResponse.data);
+            }
+          } catch (error) {
+            console.error("Error refreshing addresses:", error);
+          }
+        }
+        // Navigate back to profile
+        navigate("/customer/dashboard/profile");
+      } else {
+        toast.error(response.message || response.error || "Failed to add address. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error adding address:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while adding the address. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmittingAddress(false);
+    }
+  };
+
+  const handleBackToProfile = () => {
+    navigate("/customer/dashboard/profile");
+  };
+
+  const handleEditAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editAddressForm.tag.trim() || !editAddressForm.adress_line.trim() || 
+        !editAddressForm.city.trim() || !editAddressForm.postal_code.trim()) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Get the address ID from the route parameter or state
+    const currentAddressId = addressIdToEdit;
+    
+    if (!currentAddressId || isNaN(currentAddressId)) {
+      toast.error("Invalid address ID. Please try again.");
+      console.error("Invalid address ID:", currentAddressId);
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to update address.");
+      return;
+    }
+
+      setIsUpdatingAddress(true);
+    try {
+      // Validate that the address exists before updating
+      const existingAddress = addresses.find(addr => {
+        const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
+        return addrId === currentAddressId;
+      });
+      
+      if (!existingAddress) {
+        console.error("Address not found in local state. ID:", currentAddressId, "Available IDs:", addresses.map(a => a.id));
+        toast.error("Address not found. Please refresh the page and try again.");
+        navigate("/customer/dashboard/profile");
+        return;
+      }
+
+      // Ensure ID is a number for the API
+      const addressIdForApi = typeof currentAddressId === 'string' ? parseInt(currentAddressId, 10) : currentAddressId;
+      
+      console.log("Updating address with ID:", addressIdForApi);
+      console.log("Update data:", {
+        id: addressIdForApi,
+        tag: editAddressForm.tag.trim(),
+        adress_line: editAddressForm.adress_line.trim(),
+        city: editAddressForm.city.trim(),
+        postal_code: editAddressForm.postal_code.trim(),
+        country: editAddressForm.country,
+        is_default_address: editAddressForm.is_default_address,
+        is_favourite_address: editAddressForm.is_favourite_address
+      });
+
+      const response = await updateAddress({
+        api_token: token,
+        id: addressIdForApi,
+        tag: editAddressForm.tag.trim(),
+        adress_line: editAddressForm.adress_line.trim(),
+        city: editAddressForm.city.trim(),
+        postal_code: editAddressForm.postal_code.trim(),
+        country: editAddressForm.country,
+        is_default_address: editAddressForm.is_default_address,
+        is_favourite_address: editAddressForm.is_favourite_address
+      });
+
+      console.log("Update response:", response);
+
+      // Check for successful response - handle various response formats
+      // Note: API returns status: false on error, status: "success" on success
+      const status = response.status as any; // Can be string or boolean
+      const successFlag = response.success;
+      
+      // Handle error response from API (status is false or success is false)
+      if (status === false || status === "false" || successFlag === false) {
+        const errorMsg = response.message || "Failed to update address. Please try again.";
+        console.error("Address update failed:", errorMsg, "Response:", response);
+        toast.error(errorMsg);
+        return;
+      }
+
+      const isSuccess = status === "success" || 
+                       status === true ||
+                       status === "true" ||
+                       successFlag === true || 
+                       (response.message && !response.error && status !== false && status !== "false");
+
+      if (isSuccess) {
+        // Use response data if available, otherwise use form data
+        const updatedAddressData = response.data || {
+          id: currentAddressId,
+          tag: editAddressForm.tag.trim(),
+          adress_line: editAddressForm.adress_line.trim(),
+          city: editAddressForm.city.trim(),
+          postal_code: editAddressForm.postal_code.trim(),
+          country: editAddressForm.country,
+          is_default_address: editAddressForm.is_default_address ? 1 : 0,
+          is_favourite_address: editAddressForm.is_favourite_address ? 1 : 0,
+          updated_at: new Date().toISOString()
+        };
+
+        // Immediately update local state for instant UI update
+        setAddresses(prevAddresses => 
+          prevAddresses.map(addr => 
+            addr.id === currentAddressId 
+              ? {
+                  ...addr,
+                  ...updatedAddressData,
+                  // Ensure numeric format for boolean fields
+                  is_default_address: typeof updatedAddressData.is_default_address === 'boolean' 
+                    ? (updatedAddressData.is_default_address ? 1 : 0)
+                    : updatedAddressData.is_default_address,
+                  is_favourite_address: typeof updatedAddressData.is_favourite_address === 'boolean'
+                    ? (updatedAddressData.is_favourite_address ? 1 : 0)
+                    : updatedAddressData.is_favourite_address,
+                }
+              : addr
+          )
+        );
+
+        toast.success(response.message || "Address updated successfully!");
+        
+        // Navigate back to profile - the UI is already updated above
+        navigate("/customer/dashboard/profile");
+        
+        // Refresh addresses from API in the background to ensure consistency with server
+        // Use a small delay to let navigation complete, then refresh
+        const refreshAddresses = async () => {
+          try {
+            const addressesResponse = await fetchAddresses(token);
+            if (addressesResponse.status === "success" && addressesResponse.data) {
+              setAddresses(addressesResponse.data);
+            }
+          } catch (refreshError) {
+            console.error("Error refreshing addresses after update:", refreshError);
+            // Don't show error to user since update was successful and UI is already updated
+          }
+        };
+        
+        // Refresh immediately after a brief delay to let navigation settle
+        setTimeout(refreshAddresses, 200);
+      } else {
+        // Handle case where response doesn't indicate success
+        const errorMsg = response.message || response.error || "Failed to update address. Please try again.";
+        console.error("Update failed. Response:", response);
+        toast.error(errorMsg);
+      }
+    } catch (error: any) {
+      console.error("Error updating address:", error);
+      console.error("Attempted to update address ID:", currentAddressId);
+      
+      // Handle 404 specifically
+      if (error?.status === 404 || error?.response?.status === 404) {
+        toast.error("Address not found. It may have been deleted.");
+        navigate("/customer/dashboard/profile");
+      } else if (error?.message?.includes("404") || error?.error?.includes("404")) {
+        toast.error("Address not found. It may have been deleted.");
+        navigate("/customer/dashboard/profile");
+      } else if (error?.message?.toLowerCase().includes("not found")) {
+        toast.error("Address not found. It may have been deleted.");
+        navigate("/customer/dashboard/profile");
+      } else {
+        const errorMessage = error?.message || error?.error || "An error occurred while updating the address. Please try again.";
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsUpdatingAddress(false);
+    }
+  };
+
+  const handleEditAddress = (address: AddressResponse) => {
+    // Validate address ID before navigating
+    if (!address || address.id === null || address.id === undefined) {
+      toast.error("Invalid address data. Cannot edit this address.");
+      console.error("Invalid address:", address);
+      return;
+    }
+    
+    const addressId = typeof address.id === 'string' ? parseInt(address.id, 10) : address.id;
+    if (isNaN(addressId) || addressId <= 0) {
+      toast.error("Invalid address ID. Cannot edit this address.");
+      console.error("Invalid address ID:", address.id);
+      return;
+    }
+    
+    navigate(`/customer/dashboard/profile/addresses/edit/${addressId}`);
   };
 
   const handleDeleteAddress = (id: number) => {
-    setAddresses(addresses.filter(addr => addr.id !== id));
-    toast.success("Address deleted successfully");
+    setAddressIdToDelete(id);
+    setIsDeleteAddressModalOpen(true);
   };
 
-  const handleSetDefault = (id: number) => {
-    setAddresses(addresses.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id
-    })));
-    toast.success("Default address updated");
+  const handleDeleteCancel = () => {
+    if (!isDeletingAddress) {
+      setIsDeleteAddressModalOpen(false);
+      setAddressIdToDelete(null);
+    }
   };
 
-  const handleSaveAddress = () => {
+  const handleDeleteConfirm = async () => {
+    if (!addressIdToDelete) {
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to delete address.");
+      setIsDeleteAddressModalOpen(false);
+      setAddressIdToDelete(null);
+      return;
+    }
+
+    setIsDeletingAddress(true);
+    try {
+      const response = await deleteAddress({ api_token: token, id: addressIdToDelete });
+      
+      if (response.status === "success" || response.success) {
+        // Save the deleted ID before clearing state
+        const deletedAddressId = addressIdToDelete;
+        
+        // Immediately remove from local state for instant UI update
+        setAddresses(prevAddresses => prevAddresses.filter(addr => addr.id !== deletedAddressId));
+        
+        // Close modal immediately
+        setIsDeleteAddressModalOpen(false);
+        setAddressIdToDelete(null);
+        
+        // Show success message
+        toast.success(response.message || "Address deleted successfully");
+        
+        // Refresh addresses from API in the background to ensure consistency
+        try {
+          const addressesResponse = await fetchAddresses(token);
+          if (addressesResponse.status === "success" && addressesResponse.data) {
+            setAddresses(addressesResponse.data);
+          }
+        } catch (refreshError) {
+          console.error("Error refreshing addresses after delete:", refreshError);
+          // Don't show error to user since deletion was successful
+        }
+        
+        // If we're on the edit page for the deleted address, navigate back to profile
+        if (isEditAddressRoute && deletedAddressId === addressIdToEdit) {
+          navigate("/customer/dashboard/profile");
+        }
+      } else {
+        toast.error(response.message || response.error || "Failed to delete address");
+      }
+    } catch (error: any) {
+      console.error("Error deleting address:", error);
+      
+      // Handle 404 specifically
+      if (error?.status === 404 || error?.response?.status === 404) {
+        // Address might already be deleted, remove from local state anyway
+        setAddresses(prevAddresses => prevAddresses.filter(addr => addr.id !== addressIdToDelete));
+        setIsDeleteAddressModalOpen(false);
+        setAddressIdToDelete(null);
+        toast.error("Address not found. It may have already been deleted.");
+        
+        // If we're on the edit page, navigate back
+        if (isEditAddressRoute && addressIdToDelete === addressIdToEdit) {
+          navigate("/customer/dashboard/profile");
+        }
+      } else {
+        toast.error(error?.message || error?.error || "Failed to delete address. Please try again.");
+      }
+    } finally {
+      setIsDeletingAddress(false);
+    }
+  };
+
+  const handleSetDefault = async (id: number) => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to update address.");
+      return;
+    }
+
+    const addressToUpdate = addresses.find(addr => addr.id === id);
+    if (!addressToUpdate) return;
+
+    try {
+      const response = await updateAddress({
+        api_token: token,
+        id: id,
+        tag: addressToUpdate.tag,
+        adress_line: addressToUpdate.adress_line,
+        city: addressToUpdate.city,
+        postal_code: addressToUpdate.postal_code,
+        country: addressToUpdate.country,
+        is_default_address: true,
+        is_favourite_address: addressToUpdate.is_favourite_address === 1
+      });
+
+      if (response.status === "success" || response.success) {
+        // Refresh addresses from API
+        const addressesResponse = await fetchAddresses(token);
+        if (addressesResponse.status === "success" && addressesResponse.data) {
+          setAddresses(addressesResponse.data);
+        }
+        toast.success(response.message || "Default address updated");
+      } else {
+        toast.error(response.message || response.error || "Failed to update address");
+      }
+    } catch (error: any) {
+      console.error("Error updating address:", error);
+      toast.error(error?.message || "Failed to update address. Please try again.");
+    }
+  };
+
+  const handleSaveAddress = async () => {
     if (!addressForm.label || !addressForm.street || !addressForm.city || !addressForm.postcode) {
       toast.error("Please fill in all required fields");
       return;
     }
 
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to save address.");
+      return;
+    }
+
     if (editingAddress) {
-      // Update existing address
-      setAddresses(addresses.map(addr =>
-        addr.id === editingAddress.id
-          ? { ...addr, ...addressForm }
-          : addr
-      ));
-      toast.success("Address updated successfully");
+      // Update existing address using API
+      try {
+        const response = await updateAddress({
+          api_token: token,
+          id: editingAddress.id,
+          tag: addressForm.label,
+          adress_line: addressForm.street,
+          city: addressForm.city,
+          postal_code: addressForm.postcode,
+          country: addressForm.country,
+          is_default_address: editingAddress.is_default_address === 1,
+          is_favourite_address: editingAddress.is_favourite_address === 1
+        });
+
+        if (response.status === "success" || response.success) {
+          // Refresh addresses from API
+          const addressesResponse = await fetchAddresses(token);
+          if (addressesResponse.status === "success" && addressesResponse.data) {
+            setAddresses(addressesResponse.data);
+          }
+          toast.success(response.message || "Address updated successfully");
+        } else {
+          toast.error(response.message || response.error || "Failed to update address");
+        }
+      } catch (error: any) {
+        console.error("Error updating address:", error);
+        toast.error(error?.message || "Failed to update address. Please try again.");
+      }
     } else {
-      // Add new address
-      const newAddress = {
-        id: Math.max(...addresses.map(a => a.id), 0) + 1,
-        ...addressForm,
-        isDefault: addresses.length === 0
-      };
-      setAddresses([...addresses, newAddress]);
-      toast.success("Address added successfully");
+      // Add new address - this shouldn't happen via modal anymore, but handle it
+      toast.error("Please use the 'Add New Address' button to add addresses");
     }
 
     setAddressModalOpen(false);
@@ -409,13 +1060,52 @@ export function CustomerDashboard({
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center gap-6 mb-6">
-            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
-              <User className="w-12 h-12 text-red-600" />
+            <div className="relative">
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt="Profile"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                />
+              ) : (
+                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
+                  <User className="w-12 h-12 text-red-600" />
+                </div>
+              )}
+              {isUploadingImage && (
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                </div>
+              )}
             </div>
             <div>
               <h2 className="text-2xl text-[#0A1A2F] mb-1">{customerName}</h2>
               <p className="text-gray-600">{customerEmail}</p>
-              <Button variant="outline" className="mt-3">Change Photo</Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                className="mt-3"
+                onClick={handleImageClick}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Change Photo
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
@@ -425,29 +1115,38 @@ export function CustomerDashboard({
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Full Name</label>
                 <input 
                   type="text" 
+                  value={profileForm.full_name}
+                  onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  defaultValue={customerName}
+                  placeholder="Enter your full name"
+                  disabled={isUpdatingProfile}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Email Address</label>
                 <input 
                   type="email" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  defaultValue={customerEmail}
+                  value={customerEmail}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                  disabled
+                  readOnly
                 />
+                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Phone Number</label>
                 <input 
                   type="tel" 
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  defaultValue="07123 456789"
+                  placeholder="Enter your phone number"
+                  disabled={isUpdatingProfile}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Property Type</label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" disabled={isUpdatingProfile}>
                   <option>Residential</option>
                   <option>Commercial</option>
                   <option>Industrial</option>
@@ -456,8 +1155,34 @@ export function CustomerDashboard({
             </div>
 
             <div className="pt-4 flex gap-3">
-              <Button className="bg-red-600 hover:bg-red-700">Save Changes</Button>
-              <Button variant="outline">Cancel</Button>
+              <Button 
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleSaveProfile}
+                disabled={isUpdatingProfile}
+              >
+                {isUpdatingProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  // Reset form to current saved values
+                  const userData = getUserData();
+                  setProfileForm({
+                    full_name: customerName,
+                    phone: userData.phone
+                  });
+                }}
+                disabled={isUpdatingProfile}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -473,11 +1198,16 @@ export function CustomerDashboard({
               className="bg-red-600 hover:bg-red-700"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add New Address
+              Add New Address 
             </Button>
           </div>
 
-          {addresses.length === 0 ? (
+          {isLoadingAddresses ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+              <p className="text-gray-600">Loading addresses...</p>
+            </div>
+          ) : addresses.length === 0 ? (
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 mb-4">No saved addresses yet</p>
@@ -501,17 +1231,23 @@ export function CustomerDashboard({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium text-gray-900">{address.label}</p>
-                      {address.isDefault && (
+                      <p className="font-medium text-gray-900">{address.tag}</p>
+                      {address.is_default_address === 1 && (
                         <Badge className="bg-green-100 text-green-700">
                           <Star className="w-3 h-3 mr-1" />
                           Default
                         </Badge>
                       )}
+                      {address.is_favourite_address === 1 && (
+                        <Badge className="bg-yellow-100 text-yellow-700">
+                          <Star className="w-3 h-3 mr-1" />
+                          Favourite
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600">{address.street}</p>
+                    <p className="text-sm text-gray-600">{address.adress_line}</p>
                     <p className="text-sm text-gray-600">
-                      {address.city}, {address.postcode}
+                      {address.city}, {address.postal_code}
                     </p>
                     <p className="text-sm text-gray-500">{address.country}</p>
                   </div>
@@ -523,26 +1259,25 @@ export function CustomerDashboard({
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    {!address.isDefault && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSetDefault(address.id)}
-                          title="Set as default"
-                        >
-                          <Star className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteAddress(address.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </>
+                    {address.is_default_address !== 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSetDefault(address.id)}
+                        title="Set as default"
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteAddress(address.id)}
+                      className="text-red-600 hover:text-red-700"
+                      title="Delete address"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -644,6 +1379,52 @@ export function CustomerDashboard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Address Confirmation Modal */}
+      <Dialog open={isDeleteAddressModalOpen} onOpenChange={(open) => {
+        if (!open && !isDeletingAddress) {
+          handleDeleteCancel();
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-xl text-[#0A1A2F]">Delete Address</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4 px-4">
+            <DialogDescription className="text-base">
+              Are you sure you want to delete this address?
+            </DialogDescription>
+          </div>
+
+          <DialogFooter className="gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDeleteCancel}
+              disabled={isDeletingAddress}
+              className="h-10"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDeleteConfirm}
+              disabled={isDeletingAddress}
+              className="bg-red-600 hover:bg-red-700 h-10"
+            >
+              {isDeletingAddress ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Sure"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -733,6 +1514,319 @@ export function CustomerDashboard({
   );
 
   const renderContent = () => {
+    // If on edit address route, show the edit address form
+    if (isEditAddressRoute && addressIdToEdit) {
+      if (isLoadingEditAddress) {
+        return (
+          <div className="space-y-6">
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+              <p className="text-gray-600">Loading address...</p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6">
+          <Button
+            variant="ghost"
+            onClick={handleBackToProfile}
+            className="mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Profile
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-[#0A1A2F]">Edit Address</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleEditAddressSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="edit-tag" className="text-sm font-medium">
+                    Address Name (Tag) <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="edit-tag"
+                    value={editAddressForm.tag}
+                    onChange={(e) => setEditAddressForm({ ...editAddressForm, tag: e.target.value })}
+                    className="mt-2 h-11"
+                    placeholder="e.g., Home, Office, Warehouse"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-adress_line" className="text-sm font-medium">
+                    Address Line <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="edit-adress_line"
+                    value={editAddressForm.adress_line}
+                    onChange={(e) => setEditAddressForm({ ...editAddressForm, adress_line: e.target.value })}
+                    className="mt-2 h-11"
+                    placeholder="e.g., 123 Main Street, Rampura"
+                    required
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-city" className="text-sm font-medium">
+                      City <span className="text-red-600">*</span>
+                    </Label>
+                    <Input
+                      id="edit-city"
+                      value={editAddressForm.city}
+                      onChange={(e) => setEditAddressForm({ ...editAddressForm, city: e.target.value })}
+                      className="mt-2 h-11"
+                      placeholder="e.g., Dhaka, London"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-postal_code" className="text-sm font-medium">
+                      Postal Code <span className="text-red-600">*</span>
+                    </Label>
+                    <Input
+                      id="edit-postal_code"
+                      value={editAddressForm.postal_code}
+                      onChange={(e) => setEditAddressForm({ ...editAddressForm, postal_code: e.target.value })}
+                      className="mt-2 h-11"
+                      placeholder="e.g., 1205, SW1A 1AA"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-country" className="text-sm font-medium">
+                    Country <span className="text-red-600">*</span>
+                  </Label>
+                  <select
+                    id="edit-country"
+                    value={editAddressForm.country}
+                    onChange={(e) => setEditAddressForm({ ...editAddressForm, country: e.target.value })}
+                    className="mt-2 w-full h-11 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                    required
+                  >
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Bangladesh">Bangladesh</option>
+                    <option value="Ireland">Ireland</option>
+                    <option value="Scotland">Scotland</option>
+                    <option value="Wales">Wales</option>
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editAddressForm.is_default_address}
+                      onChange={(e) => setEditAddressForm({ ...editAddressForm, is_default_address: e.target.checked })}
+                      className="w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm text-gray-700">Set as default address</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editAddressForm.is_favourite_address}
+                      onChange={(e) => setEditAddressForm({ ...editAddressForm, is_favourite_address: e.target.checked })}
+                      className="w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm text-gray-700">Mark as favourite address</span>
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBackToProfile}
+                    disabled={isUpdatingAddress}
+                    className="h-10"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-red-600 hover:bg-red-700 h-10"
+                    disabled={isUpdatingAddress}
+                  >
+                    {isUpdatingAddress ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Update Address
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // If on add address route, show the add address form
+    if (isAddAddressRoute) {
+      return (
+        <div className="space-y-6">
+          <Button
+            variant="ghost"
+            onClick={handleBackToProfile}
+            className="mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Profile
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-[#0A1A2F]">Add New Address</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAddAddressSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="tag" className="text-sm font-medium">
+                    Address Name (Tag) <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="tag"
+                    value={addAddressForm.tag}
+                    onChange={(e) => setAddAddressForm({ ...addAddressForm, tag: e.target.value })}
+                    className="mt-2 h-11"
+                    placeholder="e.g., Home, Office, Warehouse"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="adress_line" className="text-sm font-medium">
+                    Address Line <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="adress_line"
+                    value={addAddressForm.adress_line}
+                    onChange={(e) => setAddAddressForm({ ...addAddressForm, adress_line: e.target.value })}
+                    className="mt-2 h-11"
+                    placeholder="e.g., 123 Main Street, Rampura"
+                    required
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="city" className="text-sm font-medium">
+                      City <span className="text-red-600">*</span>
+                    </Label>
+                    <Input
+                      id="city"
+                      value={addAddressForm.city}
+                      onChange={(e) => setAddAddressForm({ ...addAddressForm, city: e.target.value })}
+                      className="mt-2 h-11"
+                      placeholder="e.g., Dhaka, London"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="postal_code" className="text-sm font-medium">
+                      Postal Code <span className="text-red-600">*</span>
+                    </Label>
+                    <Input
+                      id="postal_code"
+                      value={addAddressForm.postal_code}
+                      onChange={(e) => setAddAddressForm({ ...addAddressForm, postal_code: e.target.value })}
+                      className="mt-2 h-11"
+                      placeholder="e.g., 1205, SW1A 1AA"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="country" className="text-sm font-medium">
+                    Country <span className="text-red-600">*</span>
+                  </Label>
+                  <select
+                    id="country"
+                    value={addAddressForm.country}
+                    onChange={(e) => setAddAddressForm({ ...addAddressForm, country: e.target.value })}
+                    className="mt-2 w-full h-11 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                    required
+                  >
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Bangladesh">Bangladesh</option>
+                    <option value="Ireland">Ireland</option>
+                    <option value="Scotland">Scotland</option>
+                    <option value="Wales">Wales</option>
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addAddressForm.is_default_address}
+                      onChange={(e) => setAddAddressForm({ ...addAddressForm, is_default_address: e.target.checked })}
+                      className="w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm text-gray-700">Set as default address</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addAddressForm.is_favourite_address}
+                      onChange={(e) => setAddAddressForm({ ...addAddressForm, is_favourite_address: e.target.checked })}
+                      className="w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm text-gray-700">Mark as favourite address</span>
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBackToProfile}
+                    disabled={isSubmittingAddress}
+                    className="h-10"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-red-600 hover:bg-red-700 h-10"
+                    disabled={isSubmittingAddress}
+                  >
+                    {isSubmittingAddress ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Add Address
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     switch (currentView) {
       case "overview":
         return renderOverview();

@@ -144,6 +144,14 @@ export default function Routes() {
         } 
       />
       <Route 
+        path="/admin/dashboard/services/edit/:id" 
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/admin/dashboard/:view" 
         element={
           <ProtectedRoute requiredRole="admin">

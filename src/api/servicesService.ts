@@ -430,6 +430,7 @@ export interface DeleteServiceResponse {
  */
 export const deleteService = async (data: DeleteServiceRequest): Promise<DeleteServiceResponse> => {
   try {
+    console.log('Deleting service with data:', { id: data.id, hasToken: !!data.api_token });
     const response = await apiClient.post<DeleteServiceResponse>(
       '/services/delete',
       {
@@ -437,29 +438,45 @@ export const deleteService = async (data: DeleteServiceRequest): Promise<DeleteS
         id: data.id
       }
     );
+    console.log('Delete service response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error deleting service:', error);
     if (axios.isAxiosError(error)) {
+      // Check for response errors (including 403 Forbidden)
       if (error.response) {
+        const status = error.response.status;
+        const responseData = error.response.data;
+        console.error('API Error Response:', {
+          status,
+          data: responseData,
+          headers: error.response.headers
+        });
+        
         throw {
           success: false,
-          message: error.response.data?.message || 'Failed to delete service',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
+          message: responseData?.message || `Failed to delete service (Status: ${status})`,
+          error: responseData?.error || error.message,
+          status: status,
+          statusCode: status, // Include both for compatibility
         };
       } else if (error.request) {
+        // No response received - could be network issue, CORS, or server down
+        console.error('No response from server. Request details:', error.request);
         throw {
           success: false,
           message: 'No response from server. Please check your connection.',
           error: 'Network error',
+          status: null,
         };
       }
     }
+    // Generic error handling
     throw {
       success: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
+      status: null,
     };
   }
 };

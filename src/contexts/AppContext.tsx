@@ -78,10 +78,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
   const [bookingProfessional, setBookingProfessional] = useState<any>(null);
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
-  const [customerBookings, setCustomerBookings] = useState<Booking[]>([]);
-  const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
+  
+  // Load bookings and payments from localStorage on mount
+  const loadBookingsFromStorage = (): Booking[] => {
+    try {
+      const stored = localStorage.getItem('customer_bookings');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error loading bookings from localStorage:', error);
+    }
+    return [];
+  };
+
+  const loadPaymentsFromStorage = (): Payment[] => {
+    try {
+      const stored = localStorage.getItem('customer_payments');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error loading payments from localStorage:', error);
+    }
+    return [];
+  };
+
+  const [customerBookings, setCustomerBookings] = useState<Booking[]>(loadBookingsFromStorage);
+  const [customerPayments, setCustomerPayments] = useState<Payment[]>(loadPaymentsFromStorage);
   const [bookingData, setBookingData] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Save bookings to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('customer_bookings', JSON.stringify(customerBookings));
+    } catch (error) {
+      console.error('Error saving bookings to localStorage:', error);
+    }
+  }, [customerBookings]);
+
+  // Save payments to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('customer_payments', JSON.stringify(customerPayments));
+    } catch (error) {
+      console.error('Error saving payments to localStorage:', error);
+    }
+  }, [customerPayments]);
 
   // Initialize auth state on mount
   useEffect(() => {
@@ -119,6 +163,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setCurrentUser(null);
     setIsCustomerLoggedIn(false);
+    setCustomerBookings([]);
+    setCustomerPayments([]);
+    // Clear localStorage on logout
+    try {
+      localStorage.removeItem('customer_bookings');
+      localStorage.removeItem('customer_payments');
+    } catch (error) {
+      console.error('Error clearing localStorage on logout:', error);
+    }
     removeAuthToken();
   };
 

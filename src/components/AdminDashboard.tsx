@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -42,13 +42,19 @@ type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "pay
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { view } = useParams<{ view?: string }>();
   const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications"];
   
-  // Determine current view from URL parameter, default to "dashboard"
-  const currentViewFromUrl: AdminView = (view && validViews.includes(view as AdminView)) 
-    ? (view as AdminView) 
-    : "dashboard";
+  // Determine current view from URL parameter or pathname, default to "dashboard"
+  // Check if we're on the services/add or services/edit route
+  const isServicesAddRoute = location.pathname === "/admin/dashboard/services/add";
+  const isServicesEditRoute = location.pathname.startsWith("/admin/dashboard/services/edit/");
+  const currentViewFromUrl: AdminView = (isServicesAddRoute || isServicesEditRoute)
+    ? "services"
+    : (view && validViews.includes(view as AdminView)) 
+      ? (view as AdminView) 
+      : "dashboard";
   
   const [currentView, setCurrentView] = useState<AdminView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -56,7 +62,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
     setCurrentView(currentViewFromUrl);
-  }, [currentViewFromUrl]);
+  }, [currentViewFromUrl, location.pathname]);
   
   // Handler to update both state and URL
   const handleViewChange = (view: AdminView) => {
