@@ -331,3 +331,191 @@ export const getSelectedServices = async (
     };
   }
 };
+
+// TypeScript types for profile completion percentage request
+export interface GetProfileCompletionRequest {
+  professional_id: number;
+  api_token?: string;
+}
+
+// Profile completion details
+export interface ProfileCompletionDetails {
+  basic_info: number;
+  contact_info: number;
+  profile_image: number;
+  selected_services: number;
+  certificates: number;
+}
+
+// TypeScript types for profile completion percentage response
+export interface GetProfileCompletionResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  profile_completion_percentage?: number;
+  details?: ProfileCompletionDetails;
+  error?: string;
+}
+
+/**
+ * Get profile completion percentage for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional/profile_completion_percentage
+ * Method: POST
+ * @param data - Get profile completion request data (professional_id)
+ * @returns Promise with the API response
+ */
+export const getProfileCompletionPercentage = async (
+  data: GetProfileCompletionRequest
+): Promise<GetProfileCompletionResponse> => {
+  try {
+    const requestBody: any = {
+      professional_id: data.professional_id,
+    };
+
+    // Add api_token if provided
+    if (data.api_token) {
+      requestBody.api_token = data.api_token;
+    }
+
+    console.log('POST /professional/profile_completion_percentage - Request payload:', {
+      endpoint: '/professional/profile_completion_percentage',
+      professional_id: requestBody.professional_id,
+    });
+
+    const response = await apiClient.post<GetProfileCompletionResponse>(
+      '/professional/profile_completion_percentage',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional/profile_completion_percentage - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching profile completion percentage:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch profile completion percentage',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for get certificate request
+export interface GetCertificateRequest {
+  professional_id: number;
+  api_token?: string;
+}
+
+// Certificate item from API
+export interface CertificateItem {
+  id: number;
+  name: string;
+  description: string;
+  evidence: string;
+  status: string; // "pending", "verified", "rejected"
+  professional_id: number;
+  created_by: number;
+  updated_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// TypeScript types for get certificate response
+export interface GetCertificateResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: CertificateItem[];
+  error?: string;
+}
+
+/**
+ * Get certificates for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional/get_certificate
+ * Method: POST
+ * @param data - Get certificate request data (professional_id)
+ * @returns Promise with the API response
+ */
+export const getCertificates = async (
+  data: GetCertificateRequest
+): Promise<GetCertificateResponse> => {
+  try {
+    const requestBody: any = {
+      professional_id: data.professional_id,
+    };
+
+    // Add api_token if provided
+    if (data.api_token) {
+      requestBody.api_token = data.api_token;
+    }
+
+    console.log('POST /professional/get_certificate - Request payload:', {
+      endpoint: '/professional/get_certificate',
+      professional_id: requestBody.professional_id,
+    });
+
+    const response = await apiClient.post<GetCertificateResponse>(
+      '/professional/get_certificate',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional/get_certificate - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching certificates:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch certificates',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

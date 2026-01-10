@@ -32,7 +32,7 @@ import { fetchServices, ServiceResponse } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
 import { createCertification } from "../api/qualificationsService";
-import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices } from "../api/professionalsService";
+import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem } from "../api/professionalsService";
 import { toast } from "sonner";
 
 export function ProfessionalProfileContent() {
@@ -93,6 +93,14 @@ export function ProfessionalProfileContent() {
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [loadingProfessional, setLoadingProfessional] = useState(false);
   
+  // Profile completion data from API
+  const [profileCompletionDetails, setProfileCompletionDetails] = useState<ProfileCompletionDetails | null>(null);
+  const [profileCompletionPercentage, setProfileCompletionPercentage] = useState<number>(0);
+  
+  // Certificates from API
+  const [certifications, setCertifications] = useState<CertificateItem[]>([]);
+  const [loadingCertifications, setLoadingCertifications] = useState(false);
+  
   // Profile image upload states
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -124,7 +132,7 @@ export function ProfessionalProfileContent() {
   // Fetch services from API on component mount
   useEffect(() => {
     let isMounted = true;
-    
+  
     const loadServices = async () => {
       // Set loading state synchronously
       setLoadingServices(true);
@@ -190,6 +198,70 @@ export function ProfessionalProfileContent() {
     }
   };
 
+  // Function to fetch profile completion percentage for a professional
+  const fetchProfileCompletion = async (profId: number) => {
+    try {
+      const token = getApiToken();
+      const response = await getProfileCompletionPercentage({
+        professional_id: profId,
+        api_token: token || undefined
+      });
+
+      if (response.status === true && response.details && response.profile_completion_percentage !== undefined) {
+        startTransition(() => {
+          setProfileCompletionDetails(response.details || null);
+          setProfileCompletionPercentage(response.profile_completion_percentage || 0);
+        });
+      } else {
+        console.error('Failed to fetch profile completion:', response.error || response.message);
+        // Don't show error toast as this is not critical
+      }
+    } catch (error: any) {
+      console.error('Error fetching profile completion:', error);
+      // Don't show error toast as this is not critical
+    }
+  };
+
+  // Helper function to format ISO date to readable format
+  const formatDate = (isoDateString: string): string => {
+    try {
+      const date = new Date(isoDateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (error) {
+      return isoDateString;
+    }
+  };
+
+  // Function to fetch certificates for a professional
+  const fetchProfessionalCertificates = async (profId: number) => {
+    try {
+      setLoadingCertifications(true);
+      const token = getApiToken();
+      const response = await getCertificates({
+        professional_id: profId,
+        api_token: token || undefined
+      });
+
+      if (response.status === true && response.data) {
+        startTransition(() => {
+          setCertifications(response.data || []);
+        });
+      } else {
+        console.error('Failed to fetch certificates:', response.error || response.message);
+        setCertifications([]);
+      }
+    } catch (error: any) {
+      console.error('Error fetching certificates:', error);
+      setCertifications([]);
+    } finally {
+      setLoadingCertifications(false);
+    }
+  };
+
   // Fetch professional data on mount
   useEffect(() => {
     let isMounted = true;
@@ -242,9 +314,11 @@ export function ProfessionalProfileContent() {
             setLoadingProfessional(false);
           });
 
-          // Fetch selected services for this professional
+          // Fetch selected services, profile completion, and certificates for this professional
           if (currentProfessional.id) {
             fetchSelectedServicesForProfessional(currentProfessional.id);
+            fetchProfileCompletion(currentProfessional.id);
+            fetchProfessionalCertificates(currentProfessional.id);
           }
         } else if (isMounted) {
           setLoadingProfessional(false);
@@ -472,7 +546,17 @@ export function ProfessionalProfileContent() {
         toast.success(response.message || "Certification created successfully!");
         // Close form and reset
         handleCloseCertificationForm();
-        // Optionally refresh certifications list here if you fetch them from API
+        
+        // Refresh certifications list after successful creation
+        const profIdFromAuth = getProfessionalId();
+        const profIdFromLocalStorage = localStorage.getItem('professional_id');
+        const profId = profIdFromAuth || (profIdFromLocalStorage ? parseInt(profIdFromLocalStorage, 10) : null);
+        
+        if (profId && !isNaN(profId)) {
+          fetchProfessionalCertificates(profId);
+          // Also refresh profile completion to update the percentage
+          fetchProfileCompletion(profId);
+        }
       } else {
         toast.error(response.message || response.error || "Failed to create certification. Please try again.");
       }
@@ -604,6 +688,23 @@ export function ProfessionalProfileContent() {
 
       if (isSuccess) {
         toast.success(response.message || "Profile saved successfully!");
+        
+        // Refresh profile completion, services, and certificates after saving
+        const profIdFromAuth = getProfessionalId();
+        const profIdFromLocalStorage = localStorage.getItem('professional_id');
+        const professionalId = profIdFromAuth || (profIdFromLocalStorage ? parseInt(profIdFromLocalStorage, 10) : null);
+        
+        // Also check if professional_id is in the response
+        const profIdFromResponse = response.data?.professional?.id;
+        const profId = profIdFromResponse || professionalId;
+        
+        if (profId && !isNaN(profId)) {
+          // Refresh profile completion percentage, selected services, and certificates
+          fetchProfileCompletion(profId);
+          fetchSelectedServicesForProfessional(profId);
+          fetchProfessionalCertificates(profId);
+        }
+        
         // Optionally reset form or close certification form
         if (showCertificationForm) {
           handleCloseCertificationForm();
@@ -618,15 +719,39 @@ export function ProfessionalProfileContent() {
     }
   };
 
+  // Calculate completion steps based on API data
   const completionSteps = [
-    { id: 1, title: "Basic Information", completed: true },
-    { id: 2, title: "Contact Details", completed: true },
-    { id: 3, title: "Service Selection", completed: true },
-    { id: 4, title: "Certifications", completed: false },
-    { id: 5, title: "Profile Photo", completed: !!profileImageUrl },
+    { 
+      id: 1, 
+      title: "Basic Information", 
+      completed: profileCompletionDetails ? profileCompletionDetails.basic_info === 20 : false 
+    },
+    { 
+      id: 2, 
+      title: "Contact Details", 
+      completed: profileCompletionDetails ? profileCompletionDetails.contact_info === 20 : false 
+    },
+    { 
+      id: 3, 
+      title: "Service Selection", 
+      completed: profileCompletionDetails ? profileCompletionDetails.selected_services === 20 : false 
+    },
+    { 
+      id: 4, 
+      title: "Certifications", 
+      completed: profileCompletionDetails ? profileCompletionDetails.certificates === 20 : false 
+    },
+    { 
+      id: 5, 
+      title: "Profile Photo", 
+      completed: profileCompletionDetails ? profileCompletionDetails.profile_image === 20 : !!profileImageUrl 
+    },
   ];
 
-  const completionPercentage = (completionSteps.filter(s => s.completed).length / completionSteps.length) * 100;
+  // Use API percentage if available, otherwise calculate from steps
+  const completionPercentage = profileCompletionPercentage > 0 
+    ? profileCompletionPercentage 
+    : (completionSteps.filter(s => s.completed).length / completionSteps.length) * 100;
 
   return (
     <div>
@@ -906,82 +1031,166 @@ export function ProfessionalProfileContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {formData.certifications.map((cert) => (
-                <div 
-                  key={cert.id} 
-                  className={`p-4 border rounded-lg ${
-                    cert.status === 'verified' ? 'bg-green-50 border-green-200' :
-                    cert.status === 'pending' ? 'bg-amber-50 border-amber-200' :
-                    'bg-red-50 border-red-200'
-                  }`}
-                >
-                  {/* Header with title and status */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 mb-2">{cert.name}</h4>
-                      
-                      {/* Evidence Info Row */}
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-600">
-                          Evidence: <span className="text-gray-700">{cert.evidenceFile}</span> ({cert.fileCount} file)
-                        </p>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 -mr-2"
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
-                        </Button>
+              {loadingCertifications ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm text-gray-500">Loading certifications...</p>
+                </div>
+              ) : certifications.length > 0 ? (
+                certifications.map((cert) => (
+                  <div 
+                    key={cert.id} 
+                    className={`p-4 border rounded-lg ${
+                      cert.status === 'verified' ? 'bg-green-50 border-green-200' :
+                      cert.status === 'pending' ? 'bg-amber-50 border-amber-200' :
+                      'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    {/* Header with title and status */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-2">{cert.name}</h4>
+                        
+                        {/* Evidence Info Row */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-600">
+                            Evidence: <span className="text-gray-700">{cert.evidence}</span> (1 file)
+                          </p>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 -mr-2"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="ml-3 flex-shrink-0">
+                        {cert.status === 'verified' && (
+                          <Badge className="bg-green-600 text-white">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        )}
+                        {cert.status === 'pending' && (
+                          <Badge className="bg-amber-500 text-white">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Pending verification
+                          </Badge>
+                        )}
+                        {cert.status === 'rejected' && (
+                          <Badge className="bg-red-600 text-white">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Rejected
+                          </Badge>
+                        )}
                       </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className="ml-3 flex-shrink-0">
-                      {cert.status === 'verified' && (
-                        <Badge className="bg-green-600 text-white">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                      )}
-                      {cert.status === 'pending' && (
-                        <Badge className="bg-amber-500 text-white">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Pending verification
-                        </Badge>
-                      )}
-                      {cert.status === 'rejected' && (
-                        <Badge className="bg-red-600 text-white">
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Rejected
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Additional info based on status */}
-                  {cert.status === 'verified' && cert.verifiedDate && (
-                    <p className="text-xs text-green-700">
-                      <CheckCircle2 className="w-3 h-3 inline mr-1" />
-                      Verified on {cert.verifiedDate}
-                    </p>
-                  )}
-                  {cert.status === 'pending' && (
-                    <p className="text-xs text-amber-700">
-                      <Clock className="w-3 h-3 inline mr-1" />
-                      Uploaded {cert.uploadDate} - Awaiting admin review
-                    </p>
-                  )}
-                  {cert.status === 'rejected' && cert.rejectionReason && (
-                    <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
-                      <p className="text-xs text-red-900 flex items-start gap-1">
-                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                        <span><strong>Reason:</strong> {cert.rejectionReason}</span>
+                    {/* Additional info based on status */}
+                    {cert.status === 'verified' && cert.updated_at && (
+                      <p className="text-xs text-green-700">
+                        <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                        Verified on {formatDate(cert.updated_at)}
                       </p>
+                    )}
+                    {cert.status === 'pending' && (
+                      <p className="text-xs text-amber-700">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        Uploaded {formatDate(cert.created_at)} - Awaiting admin review
+                      </p>
+                    )}
+                    {cert.status === 'rejected' && cert.updated_at && (
+                      <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
+                        <p className="text-xs text-red-900 flex items-start gap-1">
+                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                          <span><strong>Rejected on:</strong> {formatDate(cert.updated_at)}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                formData.certifications.map((cert) => (
+                  <div 
+                    key={cert.id} 
+                    className={`p-4 border rounded-lg ${
+                      cert.status === 'verified' ? 'bg-green-50 border-green-200' :
+                      cert.status === 'pending' ? 'bg-amber-50 border-amber-200' :
+                      'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    {/* Header with title and status */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-2">{cert.name}</h4>
+                        
+                        {/* Evidence Info Row */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-600">
+                            Evidence: <span className="text-gray-700">{cert.evidenceFile}</span> ({cert.fileCount} file)
+                          </p>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 -mr-2"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="ml-3 flex-shrink-0">
+                        {cert.status === 'verified' && (
+                          <Badge className="bg-green-600 text-white">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        )}
+                        {cert.status === 'pending' && (
+                          <Badge className="bg-amber-500 text-white">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Pending verification
+                          </Badge>
+                        )}
+                        {cert.status === 'rejected' && (
+                          <Badge className="bg-red-600 text-white">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Rejected
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Additional info based on status */}
+                    {cert.status === 'verified' && cert.verifiedDate && (
+                      <p className="text-xs text-green-700">
+                        <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                        Verified on {cert.verifiedDate}
+                      </p>
+                    )}
+                    {cert.status === 'pending' && (
+                      <p className="text-xs text-amber-700">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        Uploaded {cert.uploadDate} - Awaiting admin review
+                      </p>
+                    )}
+                    {cert.status === 'rejected' && cert.rejectionReason && (
+                      <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
+                        <p className="text-xs text-red-900 flex items-start gap-1">
+                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                          <span><strong>Reason:</strong> {cert.rejectionReason}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
 
               <Button 
                 variant="outline" 
@@ -1178,7 +1387,7 @@ export function ProfessionalProfileContent() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Certifications</span>
-                  <span className="font-semibold text-gray-900">{formData.certifications.length}</span>
+                  <span className="font-semibold text-gray-900">{certifications.length > 0 ? certifications.length : formData.certifications.length}</span>
                 </div>
               </div>
 
