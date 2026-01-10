@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { startTransition } from "react";
 import { useApp } from "../../contexts/AppContext";
 import { CustomerAuth } from "../CustomerAuth";
 import { setUserInfo, getUserRole } from "../../lib/auth";
@@ -130,19 +131,25 @@ export default function CustomerAuthPage() {
           setCustomerPayments(demoPayments);
         }
         
-        // Redirect immediately based on role
-        if (userRole === "USER") {
-          navigate("/customer/dashboard", { replace: true });
-        } else if (userRole === "PROFESSIONAL") {
-          navigate("/professional/dashboard", { replace: true });
-        } else if (userRole === "ADMIN") {
-          navigate("/admin/dashboard", { replace: true });
-        } else {
-          // Fallback to customer dashboard if role is not set
-          navigate("/customer/dashboard", { replace: true });
-        }
+        // Redirect immediately based on role (wrapped in startTransition to avoid suspend during sync input)
+        startTransition(() => {
+          if (userRole === "USER") {
+            navigate("/customer/dashboard", { replace: true });
+          } else if (userRole === "PROFESSIONAL") {
+            navigate("/professional/dashboard", { replace: true });
+          } else if (userRole === "ADMIN") {
+            navigate("/admin/dashboard", { replace: true });
+          } else {
+            // Fallback to customer dashboard if role is not set
+            navigate("/customer/dashboard", { replace: true });
+          }
+        });
       }}
-      onBack={() => navigate("/")}
+      onBack={() => {
+        startTransition(() => {
+          navigate("/");
+        });
+      }}
     />
   );
 }

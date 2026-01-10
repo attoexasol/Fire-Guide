@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, startTransition, useRef } from "react";
 import { 
   User, 
   Save,
@@ -16,7 +16,9 @@ import {
   CheckSquare,
   Clock,
   XCircle,
-  Eye
+  X,
+  Eye,
+  Loader2
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -26,6 +28,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Checkbox } from "./ui/checkbox";
 import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
+import { fetchServices, ServiceResponse } from "../api/servicesService";
+import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
+import { getApiToken, getProfessionalId } from "../lib/auth";
+import { createCertification } from "../api/qualificationsService";
+import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices } from "../api/professionalsService";
+import { toast } from "sonner";
 
 export function ProfessionalProfileContent() {
   const [formData, setFormData] = useState({
@@ -79,27 +87,543 @@ export function ProfessionalProfileContent() {
     emergencyCallout: true
   });
 
-  const [selectedServices, setSelectedServices] = useState<string[]>([
-    "fire-risk-assessment",
-    "fire-alarm-service",
-    "fire-extinguisher"
-  ]);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
+  const [services, setServices] = useState<ServiceResponse[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const [loadingProfessional, setLoadingProfessional] = useState(false);
+  
+  // Profile image upload states
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const services = [
-    { id: "fire-risk-assessment", name: "Fire Risk Assessment", category: "Assessment" },
-    { id: "fire-alarm-service", name: "Fire Alarm Service", category: "Equipment" },
-    { id: "fire-extinguisher", name: "Fire Extinguisher Service", category: "Equipment" },
-    { id: "fire-door", name: "Fire Door Inspection", category: "Inspection" },
-    { id: "emergency-lighting", name: "Emergency Lighting Test", category: "Equipment" },
-    { id: "fire-training", name: "Fire Safety Training", category: "Training" },
-  ];
+  // Certification form states
+  const [showCertificationForm, setShowCertificationForm] = useState(false);
+  const [certificationFormData, setCertificationFormData] = useState({
+    certificate_name: "",
+    description: "",
+    evidence: "",
+    status: "pending"
+  });
+  const [selectedCertificationFile, setSelectedCertificationFile] = useState<File | null>(null);
+  const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
+  const certificationFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load profile image from localStorage on mount
+  useEffect(() => {
+    const storedImageUrl = localStorage.getItem('professional_profile_image');
+    if (storedImageUrl) {
+      // Wrap in startTransition to prevent suspend during initial render
+      startTransition(() => {
+        setProfileImageUrl(storedImageUrl);
+      });
+    }
+  }, []);
+
+  // Fetch services from API on component mount
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadServices = async () => {
+      // Set loading state synchronously
+      setLoadingServices(true);
+      setServicesError(null);
+      
+      try {
+        const fetchedServices = await fetchServices();
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          // Filter only ACTIVE services
+          const activeServices = fetchedServices.filter(service => service.status === "ACTIVE");
+          
+          // Wrap state updates in startTransition to prevent suspend during render
+          startTransition(() => {
+            setServices(activeServices);
+            setLoadingServices(false);
+          });
+        }
+      } catch (error) {
+        console.error("Error loading services:", error);
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          startTransition(() => {
+            setServicesError("Failed to load services. Please try again later.");
+            setLoadingServices(false);
+          });
+        }
+      }
+    };
+
+    loadServices();
+    
+    // Cleanup function to prevent state updates if component unmounts
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Function to fetch selected services for a professional
+  const fetchSelectedServicesForProfessional = async (profId: number) => {
+    try {
+      const token = getApiToken();
+      const response = await getSelectedServices({
+        professional_id: profId,
+        api_token: token || undefined
+      });
+
+      if (response.status === true && response.data) {
+        // Extract service_id values from the response
+        const serviceIds = response.data.map(item => item.service_id);
+        startTransition(() => {
+          setSelectedServices(serviceIds);
+        });
+      } else {
+        console.error('Failed to fetch selected services:', response.error || response.message);
+        // Don't show error toast as this is not critical
+      }
+    } catch (error: any) {
+      console.error('Error fetching selected services:', error);
+      // Don't show error toast as this is not critical
+    }
+  };
+
+  // Fetch professional data on mount
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadProfessionalData = async () => {
+      // Get professional_id from localStorage or auth
+      const profIdFromAuth = getProfessionalId();
+      const profIdFromLocalStorage = localStorage.getItem('professional_id');
+      const professionalId = profIdFromAuth || (profIdFromLocalStorage ? parseInt(profIdFromLocalStorage, 10) : null);
+
+      setLoadingProfessional(true);
+      try {
+        // Fetch all professionals (the API returns professionals for the authenticated user)
+        const professionals = await fetchProfessionals(1);
+        
+        if (!professionals || professionals.length === 0) {
+          if (isMounted) {
+            setLoadingProfessional(false);
+          }
+          return;
+        }
+        
+        // Find the professional that matches the professional_id, or use the first one
+        let currentProfessional = professionalId && !isNaN(professionalId)
+          ? professionals.find(prof => prof.id === professionalId)
+          : null;
+        
+        // If no match found but we have professionals, use the first one
+        if (!currentProfessional && professionals.length > 0) {
+          currentProfessional = professionals[0];
+          // Store the first professional's ID for future use
+          if (currentProfessional.id) {
+            localStorage.setItem('professional_id', currentProfessional.id.toString());
+          }
+        }
+        
+        if (currentProfessional && isMounted) {
+          // Populate form data with fetched professional data
+          startTransition(() => {
+            setFormData(prev => ({
+              ...prev,
+              name: currentProfessional?.name || prev.name,
+              email: currentProfessional?.email || prev.email,
+              phone: currentProfessional?.number || prev.phone,
+              businessName: currentProfessional?.business_name || prev.businessName,
+              address: currentProfessional?.business_location || prev.address,
+              postcode: currentProfessional?.post_code || prev.postcode,
+              bio: currentProfessional?.about || prev.bio,
+            }));
+            setLoadingProfessional(false);
+          });
+
+          // Fetch selected services for this professional
+          if (currentProfessional.id) {
+            fetchSelectedServicesForProfessional(currentProfessional.id);
+          }
+        } else if (isMounted) {
+          setLoadingProfessional(false);
+        }
+      } catch (error) {
+        console.error("Error loading professional data:", error);
+        if (isMounted) {
+          startTransition(() => {
+            setLoadingProfessional(false);
+          });
+        }
+        // Don't show error toast as this is not critical - user can still edit form
+      }
+    };
+
+    loadProfessionalData();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Handle profile image upload
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select an image file.");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB.");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to upload profile image.");
+      return;
+    }
+
+    // Set loading state synchronously (immediate feedback)
+    setIsUploadingImage(true);
+    
+    try {
+      const uploadData: UploadProfileImageRequest = {
+        api_token: token,
+        file: file
+      };
+
+      const response = await uploadProfileImage(uploadData);
+
+      if (response.status === true || response.image_url) {
+        const imageUrl = response.image_url || "";
+        
+        // Wrap state updates in startTransition to prevent suspend during render
+        startTransition(() => {
+          setProfileImageUrl(imageUrl);
+          setIsUploadingImage(false);
+        });
+        
+        // Store in localStorage to persist across sessions (synchronous, safe)
+        localStorage.setItem('professional_profile_image', imageUrl);
+        toast.success(response.message || "Profile image updated successfully!");
+      } else {
+        startTransition(() => {
+          setIsUploadingImage(false);
+        });
+        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error uploading profile image:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while uploading the image. Please try again.";
+      
+      // Wrap state updates in startTransition
+      startTransition(() => {
+        setIsUploadingImage(false);
+      });
+      
+      toast.error(errorMessage);
+    } finally {
+      // Reset file input (synchronous, safe)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Handle certification form
+  const handleOpenCertificationForm = () => {
+    setShowCertificationForm(true);
+  };
+
+  const handleCloseCertificationForm = () => {
+    setShowCertificationForm(false);
+    // Reset form data
+    setCertificationFormData({
+      certificate_name: "",
+      description: "",
+      evidence: "",
+      status: "pending"
+    });
+    setSelectedCertificationFile(null);
+    if (certificationFileInputRef.current) {
+      certificationFileInputRef.current.value = "";
+    }
+  };
+
+  const handleCertificationFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type (allow PDF, images, and common document formats)
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Please upload a PDF, image, or document file.");
+        if (certificationFileInputRef.current) {
+          certificationFileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        toast.error("File size must be less than 10MB.");
+        if (certificationFileInputRef.current) {
+          certificationFileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      setSelectedCertificationFile(file);
+      setCertificationFormData({ ...certificationFormData, evidence: file.name });
+    }
+  };
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix (e.g., "data:image/png;base64,")
+        const base64String = result.split(',')[1] || result;
+        resolve(base64String);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleCertificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (!certificationFormData.certificate_name.trim()) {
+      toast.error("Please enter a certificate name");
+      return;
+    }
+
+    if (!certificationFormData.description.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+
+    if (!certificationFormData.evidence && !selectedCertificationFile) {
+      toast.error("Please upload evidence file");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to create a certification.");
+      return;
+    }
+
+    setIsSubmittingCertification(true);
+    try {
+      // Convert file to base64 if a file is selected
+      let evidenceValue = certificationFormData.evidence;
+      if (selectedCertificationFile) {
+        try {
+          evidenceValue = await convertFileToBase64(selectedCertificationFile);
+        } catch (fileError) {
+          console.error("Error converting file to base64:", fileError);
+          toast.error("Error processing file. Please try again.");
+          setIsSubmittingCertification(false);
+          return;
+        }
+      }
+
+      // Get professional_id for backward compatibility (optional)
+      const professionalId = getProfessionalId();
+
+      const response = await createCertification({
+        api_token: token,
+        certificate_name: certificationFormData.certificate_name.trim(),
+        description: certificationFormData.description.trim(),
+        evidence: evidenceValue,
+        status: certificationFormData.status,
+        // Optional fields for backward compatibility
+        ...(professionalId && { professional_id: professionalId }),
+        title: certificationFormData.certificate_name.trim(), // Also send as title for API compatibility
+        certification_date: new Date().toISOString().split('T')[0]
+      });
+
+      if (response.status === "success" || response.success || (response.message && !response.error)) {
+        toast.success(response.message || "Certification created successfully!");
+        // Close form and reset
+        handleCloseCertificationForm();
+        // Optionally refresh certifications list here if you fetch them from API
+      } else {
+        toast.error(response.message || response.error || "Failed to create certification. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error creating certification:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while creating certification. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmittingCertification(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    // Validate required fields from Basic Information
+    if (!formData.name.trim()) {
+      toast.error("Please enter your full name");
+      return;
+    }
+    if (!formData.businessName.trim()) {
+      toast.error("Please enter your business name");
+      return;
+    }
+    if (!formData.bio.trim()) {
+      toast.error("Please enter your professional bio");
+      return;
+    }
+
+    // Validate required fields from Contact Information
+    if (!formData.email.trim()) {
+      toast.error("Please enter your email address");
+      return;
+    }
+    if (!formData.phone.trim()) {
+      toast.error("Please enter your phone number");
+      return;
+    }
+    if (!formData.address.trim()) {
+      toast.error("Please enter your business address");
+      return;
+    }
+    if (!formData.postcode.trim()) {
+      toast.error("Please enter your postcode");
+      return;
+    }
+
+    // Validate services selection
+    if (selectedServices.length === 0) {
+      toast.error("Please select at least one service");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to save your profile.");
+      return;
+    }
+
+    try {
+      // Prepare services array
+      const services = selectedServices.map(serviceId => ({
+        service_id: serviceId
+      }));
+
+      // Prepare certification data if form has data
+      let certificationData: {
+        certificate_name?: string;
+        description?: string;
+        evidence?: string;
+        status?: string;
+      } = {};
+
+      if (certificationFormData.certificate_name.trim() || 
+          certificationFormData.description.trim() || 
+          certificationFormData.evidence || 
+          selectedCertificationFile) {
+        
+        // Validate certification fields if any are filled
+        if (!certificationFormData.certificate_name.trim()) {
+          toast.error("Please enter certificate name");
+          return;
+        }
+        if (!certificationFormData.description.trim()) {
+          toast.error("Please enter certificate description");
+          return;
+        }
+        if (!certificationFormData.evidence && !selectedCertificationFile) {
+          toast.error("Please upload evidence file");
+          return;
+        }
+
+        // Use filename instead of base64-encoded content
+        // The API expects just the filename, not the file content
+        let evidenceValue = certificationFormData.evidence;
+        if (selectedCertificationFile) {
+          // Send just the filename as the API expects
+          evidenceValue = selectedCertificationFile.name;
+        }
+
+        certificationData = {
+          certificate_name: certificationFormData.certificate_name.trim(),
+          description: certificationFormData.description.trim(),
+          evidence: evidenceValue,
+          status: certificationFormData.status || "pending"
+        };
+      }
+
+      // Build request payload according to API specification
+      const requestPayload: any = {
+        api_token: token,
+        name: formData.name.trim(),
+        business_name: formData.businessName.trim(),
+        about: formData.bio.trim(),
+        email: formData.email.trim(),
+        number: formData.phone.trim(),
+        business_location: formData.address.trim(),
+        post_code: formData.postcode.trim(),
+        services: services,
+        ...certificationData
+      };
+
+      // Call API
+      const response = await createProfessional(requestPayload);
+
+      // Check for success: status can be true (boolean) or "success" (string)
+      const isSuccess = response.status === true || 
+                        response.status === "success" || 
+                        response.success === true ||
+                        (response.message && !response.error && response.status !== false);
+
+      if (isSuccess) {
+        toast.success(response.message || "Profile saved successfully!");
+        // Optionally reset form or close certification form
+        if (showCertificationForm) {
+          handleCloseCertificationForm();
+        }
+      } else {
+        toast.error(response.message || response.error || "Failed to save profile. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error saving profile:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while saving your profile. Please try again.";
+      toast.error(errorMessage);
+    }
+  };
 
   const completionSteps = [
     { id: 1, title: "Basic Information", completed: true },
     { id: 2, title: "Contact Details", completed: true },
     { id: 3, title: "Service Selection", completed: true },
     { id: 4, title: "Certifications", completed: false },
-    { id: 5, title: "Profile Photo", completed: false },
+    { id: 5, title: "Profile Photo", completed: !!profileImageUrl },
   ];
 
   const completionPercentage = (completionSteps.filter(s => s.completed).length / completionSteps.length) * 100;
@@ -267,30 +791,55 @@ export function ProfessionalProfileContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {services.map((service) => (
-                  <div key={service.id} className="flex items-start gap-3 p-3 border rounded-lg hover:border-red-200 hover:bg-red-50/50 transition-all">
-                    <Checkbox 
-                      id={service.id}
-                      checked={selectedServices.includes(service.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedServices([...selectedServices, service.id]);
-                        } else {
-                          setSelectedServices(selectedServices.filter(id => id !== service.id));
-                        }
-                      }}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <label htmlFor={service.id} className="font-medium text-gray-900 cursor-pointer block">
-                        {service.name}
-                      </label>
-                      <span className="text-sm text-gray-500">{service.category}</span>
+              {loadingServices ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Loading services...</p>
+                </div>
+              ) : servicesError ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                  <p className="text-red-600">{servicesError}</p>
+                </div>
+              ) : services.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No services available</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {services.map((service) => (
+                    <div key={service.id} className="flex items-start gap-3 p-4 border rounded-lg hover:border-red-200 hover:bg-red-50/50 transition-all">
+                      <Checkbox 
+                        id={`service-${service.id}`}
+                        checked={selectedServices.includes(service.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedServices([...selectedServices, service.id]);
+                          } else {
+                            setSelectedServices(selectedServices.filter(id => id !== service.id));
+                          }
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor={`service-${service.id}`} className="font-medium text-gray-900 cursor-pointer block mb-1">
+                          {service.service_name}
+                        </label>
+                        {service.description && (
+                          <p className="text-sm text-gray-600 mb-2">{service.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          {service.type && (
+                            <span className="px-2 py-1 bg-gray-100 rounded">{service.type}</span>
+                          )}
+                          {service.price && (
+                            <span className="font-semibold text-red-600">£{service.price}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -434,10 +983,117 @@ export function ProfessionalProfileContent() {
                 </div>
               ))}
 
-              <Button variant="outline" className="w-full mt-6">
+              <Button 
+                variant="outline" 
+                className="w-full mt-6"
+                onClick={handleOpenCertificationForm}
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 Upload New Certification
               </Button>
+
+              {/* Inline Certification Form */}
+              {showCertificationForm && (
+                <Card className="mt-6 border-2 border-red-200 shadow-lg">
+                  <CardHeader className="relative pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Add New Certification</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleCloseCertificationForm}
+                        className="h-8 w-8 hover:bg-gray-100"
+                        aria-label="Close form"
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleCertificationSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="certificate_name">Certificate Name *</Label>
+                        <Input
+                          id="certificate_name"
+                          value={certificationFormData.certificate_name}
+                          onChange={(e) => setCertificationFormData({ ...certificationFormData, certificate_name: e.target.value })}
+                          placeholder="e.g., Fire Risk Assessment Level 4, NEBOSH Fire Safety"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cert_description">Description *</Label>
+                        <Textarea
+                          id="cert_description"
+                          value={certificationFormData.description}
+                          onChange={(e) => setCertificationFormData({ ...certificationFormData, description: e.target.value })}
+                          placeholder="Enter a detailed description of the certification..."
+                          className="min-h-[120px]"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cert_evidence">Evidence (File Upload) *</Label>
+                        <Input
+                          ref={certificationFileInputRef}
+                          id="cert_evidence"
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+                          onChange={handleCertificationFileChange}
+                          className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                          required={!certificationFormData.evidence}
+                        />
+                        {selectedCertificationFile && (
+                          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                            <FileText className="w-5 h-5 text-gray-600" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900">{selectedCertificationFile.name}</p>
+                              <p className="text-xs text-gray-500">{(selectedCertificationFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCertificationFile(null);
+                                setCertificationFormData({ ...certificationFormData, evidence: "" });
+                                if (certificationFileInputRef.current) {
+                                  certificationFileInputRef.current.value = '';
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Accepted formats: PDF, JPG, PNG, GIF, DOC, DOCX (Max size: 10MB)
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cert_status">Status *</Label>
+                        <select
+                          id="cert_status"
+                          value={certificationFormData.status}
+                          onChange={(e) => setCertificationFormData({ ...certificationFormData, status: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white"
+                          required
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="verified">Verified</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </div>
+
+                   
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -451,10 +1107,55 @@ export function ProfessionalProfileContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center">
-                <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center">
-                  <User className="w-12 h-12 text-gray-400" />
+                <div 
+                  className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={handleImageClick}
+                >
+                  {profileImageUrl ? (
+                    <img 
+                      src={profileImageUrl} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-gray-400" />
+                  )}
+                  {isUploadingImage && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
                 </div>
-                <Button variant="outline" size="sm">Upload Photo</Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleImageClick}
+                  disabled={isUploadingImage}
+                >
+                  {isUploadingImage ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : profileImageUrl ? (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Change Photo
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Photo
+                    </>
+                  )}
+                </Button>
               </div>
 
               <div>
@@ -520,7 +1221,10 @@ export function ProfessionalProfileContent() {
       {/* Save Button - Fixed at bottom on mobile, inline on desktop */}
       <div className="sticky bottom-0 left-0 right-0 bg-white border-t shadow-lg mt-6 p-4 lg:static lg:border-0 lg:shadow-none lg:mt-6">
         <div className="flex flex-col md:flex-row gap-3 max-w-7xl mx-auto">
-          <Button className="flex-1 bg-red-600 hover:bg-red-700 h-12">
+          <Button 
+            className="flex-1 bg-red-600 hover:bg-red-700 h-12"
+            onClick={handleSaveProfile}
+          >
             <Save className="w-4 h-4 mr-2" />
             Save Profile Changes
           </Button>

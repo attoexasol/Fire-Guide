@@ -1,4 +1,4 @@
-import React from "react";
+import React, { startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { LandingPage as LandingPageComponent } from "../LandingPage";
@@ -10,25 +10,49 @@ export default function LandingPage() {
 
     return (
       <LandingPageComponent
-        onGetStarted={() => navigate("/services")}
-        onProfessionalLogin={() => navigate("/professional/benefits")}
-        onAdminLogin={() => navigate("/admin/login")}
-        onCustomerLogin={() => navigate("/customer/auth")}
+        onGetStarted={() => {
+          startTransition(() => {
+            navigate("/services");
+          });
+        }}
+        onProfessionalLogin={() => {
+          startTransition(() => {
+            navigate("/professional/benefits");
+          });
+        }}
+        onAdminLogin={() => {
+          startTransition(() => {
+            navigate("/admin/login");
+          });
+        }}
+        onCustomerLogin={() => {
+          startTransition(() => {
+            navigate("/customer/auth");
+          });
+        }}
         currentUser={currentUser || null}
         onLogout={() => {
           logout();
-          navigate("/");
+          startTransition(() => {
+            navigate("/");
+          });
         }}
-        onAboutContact={() => navigate("/about")}
+        onAboutContact={() => {
+          startTransition(() => {
+            navigate("/about");
+          });
+        }}
         onNavigateToDashboard={() => {
           if (currentUser) {
-            if (currentUser.role === "admin") {
-              navigate("/admin/dashboard");
-            } else if (currentUser.role === "professional") {
-              navigate("/professional/dashboard");
-            } else {
-              navigate("/customer/dashboard");
-            }
+            startTransition(() => {
+              if (currentUser.role === "admin") {
+                navigate("/admin/dashboard");
+              } else if (currentUser.role === "professional") {
+                navigate("/professional/dashboard");
+              } else {
+                navigate("/customer/dashboard");
+              }
+            });
           }
         }}
       />

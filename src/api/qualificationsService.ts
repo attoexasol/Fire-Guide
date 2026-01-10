@@ -57,9 +57,14 @@ export interface DeleteCertificationResponse {
 
 export interface CreateCertificationRequest {
   api_token: string;
-  title: string;
-  certification_date: string; // YYYY-MM-DD format
-  professional_id: number;
+  title?: string; // Optional for backward compatibility
+  certification_date?: string; // Optional: YYYY-MM-DD format
+  professional_id?: number; // Optional: may be inferred from token
+  // New required fields
+  certificate_name: string;
+  description: string;
+  evidence: string; // File name or base64 encoded file
+  status: string; // e.g., "pending", "verified", "rejected"
 }
 
 export interface CreateCertificationResponse {
@@ -218,20 +223,54 @@ export const createCertification = async (
   data: CreateCertificationRequest
 ): Promise<CreateCertificationResponse> => {
   try {
+    // Build request body with all fields
+    const requestBody: any = {
+      api_token: data.api_token,
+      certificate_name: data.certificate_name,
+      description: data.description,
+      evidence: data.evidence,
+      status: data.status,
+    };
+
+    // Add optional fields if provided (for backward compatibility)
+    if (data.title) {
+      requestBody.title = data.title;
+    }
+    if (data.certification_date) {
+      requestBody.certification_date = data.certification_date;
+    }
+    if (data.professional_id) {
+      requestBody.professional_id = data.professional_id;
+    }
+
+    console.log('POST /qualifications-certification/create - Request payload:', {
+      endpoint: '/qualifications-certification/create',
+      hasApiToken: !!requestBody.api_token,
+      certificate_name: requestBody.certificate_name,
+      description: requestBody.description,
+      evidence: requestBody.evidence ? `${requestBody.evidence.substring(0, 50)}...` : 'not provided',
+      status: requestBody.status,
+      title: requestBody.title || 'not provided',
+      certification_date: requestBody.certification_date || 'not provided',
+      professional_id: requestBody.professional_id || 'not provided'
+    });
+
     const response = await apiClient.post<CreateCertificationResponse>(
       '/qualifications-certification/create',
-      {
-        api_token: data.api_token,
-        title: data.title,
-        certification_date: data.certification_date,
-        professional_id: data.professional_id
-      }
+      requestBody
     );
+    
+    console.log('POST /qualifications-certification/create - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error creating certification:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+        });
         throw {
           success: false,
           message: error.response.data?.message || 'Failed to create certification',
@@ -239,6 +278,7 @@ export const createCertification = async (
           status: error.response.status,
         };
       } else if (error.request) {
+        console.error('No response received. Request was made but no response:', error.request);
         throw {
           success: false,
           message: 'No response from server. Please check your connection.',

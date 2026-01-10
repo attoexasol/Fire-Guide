@@ -1,22 +1,24 @@
+import React, { lazy, Suspense } from "react";
 import { Header } from "./Header";
 import { Hero } from "./Hero";
-import { HowItWorks } from "./HowItWorks";
-import { ServicesGrid } from "./ServicesGrid";
-import { ProfessionalCTA } from "./ProfessionalCTA";
-import { Footer } from "./Footer";
-import { TrustIndicators } from "./TrustIndicators";
-import { Testimonials } from "./Testimonials";
-import { FeaturedProfessionals } from "./FeaturedProfessionals";
-import { LiveBookingFeed } from "./LiveBookingFeed";
-import { PricingPreview } from "./PricingPreview";
-import { InteractiveCalculator } from "./InteractiveCalculator";
-import { CoverageMap } from "./CoverageMap";
-import { SafetyCertifications } from "./SafetyCertifications";
-import { FAQ } from "./FAQ";
-import { WhyChooseFireGuide } from "./WhyChooseFireGuide";
-import { ServiceTimeline } from "./ServiceTimeline";
-import { RecentActivityTicker } from "./RecentActivityTicker";
-import { CoreBenefits } from "./CoreBenefits";
+
+// Lazy load heavy components for better initial load performance
+const HowItWorks = lazy(() => import("./HowItWorks").then(m => ({ default: m.HowItWorks })));
+const ServicesGrid = lazy(() => import("./ServicesGrid").then(m => ({ default: m.ServicesGrid })));
+const ProfessionalCTA = lazy(() => import("./ProfessionalCTA").then(m => ({ default: m.ProfessionalCTA })));
+const Footer = lazy(() => import("./Footer").then(m => ({ default: m.Footer })));
+const TrustIndicators = lazy(() => import("./TrustIndicators").then(m => ({ default: m.TrustIndicators })));
+const Testimonials = lazy(() => import("./Testimonials").then(m => ({ default: m.Testimonials })));
+const FeaturedProfessionals = lazy(() => import("./FeaturedProfessionals").then(m => ({ default: m.FeaturedProfessionals })));
+const LiveBookingFeed = lazy(() => import("./LiveBookingFeed").then(m => ({ default: m.LiveBookingFeed })));
+const PricingPreview = lazy(() => import("./PricingPreview").then(m => ({ default: m.PricingPreview })));
+const InteractiveCalculator = lazy(() => import("./InteractiveCalculator").then(m => ({ default: m.InteractiveCalculator })));
+const CoverageMap = lazy(() => import("./CoverageMap").then(m => ({ default: m.CoverageMap })));
+const SafetyCertifications = lazy(() => import("./SafetyCertifications").then(m => ({ default: m.SafetyCertifications })));
+const FAQ = lazy(() => import("./FAQ").then(m => ({ default: m.FAQ })));
+const WhyChooseFireGuide = lazy(() => import("./WhyChooseFireGuide").then(m => ({ default: m.WhyChooseFireGuide })));
+const ServiceTimeline = lazy(() => import("./ServiceTimeline").then(m => ({ default: m.ServiceTimeline })));
+const CoreBenefits = lazy(() => import("./CoreBenefits").then(m => ({ default: m.CoreBenefits })));
 
 export interface User {
   name: string;
@@ -67,22 +69,54 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
       />
       <Hero onGetStarted={onGetStarted} />
       {/* <RecentActivityTicker /> */}
-      <TrustIndicators />
-      <ProfessionalCTA onJoinNow={onProfessionalLogin} />
-      <CoreBenefits />
-      <HowItWorks />
-      <ServicesGrid onSelectService={onGetStarted} />
-      <FeaturedProfessionals onViewProfile={onGetStarted} />
-      <LiveBookingFeed />
-      <ServiceTimeline />
-      <InteractiveCalculator onGetQuote={onGetStarted} />
-      <PricingPreview onGetQuote={onGetStarted} />
-      <WhyChooseFireGuide />
-      <CoverageMap onCheckAvailability={onGetStarted} />
-      <SafetyCertifications />
-      <Testimonials />
-      <FAQ onContactSupport={onGetStarted} />
-      <Footer onAdminLogin={onAdminLogin} />
+      <Suspense fallback={null}>
+        <TrustIndicators />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ProfessionalCTA onJoinNow={onProfessionalLogin} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <CoreBenefits />
+      </Suspense>
+      <Suspense fallback={null}>
+        <HowItWorks />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ServicesGrid onSelectService={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FeaturedProfessionals onViewProfile={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LiveBookingFeed />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ServiceTimeline />
+      </Suspense>
+      <Suspense fallback={null}>
+        <InteractiveCalculator onGetQuote={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PricingPreview onGetQuote={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <WhyChooseFireGuide />
+      </Suspense>
+      <Suspense fallback={null}>
+        <CoverageMap onCheckAvailability={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <SafetyCertifications />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Testimonials />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FAQ onContactSupport={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Footer onAdminLogin={onAdminLogin} />
+      </Suspense>
     </div>
   );
 }

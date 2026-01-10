@@ -270,9 +270,11 @@ export const deleteAddress = async (
         // Server responded with error status
         throw {
           success: false,
-          status: 'error',
+          status: error.response.status,
+          statusCode: error.response.status,
           message: error.response.data?.message || 'Failed to delete address',
           error: error.response.data?.error || error.message,
+          response: error.response,
         };
       } else if (error.request) {
         // Request was made but no response received

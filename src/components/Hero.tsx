@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { CheckCircle } from "lucide-react";
 import heroImage1 from "figma:asset/189ec7e3689608dad914f59dd7c02d25da91583d.png";
 import heroImage2 from "figma:asset/06f1b3e41c2783f18bdafecd74ab9e64333871d6.png";
@@ -16,9 +16,28 @@ interface HeroProps {
   onGetStarted: () => void;
 }
 
-export function Hero({ onGetStarted }: HeroProps) {
+export const Hero = React.memo(function Hero({ onGetStarted }: HeroProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set([0])); // Preload first image
   const images = [heroImage1, heroImage2, heroImage3, heroImage4, heroImage5, heroImage6, heroImage7, heroImage8, heroImage9, heroImage10, heroImage11];
+
+  // Preload next image before it's needed
+  useEffect(() => {
+    const preloadNext = (index: number) => {
+      if (!loadedImages.has(index)) {
+        const img = new Image();
+        img.src = images[index];
+        img.onload = () => {
+          setLoadedImages(prev => new Set([...prev, index]));
+        };
+      }
+    };
+
+    // Preload current and next image
+    preloadNext(currentImageIndex);
+    const nextIndex = (currentImageIndex + 1) % images.length;
+    preloadNext(nextIndex);
+  }, [currentImageIndex, images, loadedImages]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -32,16 +51,22 @@ export function Hero({ onGetStarted }: HeroProps) {
     <section id="home" className="relative overflow-hidden">
       {/* Background Slider */}
       <div className="absolute inset-0">
-        {images.map((image, index) => (
-          <div
-            key={index}
-            className="absolute inset-0 transition-opacity duration-1000 bg-cover bg-no-repeat bg-[calc(50%-220px)_center] md:bg-center"
-            style={{
-              backgroundImage: `url(${image})`,
-              opacity: currentImageIndex === index ? 1 : 0,
-            }}
-          />
-        ))}
+        {images.map((image, index) => {
+          const isVisible = currentImageIndex === index;
+          const shouldLoad = loadedImages.has(index) || isVisible;
+          
+          return (
+            <div
+              key={index}
+              className="absolute inset-0 transition-opacity duration-1000 bg-cover bg-no-repeat bg-[calc(50%-220px)_center] md:bg-center"
+              style={{
+                backgroundImage: shouldLoad ? `url(${image})` : undefined,
+                opacity: isVisible ? 1 : 0,
+                willChange: isVisible ? 'opacity' : 'auto',
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* Gradient Overlay - Mobile Only */}
@@ -91,4 +116,4 @@ export function Hero({ onGetStarted }: HeroProps) {
       
     </section>
   );
-}
+});

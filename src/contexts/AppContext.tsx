@@ -109,22 +109,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [bookingData, setBookingData] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Save bookings to localStorage whenever they change
+  // Save bookings to localStorage whenever they change (debounced to avoid excessive writes)
   useEffect(() => {
-    try {
-      localStorage.setItem('customer_bookings', JSON.stringify(customerBookings));
-    } catch (error) {
-      console.error('Error saving bookings to localStorage:', error);
-    }
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem('customer_bookings', JSON.stringify(customerBookings));
+      } catch (error) {
+        console.error('Error saving bookings to localStorage:', error);
+      }
+    }, 300); // Debounce by 300ms
+
+    return () => clearTimeout(timeoutId);
   }, [customerBookings]);
 
-  // Save payments to localStorage whenever they change
+  // Save payments to localStorage whenever they change (debounced to avoid excessive writes)
   useEffect(() => {
-    try {
-      localStorage.setItem('customer_payments', JSON.stringify(customerPayments));
-    } catch (error) {
-      console.error('Error saving payments to localStorage:', error);
-    }
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem('customer_payments', JSON.stringify(customerPayments));
+      } catch (error) {
+        console.error('Error saving payments to localStorage:', error);
+      }
+    }, 300); // Debounce by 300ms
+
+    return () => clearTimeout(timeoutId);
   }, [customerPayments]);
 
   // Initialize auth state on mount

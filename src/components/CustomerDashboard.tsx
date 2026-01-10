@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, startTransition } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -145,7 +145,9 @@ export function CustomerDashboard({
       const token = getApiToken();
       if (!token) {
         toast.error("Please log in to edit address.");
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
         return;
       }
 
@@ -177,11 +179,15 @@ export function CustomerDashboard({
             });
           } else {
             toast.error("Address not found. It may have been deleted.");
-            navigate("/customer/dashboard/profile");
+            startTransition(() => {
+              navigate("/customer/dashboard/profile");
+            });
           }
         } else {
           toast.error(response.message || response.error || "Failed to load address data");
-          navigate("/customer/dashboard/profile");
+          startTransition(() => {
+            navigate("/customer/dashboard/profile");
+          });
         }
       } catch (error: any) {
         console.error("Error loading address for edit:", error);
@@ -196,7 +202,9 @@ export function CustomerDashboard({
         } else {
           toast.error(error?.message || error?.error || "Failed to load address. Please try again.");
         }
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
       } finally {
         setIsLoadingEditAddress(false);
       }
@@ -208,11 +216,13 @@ export function CustomerDashboard({
   // Handler to update both state and URL
   const handleViewChange = (view: CustomerView) => {
     setCurrentView(view);
-    if (view === "overview") {
-      navigate("/customer/dashboard", { replace: true });
-    } else {
-      navigate(`/customer/dashboard/${view}`, { replace: true });
-    }
+    startTransition(() => {
+      if (view === "overview") {
+        navigate("/customer/dashboard", { replace: true });
+      } else {
+        navigate(`/customer/dashboard/${view}`, { replace: true });
+      }
+    });
   };
   
   // Address management state
@@ -412,7 +422,9 @@ export function CustomerDashboard({
 
   // Address management handlers
   const handleAddAddress = () => {
-    navigate("/customer/dashboard/profile/addresses/add");
+    startTransition(() => {
+      navigate("/customer/dashboard/profile/addresses/add");
+    });
   };
 
   const handleAddAddressSubmit = async (e: React.FormEvent) => {
@@ -470,7 +482,9 @@ export function CustomerDashboard({
           }
         }
         // Navigate back to profile
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
       } else {
         toast.error(response.message || response.error || "Failed to add address. Please try again.");
       }
@@ -484,7 +498,9 @@ export function CustomerDashboard({
   };
 
   const handleBackToProfile = () => {
-    navigate("/customer/dashboard/profile");
+    startTransition(() => {
+      navigate("/customer/dashboard/profile");
+    });
   };
 
   const handleEditAddressSubmit = async (e: React.FormEvent) => {
@@ -513,21 +529,15 @@ export function CustomerDashboard({
 
       setIsUpdatingAddress(true);
     try {
-      // Validate that the address exists before updating
-      const existingAddress = addresses.find(addr => {
-        const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
-        return addrId === currentAddressId;
-      });
-      
-      if (!existingAddress) {
-        console.error("Address not found in local state. ID:", currentAddressId, "Available IDs:", addresses.map(a => a.id));
-        toast.error("Address not found. Please refresh the page and try again.");
-        navigate("/customer/dashboard/profile");
-        return;
-      }
-
       // Ensure ID is a number for the API
       const addressIdForApi = typeof currentAddressId === 'string' ? parseInt(currentAddressId, 10) : currentAddressId;
+      
+      // Validate address ID is valid
+      if (!addressIdForApi || isNaN(addressIdForApi) || addressIdForApi <= 0) {
+        toast.error("Invalid address ID. Please try again.");
+        console.error("Invalid address ID:", currentAddressId);
+        return;
+      }
       
       console.log("Updating address with ID:", addressIdForApi);
       console.log("Update data:", {
@@ -556,20 +566,21 @@ export function CustomerDashboard({
       console.log("Update response:", response);
 
       // Check for successful response - handle various response formats
-      // Note: API returns status: false on error, status: "success" on success
-      const status = response.status as any; // Can be string or boolean
+      // API returns status: true (boolean) on success, status: false on error, or status: "success" (string)
+      const status = response.status as any; // Can be boolean or string
       const successFlag = response.success;
       
       // Handle error response from API (status is false or success is false)
       if (status === false || status === "false" || successFlag === false) {
-        const errorMsg = response.message || "Failed to update address. Please try again.";
+        const errorMsg = response.message || response.error || "Failed to update address. Please try again.";
         console.error("Address update failed:", errorMsg, "Response:", response);
         toast.error(errorMsg);
         return;
       }
 
-      const isSuccess = status === "success" || 
-                       status === true ||
+      // Check for success - API returns status: true (boolean) or status: "success" (string)
+      const isSuccess = status === true || 
+                       status === "success" ||
                        status === "true" ||
                        successFlag === true || 
                        (response.message && !response.error && status !== false && status !== "false");
@@ -588,10 +599,11 @@ export function CustomerDashboard({
           updated_at: new Date().toISOString()
         };
 
-        // Immediately update local state for instant UI update
+        // Immediately update local state for instant UI update (handle both string and number IDs)
         setAddresses(prevAddresses => 
-          prevAddresses.map(addr => 
-            addr.id === currentAddressId 
+          prevAddresses.map(addr => {
+            const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
+            return addrId === currentAddressId 
               ? {
                   ...addr,
                   ...updatedAddressData,
@@ -603,14 +615,16 @@ export function CustomerDashboard({
                     ? (updatedAddressData.is_favourite_address ? 1 : 0)
                     : updatedAddressData.is_favourite_address,
                 }
-              : addr
-          )
+              : addr;
+          })
         );
 
         toast.success(response.message || "Address updated successfully!");
         
         // Navigate back to profile - the UI is already updated above
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
         
         // Refresh addresses from API in the background to ensure consistency with server
         // Use a small delay to let navigation complete, then refresh
@@ -641,13 +655,19 @@ export function CustomerDashboard({
       // Handle 404 specifically
       if (error?.status === 404 || error?.response?.status === 404) {
         toast.error("Address not found. It may have been deleted.");
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
       } else if (error?.message?.includes("404") || error?.error?.includes("404")) {
         toast.error("Address not found. It may have been deleted.");
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
       } else if (error?.message?.toLowerCase().includes("not found")) {
         toast.error("Address not found. It may have been deleted.");
-        navigate("/customer/dashboard/profile");
+        startTransition(() => {
+          navigate("/customer/dashboard/profile");
+        });
       } else {
         const errorMessage = error?.message || error?.error || "An error occurred while updating the address. Please try again.";
         toast.error(errorMessage);
@@ -672,7 +692,9 @@ export function CustomerDashboard({
       return;
     }
     
-    navigate(`/customer/dashboard/profile/addresses/edit/${addressId}`);
+    startTransition(() => {
+      navigate(`/customer/dashboard/profile/addresses/edit/${addressId}`);
+    });
   };
 
   const handleDeleteAddress = (id: number) => {
@@ -704,12 +726,16 @@ export function CustomerDashboard({
     try {
       const response = await deleteAddress({ api_token: token, id: addressIdToDelete });
       
-      if (response.status === "success" || response.success) {
+      const deleteStatus = response.status as any; // Can be boolean or string
+      if ((deleteStatus === true || deleteStatus === "success" || deleteStatus === "true") || response.success === true) {
         // Save the deleted ID before clearing state
         const deletedAddressId = addressIdToDelete;
         
-        // Immediately remove from local state for instant UI update
-        setAddresses(prevAddresses => prevAddresses.filter(addr => addr.id !== deletedAddressId));
+        // Immediately remove from local state for instant UI update (handle both string and number IDs)
+        setAddresses(prevAddresses => prevAddresses.filter(addr => {
+          const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
+          return addrId !== deletedAddressId;
+        }));
         
         // Close modal immediately
         setIsDeleteAddressModalOpen(false);
@@ -731,7 +757,9 @@ export function CustomerDashboard({
         
         // If we're on the edit page for the deleted address, navigate back to profile
         if (isEditAddressRoute && deletedAddressId === addressIdToEdit) {
-          navigate("/customer/dashboard/profile");
+          startTransition(() => {
+            navigate("/customer/dashboard/profile");
+          });
         }
       } else {
         toast.error(response.message || response.error || "Failed to delete address");
@@ -741,15 +769,20 @@ export function CustomerDashboard({
       
       // Handle 404 specifically
       if (error?.status === 404 || error?.response?.status === 404) {
-        // Address might already be deleted, remove from local state anyway
-        setAddresses(prevAddresses => prevAddresses.filter(addr => addr.id !== addressIdToDelete));
+        // Address might already be deleted, remove from local state anyway (handle both string and number IDs)
+        setAddresses(prevAddresses => prevAddresses.filter(addr => {
+          const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
+          return addrId !== addressIdToDelete;
+        }));
         setIsDeleteAddressModalOpen(false);
         setAddressIdToDelete(null);
         toast.error("Address not found. It may have already been deleted.");
         
         // If we're on the edit page, navigate back
         if (isEditAddressRoute && addressIdToDelete === addressIdToEdit) {
-          navigate("/customer/dashboard/profile");
+          startTransition(() => {
+            navigate("/customer/dashboard/profile");
+          });
         }
       } else {
         toast.error(error?.message || error?.error || "Failed to delete address. Please try again.");
@@ -766,8 +799,16 @@ export function CustomerDashboard({
       return;
     }
 
-    const addressToUpdate = addresses.find(addr => addr.id === id);
-    if (!addressToUpdate) return;
+    // Find address with proper ID comparison
+    const addressToUpdate = addresses.find(addr => {
+      const addrId = typeof addr.id === 'string' ? parseInt(addr.id, 10) : addr.id;
+      return addrId === id;
+    });
+    
+    if (!addressToUpdate) {
+      toast.error("Address not found. Please refresh the page.");
+      return;
+    }
 
     try {
       const response = await updateAddress({
@@ -782,7 +823,8 @@ export function CustomerDashboard({
         is_favourite_address: addressToUpdate.is_favourite_address === 1
       });
 
-      if (response.status === "success" || response.success) {
+      const setDefaultStatus = response.status as any; // Can be boolean or string
+      if ((setDefaultStatus === true || setDefaultStatus === "success" || setDefaultStatus === "true") || response.success === true) {
         // Refresh addresses from API
         const addressesResponse = await fetchAddresses(token);
         if (addressesResponse.status === "success" && addressesResponse.data) {
@@ -825,7 +867,8 @@ export function CustomerDashboard({
           is_favourite_address: editingAddress.is_favourite_address === 1
         });
 
-        if (response.status === "success" || response.success) {
+        const saveAddressStatus = response.status as any; // Can be boolean or string
+        if ((saveAddressStatus === true || saveAddressStatus === "success" || saveAddressStatus === "true") || response.success === true) {
           // Refresh addresses from API
           const addressesResponse = await fetchAddresses(token);
           if (addressesResponse.status === "success" && addressesResponse.data) {
@@ -1263,7 +1306,14 @@ export function CustomerDashboard({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleSetDefault(address.id)}
+                        onClick={() => {
+                          const addrId = typeof address.id === 'string' ? parseInt(address.id, 10) : address.id;
+                          if (!isNaN(addrId) && addrId > 0) {
+                            handleSetDefault(addrId);
+                          } else {
+                            toast.error("Invalid address ID");
+                          }
+                        }}
                         title="Set as default"
                       >
                         <Star className="w-4 h-4" />
@@ -1272,7 +1322,14 @@ export function CustomerDashboard({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteAddress(address.id)}
+                      onClick={() => {
+                        const addrId = typeof address.id === 'string' ? parseInt(address.id, 10) : address.id;
+                        if (!isNaN(addrId) && addrId > 0) {
+                          handleDeleteAddress(addrId);
+                        } else {
+                          toast.error("Invalid address ID");
+                        }
+                      }}
                       className="text-red-600 hover:text-red-700"
                       title="Delete address"
                     >
@@ -1880,8 +1937,20 @@ export function CustomerDashboard({
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
             <div className="flex items-center gap-2 min-w-0">
-              <img src={logoImage} alt="Fire Guide" className="h-10 w-auto flex-shrink-0" />
-              <Badge variant="outline" className="text-white border-white hidden md:inline-flex">Customer</Badge>
+              <button
+                onClick={() => {
+                  startTransition(() => {
+                    navigate("/");
+                  });
+                }}
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                aria-label="Go to home"
+              >
+                <img src={logoImage} alt="Fire Guide" className="h-10 w-auto flex-shrink-0" />
+              </button>
+              <Badge variant="secondary" className="bg-red-600 text-white border-0 text-sm px-2 py-0.5 hidden md:inline-flex">
+                Customer
+              </Badge>
             </div>
           </div>
           <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">

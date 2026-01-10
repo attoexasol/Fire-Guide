@@ -1,29 +1,42 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
 import { useApp } from "../contexts/AppContext";
 import { isAuthenticated, getUserInfo } from "../lib/auth";
-import LandingPage from "./pages/LandingPage";
-import ServiceSelectionPage from "./pages/ServiceSelectionPage";
-import QuestionnairePage from "./pages/QuestionnairePage";
-import LocationPage from "./pages/LocationPage";
-import ComparisonPage from "./pages/ComparisonPage";
-import ProfilePage from "./pages/ProfilePage";
-import BookingPage from "./pages/BookingPage";
-import ConfirmationPage from "./pages/ConfirmationPage";
-import AppointmentDetailsPage from "./pages/AppointmentDetailsPage";
-import ProfessionalBenefitsPage from "./pages/ProfessionalBenefitsPage";
-import ProfessionalAuthPage from "./pages/ProfessionalAuthPage";
-import ProfessionalDashboardPage from "./pages/ProfessionalDashboardPage";
-import ProfessionalProfileSetupPage from "./pages/ProfessionalProfileSetupPage";
-import ProfessionalPricingPage from "./pages/ProfessionalPricingPage";
-import ProfessionalAvailabilityPage from "./pages/ProfessionalAvailabilityPage";
-import AdminLoginPage from "./pages/AdminLoginPage";
-import AdminDashboardPage from "./pages/AdminDashboardPage";
-import CustomerAuthPage from "./pages/CustomerAuthPage";
-import CustomerDashboardPage from "./pages/CustomerDashboardPage";
-import AboutContactPage from "./pages/AboutContactPage";
-import ReportUploadPage from "./pages/ReportUploadPage";
-import TestPage from "./TestPage";
+import { Loader2 } from "lucide-react";
+
+// Lazy load all page components for code splitting
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const ServiceSelectionPage = lazy(() => import("./pages/ServiceSelectionPage"));
+const QuestionnairePage = lazy(() => import("./pages/QuestionnairePage"));
+const LocationPage = lazy(() => import("./pages/LocationPage"));
+const ComparisonPage = lazy(() => import("./pages/ComparisonPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const BookingPage = lazy(() => import("./pages/BookingPage"));
+const ConfirmationPage = lazy(() => import("./pages/ConfirmationPage"));
+const AppointmentDetailsPage = lazy(() => import("./pages/AppointmentDetailsPage"));
+const ProfessionalBenefitsPage = lazy(() => import("./pages/ProfessionalBenefitsPage"));
+const ProfessionalAuthPage = lazy(() => import("./pages/ProfessionalAuthPage"));
+const ProfessionalDashboardPage = lazy(() => import("./pages/ProfessionalDashboardPage"));
+const ProfessionalProfileSetupPage = lazy(() => import("./pages/ProfessionalProfileSetupPage"));
+const ProfessionalPricingPage = lazy(() => import("./pages/ProfessionalPricingPage"));
+const ProfessionalAvailabilityPage = lazy(() => import("./pages/ProfessionalAvailabilityPage"));
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
+const CustomerAuthPage = lazy(() => import("./pages/CustomerAuthPage"));
+const CustomerDashboardPage = lazy(() => import("./pages/CustomerDashboardPage"));
+const AboutContactPage = lazy(() => import("./pages/AboutContactPage"));
+const ReportUploadPage = lazy(() => import("./pages/ReportUploadPage"));
+const TestPage = lazy(() => import("./TestPage"));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-4" />
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
 
 // Protected Route Component
 function ProtectedRoute({ 

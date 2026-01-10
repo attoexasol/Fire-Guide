@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -24,31 +24,35 @@ interface CustomerPaymentsProps {
   payments: Payment[];
 }
 
-export function CustomerPayments({ payments }: CustomerPaymentsProps) {
+export const CustomerPayments = React.memo(function CustomerPayments({ payments }: CustomerPaymentsProps) {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("all");
 
-  const filteredPayments = payments.filter(payment => {
-    if (filterStatus !== "all" && payment.status !== filterStatus) {
-      return false;
-    }
-    
-    if (filterPeriod !== "all") {
-      const paymentDate = new Date(payment.date);
-      const now = new Date();
-      const monthsAgo = parseInt(filterPeriod);
-      const cutoffDate = new Date(now.setMonth(now.getMonth() - monthsAgo));
-      if (paymentDate < cutoffDate) {
+  const filteredPayments = useMemo(() => {
+    return payments.filter(payment => {
+      if (filterStatus !== "all" && payment.status !== filterStatus) {
         return false;
       }
-    }
-    
-    return true;
-  });
+      
+      if (filterPeriod !== "all") {
+        const paymentDate = new Date(payment.date);
+        const now = new Date();
+        const monthsAgo = parseInt(filterPeriod);
+        const cutoffDate = new Date(now.setMonth(now.getMonth() - monthsAgo));
+        if (paymentDate < cutoffDate) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [payments, filterStatus, filterPeriod]);
 
-  const totalPaid = payments
-    .filter(p => p.status === "paid")
-    .reduce((sum, p) => sum + parseFloat(p.amount.replace("£", "").replace(",", "")), 0);
+  const totalPaid = useMemo(() => {
+    return payments
+      .filter(p => p.status === "paid")
+      .reduce((sum, p) => sum + parseFloat(p.amount.replace("£", "").replace(",", "")), 0);
+  }, [payments]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -264,4 +268,4 @@ export function CustomerPayments({ payments }: CustomerPaymentsProps) {
       </Card>
     </div>
   );
-}
+});

@@ -31,10 +31,45 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      minify: 'esbuild', // esbuild is faster and included with Vite
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            // Split node_modules into separate chunks
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                return 'react-vendor';
+              }
+              if (id.includes('@radix-ui')) {
+                return 'ui-vendor';
+              }
+              if (id.includes('lucide-react')) {
+                return 'icons-vendor';
+              }
+              if (id.includes('axios') || id.includes('sonner') || id.includes('clsx') || id.includes('tailwind-merge')) {
+                return 'utils-vendor';
+              }
+              return 'vendor';
+            }
+          },
+          // Optimize chunk names
+          chunkFileNames: 'js/[name]-[hash].js',
+          entryFileNames: 'js/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]',
+        },
+      },
+      chunkSizeWarningLimit: 1000,
+      // Enable source maps for production debugging (optional - can disable for better performance)
+      sourcemap: false,
+      // Optimize CSS
+      cssCodeSplit: true,
     },
     server: {
       host: '0.0.0.0',
       port: 3000,
       open: true,
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router-dom'],
     },
   });

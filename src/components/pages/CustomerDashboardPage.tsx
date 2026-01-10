@@ -1,4 +1,4 @@
-import React from "react";
+import React, { startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { CustomerDashboard } from "../CustomerDashboard";
@@ -12,14 +12,24 @@ export default function CustomerDashboardPage() {
       <CustomerDashboard
         onLogout={() => {
           logout();
-          navigate("/");
+          startTransition(() => {
+            navigate("/");
+          });
         }}
-        onBookNewService={() => navigate("/services")}
+        onBookNewService={() => {
+          startTransition(() => {
+            navigate("/services");
+          });
+        }}
         bookings={customerBookings || []}
         payments={customerPayments || []}
         onUpdateBooking={updateBooking}
         onDeleteBooking={deleteBooking}
-        onNavigateHome={() => navigate("/")}
+        onNavigateHome={() => {
+          startTransition(() => {
+            navigate("/");
+          });
+        }}
       />
     );
   } catch (error) {

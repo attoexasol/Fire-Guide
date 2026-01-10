@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -31,13 +31,15 @@ interface CustomerBookingsProps {
   onDeleteBooking: (bookingId: string) => void;
 }
 
-export function CustomerBookings({ bookings, onUpdateBooking, onDeleteBooking }: CustomerBookingsProps) {
+export const CustomerBookings = React.memo(function CustomerBookings({ bookings, onUpdateBooking, onDeleteBooking }: CustomerBookingsProps) {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "completed" | "cancelled">("all");
 
-  const filteredBookings = bookings.filter(booking => 
-    filter === "all" ? true : booking.status === filter
-  );
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(booking => 
+      filter === "all" ? true : booking.status === filter
+    );
+  }, [bookings, filter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -322,4 +324,4 @@ export function CustomerBookings({ bookings, onUpdateBooking, onDeleteBooking }:
       </Dialog>
     </div>
   );
-}
+});
