@@ -30,59 +30,20 @@ import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
 import { fetchServices, ServiceResponse } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
-import { getApiToken, getProfessionalId } from "../lib/auth";
+import { getApiToken, getProfessionalId, setProfessionalId } from "../lib/auth";
 import { createCertification } from "../api/qualificationsService";
 import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem } from "../api/professionalsService";
 import { toast } from "sonner";
 
 export function ProfessionalProfileContent() {
   const [formData, setFormData] = useState({
-    name: "John Smith",
-    email: "john.smith@fireguide.com",
-    phone: "+44 7700 900123",
-    businessName: "FireSafe Professionals Ltd",
-    address: "123 High Street, London",
-    postcode: "SW1A 1AA",
-    bio: "Certified fire safety professional with 10+ years of experience in residential and commercial fire risk assessments.",
-    certifications: [
-      {
-        id: 1,
-        name: "Fire Risk Assessment Level 4",
-        status: "verified", // verified, pending, rejected
-        evidenceFile: "fire_risk_level4_cert.pdf",
-        fileCount: 1,
-        uploadDate: "Oct 15, 2024",
-        verifiedDate: "Oct 18, 2024"
-      },
-      {
-        id: 2,
-        name: "NEBOSH Fire Safety",
-        status: "pending",
-        evidenceFile: "nebosh_certificate.pdf",
-        fileCount: 1,
-        uploadDate: "Dec 10, 2024",
-        verifiedDate: null
-      },
-      {
-        id: 3,
-        name: "FIA Certified",
-        status: "verified",
-        evidenceFile: "FIA_certification_2024.jpg",
-        fileCount: 1,
-        uploadDate: "Oct 20, 2024",
-        verifiedDate: "Oct 22, 2024"
-      },
-      {
-        id: 4,
-        name: "IOSH Managing Safely",
-        status: "rejected",
-        evidenceFile: "iosh_old_certificate.pdf",
-        fileCount: 1,
-        uploadDate: "Nov 5, 2024",
-        rejectedDate: "Nov 8, 2024",
-        rejectionReason: "Certificate expired. Please upload current certification."
-      }
-    ],
+    name: "",
+    email: "",
+    phone: "",
+    businessName: "",
+    address: "",
+    postcode: "",
+    bio: "",
     serviceRadius: [50],
     emergencyCallout: true
   });
@@ -100,11 +61,14 @@ export function ProfessionalProfileContent() {
   // Certificates from API
   const [certifications, setCertifications] = useState<CertificateItem[]>([]);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false); // Track if we've attempted to fetch data (i.e., professional_id exists)
   
   // Profile image upload states
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Ref to track if component is mounted (prevents state updates after unmount)
+  const reloadProfileImageRef = useRef(true);
 
   // Certification form states
   const [showCertificationForm, setShowCertificationForm] = useState(false);
@@ -118,16 +82,92 @@ export function ProfessionalProfileContent() {
   const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
   const certificationFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load profile image from localStorage on mount
+  // Load profile image from localStorage ONLY if professional_id exists
+  // For new accounts (no professional_id), image should remain blank
+  // This effect runs on mount and when professional_id changes
   useEffect(() => {
-    const storedImageUrl = localStorage.getItem('professional_profile_image');
-    if (storedImageUrl) {
-      // Wrap in startTransition to prevent suspend during initial render
+    let isMounted = true;
+    
+    const loadProfileImage = () => {
+      const professionalId = getProfessionalId();
+      
+      // Only load image if professional_id exists (professional has been created)
+      if (professionalId && !isNaN(professionalId)) {
+        const storedImageUrl = localStorage.getItem('professional_profile_image');
+        if (storedImageUrl && isMounted) {
+          // Wrap in startTransition to prevent suspend during initial render
+          startTransition(() => {
+            if (isMounted) {
+              setProfileImageUrl(storedImageUrl);
+            }
+          });
+        } else if (isMounted) {
+          // Ensure image is blank if no stored image exists
+          startTransition(() => {
+            if (isMounted) {
+              setProfileImageUrl(null);
+            }
+          });
+        }
+      } else if (isMounted) {
+        // New account - ensure image is blank
+        startTransition(() => {
+          if (isMounted) {
+            setProfileImageUrl(null);
+          }
+        });
+      }
+    };
+    
+    loadProfileImage();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Only run on mount - professional_id changes handled in handleSaveProfile
+
+  // Effect to manage reloadProfileImageRef lifecycle
+  useEffect(() => {
+    reloadProfileImageRef.current = true;
+    return () => {
+      reloadProfileImageRef.current = false;
+    };
+  }, []);
+
+  // Helper function to reload profile image when professional_id becomes available
+  // Uses a ref to track if component is still mounted
+  
+  const reloadProfileImage = () => {
+    // Check if component is still mounted before updating state
+    if (!reloadProfileImageRef.current) {
+      return;
+    }
+    
+    const professionalId = getProfessionalId();
+    if (professionalId && !isNaN(professionalId)) {
+      const storedImageUrl = localStorage.getItem('professional_profile_image');
+      if (storedImageUrl) {
+        startTransition(() => {
+          if (reloadProfileImageRef.current) {
+            setProfileImageUrl(storedImageUrl);
+          }
+        });
+      } else {
+        startTransition(() => {
+          if (reloadProfileImageRef.current) {
+            setProfileImageUrl(null);
+          }
+        });
+      }
+    } else {
       startTransition(() => {
-        setProfileImageUrl(storedImageUrl);
+        if (reloadProfileImageRef.current) {
+          setProfileImageUrl(null);
+        }
       });
     }
-  }, []);
+  };
 
   // Fetch services from API on component mount
   useEffect(() => {
@@ -240,6 +280,7 @@ export function ProfessionalProfileContent() {
   const fetchProfessionalCertificates = async (profId: number) => {
     try {
       setLoadingCertifications(true);
+      setHasAttemptedFetch(true); // Mark that we've attempted to fetch
       const token = getApiToken();
       const response = await getCertificates({
         professional_id: profId,
@@ -262,75 +303,73 @@ export function ProfessionalProfileContent() {
     }
   };
 
-  // Fetch professional data on mount
+  // Function to fetch professional data by ID
+  const fetchProfessionalData = async (professionalId: number) => {
+    try {
+      setLoadingProfessional(true);
+      setHasAttemptedFetch(true); // Mark that we've attempted to fetch data (professional_id exists)
+      
+      // Fetch all professionals (the API returns professionals for the authenticated user)
+      const professionals = await fetchProfessionals(1);
+      
+      if (!professionals || professionals.length === 0) {
+        setLoadingProfessional(false);
+        return;
+      }
+      
+      // Find the professional that matches the professional_id
+      const currentProfessional = professionals.find(prof => prof.id === professionalId);
+      
+      if (currentProfessional) {
+        // Populate form data with fetched professional data
+        startTransition(() => {
+          setFormData(prev => ({
+            ...prev,
+            name: currentProfessional.name || prev.name,
+            email: currentProfessional.email || prev.email,
+            phone: currentProfessional.number || prev.phone,
+            businessName: currentProfessional.business_name || prev.businessName,
+            address: currentProfessional.business_location || prev.address,
+            postcode: currentProfessional.post_code || prev.postcode,
+            bio: currentProfessional.about || prev.bio,
+          }));
+          setLoadingProfessional(false);
+        });
+
+        // Fetch selected services, profile completion, and certificates for this professional
+        fetchSelectedServicesForProfessional(professionalId);
+        fetchProfileCompletion(professionalId);
+        fetchProfessionalCertificates(professionalId);
+      } else {
+        setLoadingProfessional(false);
+      }
+    } catch (error) {
+      console.error("Error loading professional data:", error);
+      setLoadingProfessional(false);
+      // Don't show error toast as this is not critical - user can still edit form
+    }
+  };
+
+  // Fetch professional data on mount ONLY if professional_id exists
   useEffect(() => {
     let isMounted = true;
     
     const loadProfessionalData = async () => {
-      // Get professional_id from localStorage or auth
-      const profIdFromAuth = getProfessionalId();
-      const profIdFromLocalStorage = localStorage.getItem('professional_id');
-      const professionalId = profIdFromAuth || (profIdFromLocalStorage ? parseInt(profIdFromLocalStorage, 10) : null);
+      // Get professional_id from auth (using the standard function)
+      const professionalId = getProfessionalId();
 
-      setLoadingProfessional(true);
-      try {
-        // Fetch all professionals (the API returns professionals for the authenticated user)
-        const professionals = await fetchProfessionals(1);
-        
-        if (!professionals || professionals.length === 0) {
-          if (isMounted) {
-            setLoadingProfessional(false);
-          }
-          return;
-        }
-        
-        // Find the professional that matches the professional_id, or use the first one
-        let currentProfessional = professionalId && !isNaN(professionalId)
-          ? professionals.find(prof => prof.id === professionalId)
-          : null;
-        
-        // If no match found but we have professionals, use the first one
-        if (!currentProfessional && professionals.length > 0) {
-          currentProfessional = professionals[0];
-          // Store the first professional's ID for future use
-          if (currentProfessional.id) {
-            localStorage.setItem('professional_id', currentProfessional.id.toString());
-          }
-        }
-        
-        if (currentProfessional && isMounted) {
-          // Populate form data with fetched professional data
-          startTransition(() => {
-            setFormData(prev => ({
-              ...prev,
-              name: currentProfessional?.name || prev.name,
-              email: currentProfessional?.email || prev.email,
-              phone: currentProfessional?.number || prev.phone,
-              businessName: currentProfessional?.business_name || prev.businessName,
-              address: currentProfessional?.business_location || prev.address,
-              postcode: currentProfessional?.post_code || prev.postcode,
-              bio: currentProfessional?.about || prev.bio,
-            }));
-            setLoadingProfessional(false);
-          });
-
-          // Fetch selected services, profile completion, and certificates for this professional
-          if (currentProfessional.id) {
-            fetchSelectedServicesForProfessional(currentProfessional.id);
-            fetchProfileCompletion(currentProfessional.id);
-            fetchProfessionalCertificates(currentProfessional.id);
-          }
-        } else if (isMounted) {
+      // Only fetch data if professional_id exists
+      // If no professional_id exists, keep UI blank (form fields remain with default/empty values)
+      if (!professionalId || isNaN(professionalId)) {
+        if (isMounted) {
           setLoadingProfessional(false);
         }
-      } catch (error) {
-        console.error("Error loading professional data:", error);
-        if (isMounted) {
-          startTransition(() => {
-            setLoadingProfessional(false);
-          });
-        }
-        // Don't show error toast as this is not critical - user can still edit form
+        return;
+      }
+
+      // Professional exists - fetch and display data
+      if (isMounted) {
+        await fetchProfessionalData(professionalId);
       }
     };
 
@@ -369,6 +408,11 @@ export function ProfessionalProfileContent() {
       return;
     }
 
+    // Check if component is still mounted before proceeding
+    if (!reloadProfileImageRef.current) {
+      return;
+    }
+
     // Set loading state synchronously (immediate feedback)
     setIsUploadingImage(true);
     
@@ -380,37 +424,59 @@ export function ProfessionalProfileContent() {
 
       const response = await uploadProfileImage(uploadData);
 
+      // Check if component is still mounted before updating state
+      if (!reloadProfileImageRef.current) {
+        return;
+      }
+
       if (response.status === true || response.image_url) {
         const imageUrl = response.image_url || "";
         
         // Wrap state updates in startTransition to prevent suspend during render
         startTransition(() => {
-          setProfileImageUrl(imageUrl);
-          setIsUploadingImage(false);
+          if (reloadProfileImageRef.current) {
+            setProfileImageUrl(imageUrl);
+            setIsUploadingImage(false);
+          }
         });
         
         // Store in localStorage to persist across sessions (synchronous, safe)
-        localStorage.setItem('professional_profile_image', imageUrl);
-        toast.success(response.message || "Profile image updated successfully!");
+        // Only store if component is still mounted
+        if (reloadProfileImageRef.current) {
+          localStorage.setItem('professional_profile_image', imageUrl);
+          toast.success(response.message || "Profile image updated successfully!");
+        }
       } else {
         startTransition(() => {
-          setIsUploadingImage(false);
+          if (reloadProfileImageRef.current) {
+            setIsUploadingImage(false);
+          }
         });
-        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+        if (reloadProfileImageRef.current) {
+          toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+        }
       }
     } catch (error: any) {
       console.error("Error uploading profile image:", error);
+      
+      // Check if component is still mounted before showing error
+      if (!reloadProfileImageRef.current) {
+        return;
+      }
+      
       const errorMessage = error?.message || error?.error || "An error occurred while uploading the image. Please try again.";
       
       // Wrap state updates in startTransition
       startTransition(() => {
-        setIsUploadingImage(false);
+        if (reloadProfileImageRef.current) {
+          setIsUploadingImage(false);
+        }
       });
       
       toast.error(errorMessage);
     } finally {
       // Reset file input (synchronous, safe)
-      if (fileInputRef.current) {
+      if (fileInputRef.current && reloadProfileImageRef.current) {
         fileInputRef.current.value = "";
       }
     }
@@ -548,14 +614,13 @@ export function ProfessionalProfileContent() {
         handleCloseCertificationForm();
         
         // Refresh certifications list after successful creation
-        const profIdFromAuth = getProfessionalId();
-        const profIdFromLocalStorage = localStorage.getItem('professional_id');
-        const profId = profIdFromAuth || (profIdFromLocalStorage ? parseInt(profIdFromLocalStorage, 10) : null);
+        // Only refresh if professional_id exists
+        const professionalId = getProfessionalId();
         
-        if (profId && !isNaN(profId)) {
-          fetchProfessionalCertificates(profId);
+        if (professionalId && !isNaN(professionalId)) {
+          fetchProfessionalCertificates(professionalId);
           // Also refresh profile completion to update the percentage
-          fetchProfileCompletion(profId);
+          fetchProfileCompletion(professionalId);
         }
       } else {
         toast.error(response.message || response.error || "Failed to create certification. Please try again.");
@@ -689,20 +754,23 @@ export function ProfessionalProfileContent() {
       if (isSuccess) {
         toast.success(response.message || "Profile saved successfully!");
         
-        // Refresh profile completion, services, and certificates after saving
-        const profIdFromAuth = getProfessionalId();
-        const profIdFromLocalStorage = localStorage.getItem('professional_id');
-        const professionalId = profIdFromAuth || (profIdFromLocalStorage ? parseInt(profIdFromLocalStorage, 10) : null);
-        
-        // Also check if professional_id is in the response
+        // Extract professional_id from the response and store it
         const profIdFromResponse = response.data?.professional?.id;
-        const profId = profIdFromResponse || professionalId;
         
-        if (profId && !isNaN(profId)) {
+        if (profIdFromResponse && !isNaN(profIdFromResponse)) {
+          // Store professional_id in localStorage for future use
+          setProfessionalId(profIdFromResponse);
+          
+          // Reload profile image in case one was uploaded before saving
+          reloadProfileImage();
+          
           // Refresh profile completion percentage, selected services, and certificates
-          fetchProfileCompletion(profId);
-          fetchSelectedServicesForProfessional(profId);
-          fetchProfessionalCertificates(profId);
+          fetchProfileCompletion(profIdFromResponse);
+          fetchSelectedServicesForProfessional(profIdFromResponse);
+          fetchProfessionalCertificates(profIdFromResponse);
+          
+          // Also fetch and populate professional data
+          fetchProfessionalData(profIdFromResponse);
         }
         
         // Optionally reset form or close certification form
@@ -1113,83 +1181,14 @@ export function ProfessionalProfileContent() {
                     )}
                   </div>
                 ))
+              ) : hasAttemptedFetch ? (
+                // Only show "no certifications" message if we've attempted to fetch (i.e., professional_id exists)
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No certifications found. Upload one to get started!</p>
+                </div>
               ) : (
-                formData.certifications.map((cert) => (
-                  <div 
-                    key={cert.id} 
-                    className={`p-4 border rounded-lg ${
-                      cert.status === 'verified' ? 'bg-green-50 border-green-200' :
-                      cert.status === 'pending' ? 'bg-amber-50 border-amber-200' :
-                      'bg-red-50 border-red-200'
-                    }`}
-                  >
-                    {/* Header with title and status */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-2">{cert.name}</h4>
-                        
-                        {/* Evidence Info Row */}
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-600">
-                            Evidence: <span className="text-gray-700">{cert.evidenceFile}</span> ({cert.fileCount} file)
-                          </p>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-7 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 -mr-2"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="ml-3 flex-shrink-0">
-                        {cert.status === 'verified' && (
-                          <Badge className="bg-green-600 text-white">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Verified
-                          </Badge>
-                        )}
-                        {cert.status === 'pending' && (
-                          <Badge className="bg-amber-500 text-white">
-                            <Clock className="w-3 h-3 mr-1" />
-                            Pending verification
-                          </Badge>
-                        )}
-                        {cert.status === 'rejected' && (
-                          <Badge className="bg-red-600 text-white">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Rejected
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Additional info based on status */}
-                    {cert.status === 'verified' && cert.verifiedDate && (
-                      <p className="text-xs text-green-700">
-                        <CheckCircle2 className="w-3 h-3 inline mr-1" />
-                        Verified on {cert.verifiedDate}
-                      </p>
-                    )}
-                    {cert.status === 'pending' && (
-                      <p className="text-xs text-amber-700">
-                        <Clock className="w-3 h-3 inline mr-1" />
-                        Uploaded {cert.uploadDate} - Awaiting admin review
-                      </p>
-                    )}
-                    {cert.status === 'rejected' && cert.rejectionReason && (
-                      <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
-                        <p className="text-xs text-red-900 flex items-start gap-1">
-                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                          <span><strong>Reason:</strong> {cert.rejectionReason}</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))
+                // If no professional_id exists, show blank UI (no certifications displayed)
+                null
               )}
 
               <Button 
@@ -1387,7 +1386,9 @@ export function ProfessionalProfileContent() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Certifications</span>
-                  <span className="font-semibold text-gray-900">{certifications.length > 0 ? certifications.length : formData.certifications.length}</span>
+                  <span className="font-semibold text-gray-900">
+                    {hasAttemptedFetch ? certifications.length : 0}
+                  </span>
                 </div>
               </div>
 

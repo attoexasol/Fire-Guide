@@ -201,6 +201,8 @@ export const removeAuthToken = (): void => {
     localStorage.removeItem(PROFESSIONAL_ID_KEY);
     localStorage.removeItem("user_role"); // Primary role key
     localStorage.removeItem("fireguide_user_role"); // Legacy role key
+    // Also clear professional profile image on logout
+    localStorage.removeItem('professional_profile_image');
   } catch (error) {
     console.error('Failed to remove auth token:', error);
   }
