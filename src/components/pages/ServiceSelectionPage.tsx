@@ -1,3 +1,4 @@
+import { startTransition } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ServiceSelection } from "../ServiceSelection";
@@ -10,29 +11,63 @@ export default function ServiceSelectionPage() {
     <ServiceSelection
       onSelectService={(service) => {
         setSelectedService(service);
-        navigate(`/services/${service}/questionnaire`);
+        startTransition(() => {
+          navigate(`/services/${service}/questionnaire`);
+        });
       }}
-      onBack={() => navigate("/")}
-      onNavigateHome={() => navigate("/")}
-      onNavigateServices={() => navigate("/services")}
-      onNavigateProfessionals={() => navigate("/professional/benefits")}
-      onNavigateAbout={() => navigate("/about")}
-      onNavigateContact={() => navigate("/about")}
-      onCustomerLogin={() => navigate("/customer/auth")}
+      onBack={() => {
+        startTransition(() => {
+          navigate("/");
+        });
+      }}
+      onNavigateHome={() => {
+        startTransition(() => {
+          navigate("/");
+        });
+      }}
+      onNavigateServices={() => {
+        startTransition(() => {
+          navigate("/services");
+        });
+      }}
+      onNavigateProfessionals={() => {
+        startTransition(() => {
+          navigate("/professional/benefits");
+        });
+      }}
+      onNavigateAbout={() => {
+        startTransition(() => {
+          navigate("/about");
+        });
+      }}
+      onNavigateContact={() => {
+        startTransition(() => {
+          navigate("/about");
+        });
+      }}
+      onCustomerLogin={() => {
+        startTransition(() => {
+          navigate("/customer/auth");
+        });
+      }}
       currentUser={currentUser}
       onLogout={() => {
         logout();
-        navigate("/");
+        startTransition(() => {
+          navigate("/");
+        });
       }}
       onNavigateToDashboard={() => {
         if (currentUser) {
-          if (currentUser.role === "admin") {
-            navigate("/admin/dashboard");
-          } else if (currentUser.role === "professional") {
-            navigate("/professional/dashboard");
-          } else {
-            navigate("/customer/dashboard");
-          }
+          startTransition(() => {
+            if (currentUser.role === "admin") {
+              navigate("/admin/dashboard");
+            } else if (currentUser.role === "professional") {
+              navigate("/professional/dashboard");
+            } else {
+              navigate("/customer/dashboard");
+            }
+          });
         }
       }}
     />

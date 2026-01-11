@@ -1,4 +1,4 @@
-import React from "react";
+import React, { startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { AdminLogin } from "../AdminLogin";
@@ -30,19 +30,25 @@ export default function AdminLoginPage() {
           setUserInfo(name, "admin");
         }
         
-        // Redirect immediately based on role
-        if (userRole === "USER") {
-          navigate("/customer/dashboard", { replace: true });
-        } else if (userRole === "PROFESSIONAL") {
-          navigate("/professional/dashboard", { replace: true });
-        } else if (userRole === "ADMIN") {
-          navigate("/admin/dashboard", { replace: true });
-        } else {
-          // Fallback to admin dashboard if role is not set
-          navigate("/admin/dashboard", { replace: true });
-        }
+        // Redirect immediately based on role (wrapped in startTransition to avoid suspend during sync input)
+        startTransition(() => {
+          if (userRole === "USER") {
+            navigate("/customer/dashboard", { replace: true });
+          } else if (userRole === "PROFESSIONAL") {
+            navigate("/professional/dashboard", { replace: true });
+          } else if (userRole === "ADMIN") {
+            navigate("/admin/dashboard", { replace: true });
+          } else {
+            // Fallback to admin dashboard if role is not set
+            navigate("/admin/dashboard", { replace: true });
+          }
+        });
       }}
-      onBack={() => navigate("/")}
+      onBack={() => {
+        startTransition(() => {
+          navigate("/");
+        });
+      }}
     />
   );
 }

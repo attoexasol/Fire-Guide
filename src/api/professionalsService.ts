@@ -247,13 +247,18 @@ export interface GetSelectedServiceRequest {
 export interface SelectedServiceItem {
   id: number;
   professional_id: number;
-  service_id: number;
+  service_id?: number; // Optional - API may return service.id nested instead
   price: string | null;
   service_area: string | null;
-  created_by: number;
-  updated_by: number;
+  created_by: number | { id: number; full_name: string } | null;
+  updated_by: number | { id: number; full_name: string } | null;
   created_at: string;
   updated_at: string;
+  service?: {
+    id: number;
+    service_name: string;
+    description: string | null;
+  } | null;
 }
 
 // TypeScript types for get selected service response
@@ -501,6 +506,91 @@ export const getCertificates = async (
         throw {
           success: false,
           message: error.response.data?.message || 'Failed to fetch certificates',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for store service price request
+export interface StoreServicePriceRequest {
+  api_token: string;
+  services: Array<{
+    service_id: number;
+    price: number; // Price as number (e.g., 220, 800, 1200)
+  }>;
+}
+
+// TypeScript types for store service price response
+export interface StoreServicePriceResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: SelectedServiceItem[];
+  error?: string;
+}
+
+/**
+ * Store service prices for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional/service_price_store
+ * Method: POST
+ * @param data - Store service price request data (api_token, services array)
+ * @returns Promise with the API response
+ */
+export const storeServicePrices = async (
+  data: StoreServicePriceRequest
+): Promise<StoreServicePriceResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+      services: data.services.map(service => ({
+        service_id: service.service_id,
+        price: service.price // Send as number
+      }))
+    };
+
+    console.log('POST /professional/service_price_store - Request payload:', {
+      endpoint: '/professional/service_price_store',
+      services_count: requestBody.services.length,
+      services: requestBody.services
+    });
+
+    const response = await apiClient.post<StoreServicePriceResponse>(
+      '/professional/service_price_store',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional/service_price_store - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error storing service prices:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to store service prices',
           error: error.response.data?.error || error.message,
           status: error.response.status,
         };

@@ -1,3 +1,4 @@
+import { startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ComparisonResults } from "../ComparisonResults";
@@ -26,7 +27,9 @@ export default function ComparisonPage() {
         }
         
         // Navigate with state for immediate access
-        navigate(`/professionals/${professional.id}`, { state: { professional, professionalId: professional.id } });
+        startTransition(() => {
+          navigate(`/professionals/${professional.id}`, { state: { professional, professionalId: professional.id } });
+        });
       }}
       onBookNow={(professional) => {
         // Update context state
@@ -42,9 +45,15 @@ export default function ComparisonPage() {
         }
         
         // Navigate with state for immediate access
-        navigate("/booking", { state: { professional, professionalId: professional.id } });
+        startTransition(() => {
+          navigate("/booking", { state: { professional, professionalId: professional.id } });
+        });
       }}
-      onBack={() => navigate(`/services/${selectedService}/location`)}
+      onBack={() => {
+        startTransition(() => {
+          navigate(`/services/${selectedService}/location`);
+        });
+      }}
     />
   );
 }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ProfessionalAuth } from "../ProfessionalAuth";
@@ -30,24 +30,50 @@ export default function ProfessionalAuthPage() {
           setUserInfo(name, "professional");
         }
         
-        // Redirect immediately based on role
-        if (userRole === "USER") {
-          navigate("/customer/dashboard", { replace: true });
-        } else if (userRole === "PROFESSIONAL") {
-          navigate("/professional/dashboard", { replace: true });
-        } else if (userRole === "ADMIN") {
-          navigate("/admin/dashboard", { replace: true });
-        } else {
-          // Fallback to professional dashboard if role is not set
-          navigate("/professional/dashboard", { replace: true });
-        }
+        // Redirect immediately based on role (wrapped in startTransition to avoid suspend during sync input)
+        startTransition(() => {
+          if (userRole === "USER") {
+            navigate("/customer/dashboard", { replace: true });
+          } else if (userRole === "PROFESSIONAL") {
+            navigate("/professional/dashboard", { replace: true });
+          } else if (userRole === "ADMIN") {
+            navigate("/admin/dashboard", { replace: true });
+          } else {
+            // Fallback to professional dashboard if role is not set
+            navigate("/professional/dashboard", { replace: true });
+          }
+        });
       }}
-      onBack={() => navigate("/")}
-      onNavigateHome={() => navigate("/")}
-      onNavigateServices={() => navigate("/services")}
-      onNavigateProfessionals={() => navigate("/professional/benefits")}
-      onNavigateAbout={() => navigate("/about")}
-      onNavigateContact={() => navigate("/about")}
+      onBack={() => {
+        startTransition(() => {
+          navigate("/");
+        });
+      }}
+      onNavigateHome={() => {
+        startTransition(() => {
+          navigate("/");
+        });
+      }}
+      onNavigateServices={() => {
+        startTransition(() => {
+          navigate("/services");
+        });
+      }}
+      onNavigateProfessionals={() => {
+        startTransition(() => {
+          navigate("/professional/benefits");
+        });
+      }}
+      onNavigateAbout={() => {
+        startTransition(() => {
+          navigate("/about");
+        });
+      }}
+      onNavigateContact={() => {
+        startTransition(() => {
+          navigate("/about");
+        });
+      }}
     />
   );
 }

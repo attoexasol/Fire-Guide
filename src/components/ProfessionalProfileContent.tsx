@@ -30,7 +30,7 @@ import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
 import { fetchServices, ServiceResponse } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
-import { getApiToken, getProfessionalId, setProfessionalId } from "../lib/auth";
+import { getApiToken, getProfessionalId, setProfessionalId, getUserEmail } from "../lib/auth";
 import { createCertification } from "../api/qualificationsService";
 import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem } from "../api/professionalsService";
 import { toast } from "sonner";
@@ -82,18 +82,36 @@ export function ProfessionalProfileContent() {
   const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
   const certificationFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load profile image from localStorage ONLY if professional_id exists
+  // Load profile image from localStorage using email-based key for persistence
+  // This allows the image to persist across logout/login for the same user
   // For new accounts (no professional_id), image should remain blank
-  // This effect runs on mount and when professional_id changes
   useEffect(() => {
     let isMounted = true;
     
-    const loadProfileImage = () => {
+    const loadProfileImage = async () => {
       const professionalId = getProfessionalId();
+      const userEmail = getUserEmail();
       
       // Only load image if professional_id exists (professional has been created)
       if (professionalId && !isNaN(professionalId)) {
-        const storedImageUrl = localStorage.getItem('professional_profile_image');
+        // Try to load from email-based key first (persists across sessions)
+        // Key format: professional_profile_image_{email} (email normalized to lowercase)
+        let storedImageUrl: string | null = null;
+        
+        if (userEmail) {
+          // Normalize email to lowercase to match the key format used during upload
+          const normalizedEmail = userEmail.trim().toLowerCase();
+          const emailBasedKey = `professional_profile_image_${normalizedEmail}`;
+          storedImageUrl = localStorage.getItem(emailBasedKey);
+          console.log('Loading profile image from email-based key:', emailBasedKey, 'Found:', !!storedImageUrl);
+        }
+        
+        // Fallback to regular key (for backward compatibility)
+        if (!storedImageUrl) {
+          storedImageUrl = localStorage.getItem('professional_profile_image');
+          console.log('Loading profile image from regular key. Found:', !!storedImageUrl);
+        }
+        
         if (storedImageUrl && isMounted) {
           // Wrap in startTransition to prevent suspend during initial render
           startTransition(() => {
@@ -102,7 +120,8 @@ export function ProfessionalProfileContent() {
             }
           });
         } else if (isMounted) {
-          // Ensure image is blank if no stored image exists
+          // No stored image - try to fetch from API if available
+          // For now, keep it blank - the image should be fetched from API in future
           startTransition(() => {
             if (isMounted) {
               setProfileImageUrl(null);
@@ -135,8 +154,77 @@ export function ProfessionalProfileContent() {
     };
   }, []);
 
+  // Effect to reload profile image when email becomes available (e.g., after login)
+  // This ensures the image is loaded even if the component mounted before email was set
+  // Also retries loading the image periodically until email is available (handles race conditions)
+  useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 10; // Try up to 10 times (1 second total)
+    
+    const loadImageAfterEmailSet = () => {
+      const professionalId = getProfessionalId();
+      const userEmail = getUserEmail();
+      
+      // Only load image if professional_id exists and email is available
+      if (professionalId && !isNaN(professionalId) && userEmail && isMounted) {
+        // Normalize email to lowercase to match the key format used during upload
+        const normalizedEmail = userEmail.trim().toLowerCase();
+        const emailBasedKey = `professional_profile_image_${normalizedEmail}`;
+        const storedImageUrl = localStorage.getItem(emailBasedKey);
+        
+        if (storedImageUrl) {
+          console.log('Profile image loaded from email-based key after login:', emailBasedKey);
+          startTransition(() => {
+            if (isMounted && reloadProfileImageRef.current) {
+              setProfileImageUrl(storedImageUrl);
+            }
+          });
+          return; // Successfully loaded, stop retrying
+        } else {
+          // Try regular key as fallback
+          const regularKeyUrl = localStorage.getItem('professional_profile_image');
+          if (regularKeyUrl) {
+            console.log('Profile image loaded from regular key after login');
+            startTransition(() => {
+              if (isMounted && reloadProfileImageRef.current) {
+                setProfileImageUrl(regularKeyUrl);
+                // Also store with email-based key for future persistence
+                if (normalizedEmail) {
+                  localStorage.setItem(emailBasedKey, regularKeyUrl);
+                }
+              }
+            });
+            return; // Successfully loaded, stop retrying
+          }
+        }
+      }
+      
+      // If email or professional_id is not available yet and we haven't exceeded retries, retry
+      if (retryCount < maxRetries && isMounted) {
+        retryCount++;
+        setTimeout(() => {
+          if (isMounted) {
+            loadImageAfterEmailSet();
+          }
+        }, 100);
+      }
+    };
+    
+    // Initial attempt after a small delay to ensure email is set after login
+    const timeoutId = setTimeout(() => {
+      loadImageAfterEmailSet();
+    }, 100);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []); // Run once on mount, but retry until email is available
+
   // Helper function to reload profile image when professional_id becomes available
   // Uses a ref to track if component is still mounted
+  // Uses email-based key for persistence across logout/login
   
   const reloadProfileImage = () => {
     // Check if component is still mounted before updating state
@@ -145,8 +233,24 @@ export function ProfessionalProfileContent() {
     }
     
     const professionalId = getProfessionalId();
-    if (professionalId && !isNaN(professionalId)) {
-      const storedImageUrl = localStorage.getItem('professional_profile_image');
+    const userEmail = getUserEmail();
+    
+      if (professionalId && !isNaN(professionalId)) {
+        // Try to load from email-based key first (persists across sessions)
+        let storedImageUrl: string | null = null;
+        
+        if (userEmail) {
+          // Normalize email to lowercase to match the key format used during upload
+          const normalizedEmail = userEmail.trim().toLowerCase();
+          const emailBasedKey = `professional_profile_image_${normalizedEmail}`;
+          storedImageUrl = localStorage.getItem(emailBasedKey);
+        }
+        
+        // Fallback to regular key (for backward compatibility)
+        if (!storedImageUrl) {
+          storedImageUrl = localStorage.getItem('professional_profile_image');
+        }
+      
       if (storedImageUrl) {
         startTransition(() => {
           if (reloadProfileImageRef.current) {
@@ -224,7 +328,11 @@ export function ProfessionalProfileContent() {
 
       if (response.status === true && response.data) {
         // Extract service_id values from the response
-        const serviceIds = response.data.map(item => item.service_id);
+        // Handle both top-level service_id and nested service.id (API may return either)
+        const serviceIds = response.data
+          .map(item => item.service_id ?? item.service?.id)
+          .filter((id): id is number => typeof id === 'number' && !isNaN(id) && id > 0);
+        
         startTransition(() => {
           setSelectedServices(serviceIds);
         });
@@ -350,26 +458,62 @@ export function ProfessionalProfileContent() {
     }
   };
 
-  // Fetch professional data on mount ONLY if professional_id exists
+  // Fetch professional data on mount
+  // ONLY fetch data if professional_id exists (from professional/create response)
+  // If professional_id doesn't exist, keep UI blank
   useEffect(() => {
     let isMounted = true;
     
     const loadProfessionalData = async () => {
-      // Get professional_id from auth (using the standard function)
+      // Get professional_id from localStorage (only exists after professional/create is called)
       const professionalId = getProfessionalId();
 
-      // Only fetch data if professional_id exists
-      // If no professional_id exists, keep UI blank (form fields remain with default/empty values)
+      // If professional_id doesn't exist, keep UI blank
+      // Professional must complete professional/create process before data is displayed
       if (!professionalId || isNaN(professionalId)) {
         if (isMounted) {
           setLoadingProfessional(false);
+          setHasAttemptedFetch(false); // No data exists
         }
         return;
       }
 
-      // Professional exists - fetch and display data
+      // professional_id exists - fetch and display data
+      setHasAttemptedFetch(true);
+      
       if (isMounted) {
         await fetchProfessionalData(professionalId);
+        
+        // After fetching professional data, also load profile image if it exists
+        // Use email-based key for persistence across logout/login
+        const userEmail = getUserEmail();
+        if (userEmail && isMounted) {
+          // Normalize email to lowercase to match the key format used during upload
+          const normalizedEmail = userEmail.trim().toLowerCase();
+          const emailBasedKey = `professional_profile_image_${normalizedEmail}`;
+          const storedImageUrl = localStorage.getItem(emailBasedKey);
+          if (storedImageUrl) {
+            console.log('Profile image loaded after fetching professional data:', emailBasedKey);
+            startTransition(() => {
+              if (isMounted) {
+                setProfileImageUrl(storedImageUrl);
+              }
+            });
+          } else {
+            // Try regular key as fallback
+            const regularKeyUrl = localStorage.getItem('professional_profile_image');
+            if (regularKeyUrl && isMounted) {
+              console.log('Profile image loaded from regular key after fetching professional data');
+              startTransition(() => {
+                if (isMounted) {
+                  setProfileImageUrl(regularKeyUrl);
+                  // Also store with email-based key for future persistence
+                  localStorage.setItem(emailBasedKey, regularKeyUrl);
+                }
+              });
+            }
+          }
+        }
       }
     };
 
@@ -440,10 +584,24 @@ export function ProfessionalProfileContent() {
           }
         });
         
-        // Store in localStorage to persist across sessions (synchronous, safe)
-        // Only store if component is still mounted
+        // Store in localStorage to persist across sessions
+        // Use email-based key so it persists across logout/login for the same user
+        // Normalize email to lowercase for consistent key generation
         if (reloadProfileImageRef.current) {
+          const userEmail = getUserEmail();
+          
+          // Store with email-based key (persists across logout/login)
+          // Normalize email to lowercase to ensure consistent key generation
+          if (userEmail) {
+            const normalizedEmail = userEmail.trim().toLowerCase();
+            const emailBasedKey = `professional_profile_image_${normalizedEmail}`;
+            localStorage.setItem(emailBasedKey, imageUrl);
+            console.log('Stored profile image with email-based key:', emailBasedKey);
+          }
+          
+          // Also store with regular key for backward compatibility (session-based)
           localStorage.setItem('professional_profile_image', imageUrl);
+          
           toast.success(response.message || "Profile image updated successfully!");
         }
       } else {
@@ -754,23 +912,36 @@ export function ProfessionalProfileContent() {
       if (isSuccess) {
         toast.success(response.message || "Profile saved successfully!");
         
-        // Extract professional_id from the response and store it
+        // Extract professional_id from the response structure:
+        // Response: { status: true, message: "...", data: { professional: { id: 15, ... }, services: [...], certificate: {...} } }
+        // Extract from: response.data.professional.id
         const profIdFromResponse = response.data?.professional?.id;
         
+        console.log('Professional created - Extracted professional_id:', profIdFromResponse);
+        console.log('Full response data:', response.data);
+        
         if (profIdFromResponse && !isNaN(profIdFromResponse)) {
-          // Store professional_id in localStorage for future use
-          setProfessionalId(profIdFromResponse);
-          
-          // Reload profile image in case one was uploaded before saving
-          reloadProfileImage();
-          
-          // Refresh profile completion percentage, selected services, and certificates
-          fetchProfileCompletion(profIdFromResponse);
-          fetchSelectedServicesForProfessional(profIdFromResponse);
-          fetchProfessionalCertificates(profIdFromResponse);
-          
-          // Also fetch and populate professional data
-          fetchProfessionalData(profIdFromResponse);
+          // Wrap all state updates and API calls in startTransition to prevent Suspense errors
+          startTransition(() => {
+            // Store professional_id in localStorage for future use
+            // This professional_id will be used for all related API calls (get_selected_service, get_certificate, etc.)
+            setProfessionalId(profIdFromResponse);
+            
+            // Reload profile image in case one was uploaded before saving
+            reloadProfileImage();
+            
+            // Use the extracted professional_id to fetch related data from APIs
+            // All these APIs require professional_id in the request body
+            fetchProfileCompletion(profIdFromResponse);
+            fetchSelectedServicesForProfessional(profIdFromResponse);
+            fetchProfessionalCertificates(profIdFromResponse);
+            
+            // Also fetch and populate professional data
+            fetchProfessionalData(profIdFromResponse);
+          });
+        } else {
+          console.error('Failed to extract professional_id from response:', response.data);
+          toast.error("Profile saved but professional ID not found in response. Please refresh the page.");
         }
         
         // Optionally reset form or close certification form
@@ -1117,7 +1288,24 @@ export function ProfessionalProfileContent() {
                     {/* Header with title and status */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-2">{cert.name}</h4>
+                        <div className="flex items-center gap-2 mb-2">
+                          {/* Prominent Checkmark for Verified Certifications */}
+                          {cert.status === 'verified' && (
+                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                          )}
+                          {cert.status === 'pending' && (
+                            <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                          )}
+                          {cert.status === 'rejected' && (
+                            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                          )}
+                          <h4 className="font-medium text-gray-900">{cert.name}</h4>
+                        </div>
+                        
+                        {/* Description if available */}
+                        {cert.description && (
+                          <p className="text-sm text-gray-600 mb-2">{cert.description}</p>
+                        )}
                         
                         {/* Evidence Info Row */}
                         <div className="flex items-center justify-between">

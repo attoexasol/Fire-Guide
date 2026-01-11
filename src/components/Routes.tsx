@@ -59,7 +59,7 @@ function ProtectedRoute({
     // If userInfo exists and role matches, allow access even if currentUser is null
     // (currentUser will be set by useEffect soon)
     if (userInfo?.role === requiredRole) {
-      return <>{children}</>;
+      return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
     }
     // Role doesn't match - redirect based on actual role
     if (userInfo?.role === "customer") {
@@ -75,28 +75,28 @@ function ProtectedRoute({
     }
   }
   
-  return <>{children}</>;
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
 export default function Routes() {
   return (
     <RouterRoutes>
       {/* Public Routes */}
-      <Route path="/test" element={<TestPage />} />
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/about" element={<AboutContactPage />} />
-      <Route path="/services" element={<ServiceSelectionPage />} />
-      <Route path="/services/:serviceId/questionnaire" element={<QuestionnairePage />} />
-      <Route path="/services/:serviceId/location" element={<LocationPage />} />
-      <Route path="/professionals/compare" element={<ComparisonPage />} />
-      <Route path="/professionals/:professionalId" element={<ProfilePage />} />
-      <Route path="/booking" element={<BookingPage />} />
-      <Route path="/booking/confirmation" element={<ConfirmationPage />} />
-      <Route path="/booking/appointment-details" element={<AppointmentDetailsPage />} />
+      <Route path="/test" element={<Suspense fallback={<PageLoader />}><TestPage /></Suspense>} />
+      <Route path="/" element={<Suspense fallback={<PageLoader />}><LandingPage /></Suspense>} />
+      <Route path="/about" element={<Suspense fallback={<PageLoader />}><AboutContactPage /></Suspense>} />
+      <Route path="/services" element={<Suspense fallback={<PageLoader />}><ServiceSelectionPage /></Suspense>} />
+      <Route path="/services/:serviceId/questionnaire" element={<Suspense fallback={<PageLoader />}><QuestionnairePage /></Suspense>} />
+      <Route path="/services/:serviceId/location" element={<Suspense fallback={<PageLoader />}><LocationPage /></Suspense>} />
+      <Route path="/professionals/compare" element={<Suspense fallback={<PageLoader />}><ComparisonPage /></Suspense>} />
+      <Route path="/professionals/:professionalId" element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
+      <Route path="/booking" element={<Suspense fallback={<PageLoader />}><BookingPage /></Suspense>} />
+      <Route path="/booking/confirmation" element={<Suspense fallback={<PageLoader />}><ConfirmationPage /></Suspense>} />
+      <Route path="/booking/appointment-details" element={<Suspense fallback={<PageLoader />}><AppointmentDetailsPage /></Suspense>} />
       
       {/* Professional Routes */}
-      <Route path="/professional/benefits" element={<ProfessionalBenefitsPage />} />
-      <Route path="/professional/auth" element={<ProfessionalAuthPage />} />
+      <Route path="/professional/benefits" element={<Suspense fallback={<PageLoader />}><ProfessionalBenefitsPage /></Suspense>} />
+      <Route path="/professional/auth" element={<Suspense fallback={<PageLoader />}><ProfessionalAuthPage /></Suspense>} />
       <Route 
         path="/professional/dashboard/:view" 
         element={
@@ -147,7 +147,7 @@ export default function Routes() {
       />
       
       {/* Admin Routes */}
-      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLoginPage /></Suspense>} />
       <Route 
         path="/admin/dashboard/services/add" 
         element={
@@ -182,7 +182,7 @@ export default function Routes() {
       />
       
       {/* Customer Routes */}
-      <Route path="/customer/auth" element={<CustomerAuthPage />} />
+      <Route path="/customer/auth" element={<Suspense fallback={<PageLoader />}><CustomerAuthPage /></Suspense>} />
       <Route 
         path="/customer/dashboard/certification/add" 
         element={

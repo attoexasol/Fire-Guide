@@ -191,6 +191,9 @@ export const getProfessionalId = (): number | null => {
  */
 export const removeAuthToken = (): void => {
   try {
+    // Get email before clearing to handle email-based profile image keys
+    const userEmail = localStorage.getItem(USER_EMAIL_KEY);
+    
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_EMAIL_KEY);
     localStorage.removeItem(USER_NAME_KEY);
@@ -201,8 +204,12 @@ export const removeAuthToken = (): void => {
     localStorage.removeItem(PROFESSIONAL_ID_KEY);
     localStorage.removeItem("user_role"); // Primary role key
     localStorage.removeItem("fireguide_user_role"); // Legacy role key
-    // Also clear professional profile image on logout
+    // Clear session-based professional profile image (but keep email-based keys for persistence)
     localStorage.removeItem('professional_profile_image');
+    
+    // Note: We do NOT clear email-based profile image keys (e.g., professional_profile_image_{email})
+    // These persist across logout/login so the image can be restored when the user logs back in
+    // The email-based keys are only cleared if needed manually or when user deletes their account
   } catch (error) {
     console.error('Failed to remove auth token:', error);
   }

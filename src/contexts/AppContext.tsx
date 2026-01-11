@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, startTransition } from "react";
 import { isAuthenticated, getUserInfo, setUserInfo, removeAuthToken } from "../lib/auth";
 
 export interface Booking {
@@ -135,13 +135,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timeoutId);
   }, [customerPayments]);
 
-  // Initialize auth state on mount
+  // Initialize auth state on mount - wrapped in startTransition to prevent Suspense errors
   useEffect(() => {
     if (isAuthenticated()) {
       const userInfo = getUserInfo();
       if (userInfo) {
-        setCurrentUser({ name: userInfo.name, role: userInfo.role });
-        setIsCustomerLoggedIn(userInfo.role === "customer");
+        startTransition(() => {
+          setCurrentUser({ name: userInfo.name, role: userInfo.role });
+          setIsCustomerLoggedIn(userInfo.role === "customer");
+        });
       } else {
         removeAuthToken();
       }
