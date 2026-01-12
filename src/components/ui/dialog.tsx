@@ -17,6 +17,7 @@ interface DialogTriggerProps {
 interface DialogContentProps {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 interface DialogHeaderProps {
@@ -45,12 +46,32 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div 
-        className="fixed inset-0 bg-black/50" 
+        className="fixed inset-0 bg-black/50 transition-opacity duration-300 ease-in-out" 
         onClick={() => onOpenChange?.(false)}
+        style={{ animation: 'fadeIn 0.2s ease-in-out' }}
       />
-      <div className="relative z-50">
+      <div 
+        className="relative z-50 transition-all duration-300 ease-in-out"
+        style={{ animation: 'slideUp 0.3s ease-in-out' }}
+      >
         {children}
       </div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { 
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -63,9 +84,9 @@ export function DialogTrigger({ children, className = "", onClick }: DialogTrigg
   );
 }
 
-export function DialogContent({ children, className = "" }: DialogContentProps) {
+export function DialogContent({ children, className = "", style }: DialogContentProps) {
   return (
-    <div className={`bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 ${className}`}>
+    <div className={`bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 ${className}`} style={style}>
       {children}
     </div>
   );

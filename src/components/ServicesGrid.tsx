@@ -13,6 +13,18 @@ interface ServicesGridProps {
 const defaultIcons = [ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb, Sparkles];
 const colorOptions = ["red", "blue", "orange", "green", "purple"];
 
+// Description mapping for services - override API descriptions with updated text
+const serviceDescriptionMap: Record<string, string> = {
+  "Fire Risk Assessment": "A suitable and sufficient assessment of fire hazards and fire safety measures within your premises, tailored to its use and occupancy.",
+  "Fire Alarm Service": "Installation, inspection, testing, and maintenance of fire alarm systems to confirm they operate as intended and provide effective warning.",
+  "Fire Extinguisher Service": "Supply, inspection, and maintenance of fire extinguishers appropriate to the risks and layout of your premises.",
+  "Fire Door Inspection": "Inspection of fire doors to assess condition, functionality, and suitability in supporting fire compartmentation and safe escape.",
+  "Emergency Lighting Test": "Inspection and testing of emergency lighting systems to support visibility of escape routes in the event of power failure.",
+  "Emergency Lighting": "Inspection and testing of emergency lighting systems to support visibility of escape routes in the event of power failure.",
+  "Emergency Lighting Testing": "Inspection and testing of emergency lighting systems to support visibility of escape routes in the event of power failure.",
+  "Fire Safety Consultation": "Professional fire safety advice to help dutyholders understand requirements, review concerns, and plan appropriate fire safety measures for their premises."
+};
+
 // Map API response to Service interface
 const mapApiServiceToService = (apiService: ServiceResponse, index: number): Service => {
   // Determine if service is active (status === "ACTIVE")
@@ -31,12 +43,16 @@ const mapApiServiceToService = (apiService: ServiceResponse, index: number): Ser
   const colorIndex = index % colorOptions.length;
   const color = colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple";
 
+  // Use mapped description if available, otherwise use API description or fallback
+  const serviceName = apiService.service_name || "Service";
+  const mappedDescription = serviceDescriptionMap[serviceName] || apiService.description || "No description available";
+
   return {
     id: apiService.id,
-    name: apiService.service_name || "Service",
+    name: serviceName,
     icon: apiService.icon || undefined,
     iconComponent: iconComponent,
-    description: apiService.description || "No description available",
+    description: mappedDescription,
     basePrice: formattedPrice,
     active: isActive,
     popular: false, // Remove popular label
@@ -84,7 +100,7 @@ console.log(allServices);
             Our Services
           </h2>
           <p className="text-[14px] md:text-[16px] leading-[150%] md:leading-[140%] text-[#666] max-w-2xl mx-auto px-4">
-            Find trusted professionals for all your fire safety needs
+            Find independent fire safety professionals to support all aspects of fire safety management — in one place.
           </p>
         </div>
         

@@ -1,4 +1,4 @@
-import { Shield, Users, Star, TrendingUp, Check, Layers, Zap, CheckCircle } from "lucide-react";
+import { Lock, Layers, Zap, BookOpen } from "lucide-react";
 
 export function TrustIndicators() {
   return (
@@ -10,11 +10,11 @@ export function TrustIndicators() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
-                <Shield className="w-4 h-4 text-white" />
+                <Lock className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-white text-xl">Trusted Industry Experts</h3>
+              <h3 className="text-white text-xl">Experienced Fire Safety Professionals</h3>
             </div>
-            <p className="text-white/70">Professionals reviewed for experience, qualifications and customer feedback</p>
+            <p className="text-white/70">Connect with independent fire safety professionals who declare relevant experience, qualifications, and service history when joining the platform.</p>
           </div>
 
           {/* Feature 2 */}
@@ -23,9 +23,9 @@ export function TrustIndicators() {
               <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
                 <Layers className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-white text-xl">Comprehensive Services</h3>
+              <h3 className="text-white text-xl">Complete Fire Safety Services</h3>
             </div>
-            <p className="text-white/70">All your fire safety needs in one place</p>
+            <p className="text-white/70">Fire risk assessments, alarms, emergency lighting, extinguishers, training, and fire safety consultation — all accessible through one platform.</p>
           </div>
 
           {/* Feature 3 */}
@@ -34,22 +34,29 @@ export function TrustIndicators() {
               <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
                 <Zap className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-white text-xl">Fast & Reliable</h3>
+              <h3 className="text-white text-xl">Simple & Efficient Booking</h3>
             </div>
-            <p className="text-white/70">Quick response and efficient service</p>
+            <p className="text-white/70">Request services, manage appointments, and access reports and records quickly — without chasing multiple contractors.</p>
           </div>
 
           {/* Feature 4 */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-4 h-4 text-white" />
+                <BookOpen className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-white text-xl">Regulation-Focused Services</h3>
+              <h3 className="text-white text-xl">Designed Around Fire Safety Responsibilities</h3>
             </div>
-            <p className="text-white/70">Services aligned with current fire safety regulations and industry expectations</p>
+            <p className="text-white/70">Services structured to support dutyholders in understanding and meeting their fire safety responsibilities, based on the nature and use of their premises.</p>
           </div>
 
+        </div>
+        
+        {/* Helper Text */}
+        <div className="mt-12 text-center">
+          <p className="text-white/60 text-sm">
+            Fire Guide is a booking and management platform that connects customers with independent fire safety professionals. Services are delivered by the professionals listed on the platform.
+          </p>
         </div>
       </div>
     </div>

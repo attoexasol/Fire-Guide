@@ -28,6 +28,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Checkbox } from "./ui/checkbox";
 import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { fetchServices, ServiceResponse } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
 import { getApiToken, getProfessionalId, setProfessionalId, getUserEmail } from "../lib/auth";
@@ -81,6 +82,10 @@ export function ProfessionalProfileContent() {
   const [selectedCertificationFile, setSelectedCertificationFile] = useState<File | null>(null);
   const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
   const certificationFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for viewing certification details in modal
+  const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
+  const [selectedCertification, setSelectedCertification] = useState<CertificateItem | null>(null);
 
   // Load profile image from localStorage using email-based key for persistence
   // This allows the image to persist across logout/login for the same user
@@ -113,12 +118,12 @@ export function ProfessionalProfileContent() {
         }
         
         if (storedImageUrl && isMounted) {
-          // Wrap in startTransition to prevent suspend during initial render
-          startTransition(() => {
+      // Wrap in startTransition to prevent suspend during initial render
+      startTransition(() => {
             if (isMounted) {
-              setProfileImageUrl(storedImageUrl);
+        setProfileImageUrl(storedImageUrl);
             }
-          });
+      });
         } else if (isMounted) {
           // No stored image - try to fetch from API if available
           // For now, keep it blank - the image should be fetched from API in future
@@ -276,7 +281,7 @@ export function ProfessionalProfileContent() {
   // Fetch services from API on component mount
   useEffect(() => {
     let isMounted = true;
-  
+    
     const loadServices = async () => {
       // Set loading state synchronously
       setLoadingServices(true);
@@ -579,8 +584,8 @@ export function ProfessionalProfileContent() {
         // Wrap state updates in startTransition to prevent suspend during render
         startTransition(() => {
           if (reloadProfileImageRef.current) {
-            setProfileImageUrl(imageUrl);
-            setIsUploadingImage(false);
+          setProfileImageUrl(imageUrl);
+          setIsUploadingImage(false);
           }
         });
         
@@ -600,18 +605,18 @@ export function ProfessionalProfileContent() {
           }
           
           // Also store with regular key for backward compatibility (session-based)
-          localStorage.setItem('professional_profile_image', imageUrl);
+        localStorage.setItem('professional_profile_image', imageUrl);
           
-          toast.success(response.message || "Profile image updated successfully!");
+        toast.success(response.message || "Profile image updated successfully!");
         }
       } else {
         startTransition(() => {
           if (reloadProfileImageRef.current) {
-            setIsUploadingImage(false);
+          setIsUploadingImage(false);
           }
         });
         if (reloadProfileImageRef.current) {
-          toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
         }
       }
     } catch (error: any) {
@@ -627,7 +632,7 @@ export function ProfessionalProfileContent() {
       // Wrap state updates in startTransition
       startTransition(() => {
         if (reloadProfileImageRef.current) {
-          setIsUploadingImage(false);
+        setIsUploadingImage(false);
         }
       });
       
@@ -995,18 +1000,18 @@ export function ProfessionalProfileContent() {
   return (
     <div>
       {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-[#0A1A2F] mb-2">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl text-[#0A1A2F] mb-2">
           Complete Your Profile
         </h1>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600">
           Tell customers about your services and experience
         </p>
       </div>
 
       {/* Profile Completion Progress */}
-      <Card className="mb-6 border-0 shadow-md bg-gradient-to-r from-blue-50 to-indigo-50">
-        <CardContent className="p-6">
+      <Card className="mb-4 sm:mb-6 border-0 shadow-md bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-900">Profile Completion</h3>
             <span className="text-sm font-semibold text-blue-600">{completionPercentage.toFixed(0)}%</span>
@@ -1017,7 +1022,7 @@ export function ProfessionalProfileContent() {
               style={{ width: `${completionPercentage}%` }}
             ></div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             {completionSteps.map((step) => (
               <div key={step.id} className="flex items-center gap-2 text-sm">
                 {step.completed ? (
@@ -1034,21 +1039,21 @@ export function ProfessionalProfileContent() {
         </CardContent>
       </Card>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Form - Takes 2 columns on desktop */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Basic Information */}
           <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-red-600" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
                 Basic Information
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm mt-1">
                 Your personal and business details visible to customers
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Full Name *</Label>
@@ -1086,16 +1091,16 @@ export function ProfessionalProfileContent() {
 
           {/* Contact Information */}
           <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Phone className="w-5 h-5 text-red-600" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
                 Contact Information
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm mt-1">
                 How customers and Fire Guide can reach you
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
               <div>
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <Mail className="w-4 h-4" />
@@ -1145,33 +1150,33 @@ export function ProfessionalProfileContent() {
 
           {/* Services Offered */}
           <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckSquare className="w-5 h-5 text-red-600" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
                 Services Offered
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm mt-1">
                 Select all services you can provide
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-6 pt-0">
               {loadingServices ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Loading services...</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-sm sm:text-base text-gray-500">Loading services...</p>
                 </div>
               ) : servicesError ? (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                  <p className="text-red-600">{servicesError}</p>
+                <div className="text-center py-6 sm:py-8">
+                  <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 mx-auto mb-2" />
+                  <p className="text-sm sm:text-base text-red-600">{servicesError}</p>
                 </div>
               ) : services.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No services available</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-sm sm:text-base text-gray-500">No services available</p>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                   {services.map((service) => (
-                    <div key={service.id} className="flex items-start gap-3 p-4 border rounded-lg hover:border-red-200 hover:bg-red-50/50 transition-all">
+                    <div key={service.id} className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 border rounded-lg hover:border-red-200 hover:bg-red-50/50 transition-all">
                       <Checkbox 
                         id={`service-${service.id}`}
                         checked={selectedServices.includes(service.id)}
@@ -1182,18 +1187,18 @@ export function ProfessionalProfileContent() {
                             setSelectedServices(selectedServices.filter(id => id !== service.id));
                           }
                         }}
-                        className="mt-1"
+                        className="mt-0.5 sm:mt-1 flex-shrink-0"
                       />
-                      <div className="flex-1">
-                        <label htmlFor={`service-${service.id}`} className="font-medium text-gray-900 cursor-pointer block mb-1">
+                      <div className="flex-1 min-w-0">
+                        <label htmlFor={`service-${service.id}`} className="font-medium text-sm sm:text-base text-gray-900 cursor-pointer block mb-1 break-words">
                           {service.service_name}
                         </label>
                         {service.description && (
-                          <p className="text-sm text-gray-600 mb-2">{service.description}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2 break-words">{service.description}</p>
                         )}
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 flex-wrap">
                           {service.type && (
-                            <span className="px-2 py-1 bg-gray-100 rounded">{service.type}</span>
+                            <span className="px-2 py-0.5 sm:py-1 bg-gray-100 rounded whitespace-nowrap">{service.type}</span>
                           )}
                           {service.price && (
                             <span className="font-semibold text-red-600">£{service.price}</span>
@@ -1209,16 +1214,16 @@ export function ProfessionalProfileContent() {
 
           {/* Service Area */}
           <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-red-600" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
                 Service Area
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm mt-1">
                 Define how far you're willing to travel for jobs
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <Label>Service Radius</Label>
@@ -1240,17 +1245,18 @@ export function ProfessionalProfileContent() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <Checkbox 
                   id="emergencyCallout"
                   checked={formData.emergencyCallout}
                   onCheckedChange={(checked) => setFormData({...formData, emergencyCallout: checked as boolean})}
+                  className="mt-0.5 sm:mt-1 flex-shrink-0"
                 />
-                <div className="flex-1">
-                  <label htmlFor="emergencyCallout" className="font-medium text-gray-900 cursor-pointer block mb-1">
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="emergencyCallout" className="font-medium text-sm sm:text-base text-gray-900 cursor-pointer block mb-1">
                     Available for Emergency Callouts
                   </label>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     Get priority bookings for urgent fire safety issues
                   </p>
                 </div>
@@ -1260,16 +1266,16 @@ export function ProfessionalProfileContent() {
 
           {/* Certifications */}
           <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-red-600" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
                 Certifications & Qualifications
               </CardTitle>
-              <CardDescription className="text-sm text-gray-600 mt-2">
+              <CardDescription className="text-xs sm:text-sm text-gray-600 mt-2">
                 Upload your certificates. An admin will review and mark them as Verified, Pending, or Rejected.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 p-4 sm:p-6 pt-0">
               {loadingCertifications ? (
                 <div className="text-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
@@ -1277,102 +1283,106 @@ export function ProfessionalProfileContent() {
                 </div>
               ) : certifications.length > 0 ? (
                 certifications.map((cert) => (
-                  <div 
-                    key={cert.id} 
-                    className={`p-4 border rounded-lg ${
-                      cert.status === 'verified' ? 'bg-green-50 border-green-200' :
-                      cert.status === 'pending' ? 'bg-amber-50 border-amber-200' :
-                      'bg-red-50 border-red-200'
-                    }`}
-                  >
-                    {/* Header with title and status */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                <div 
+                  key={cert.id} 
+                    className={`p-3 sm:p-4 border rounded-lg ${
+                    cert.status === 'verified' ? 'bg-green-50 border-green-200' :
+                    cert.status === 'pending' ? 'bg-amber-50 border-amber-200' :
+                    'bg-red-50 border-red-200'
+                  }`}
+                >
+                  {/* Header with title and status */}
+                    <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2 sm:gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
                           {/* Prominent Checkmark for Verified Certifications */}
                           {cert.status === 'verified' && (
-                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
                           )}
                           {cert.status === 'pending' && (
-                            <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 flex-shrink-0" />
                           )}
                           {cert.status === 'rejected' && (
-                            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                            <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
                           )}
-                          <h4 className="font-medium text-gray-900">{cert.name}</h4>
+                          <h4 className="font-medium text-sm sm:text-base text-gray-900 break-words">{cert.name}</h4>
                         </div>
                         
                         {/* Description if available */}
                         {cert.description && (
-                          <p className="text-sm text-gray-600 mb-2">{cert.description}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2 break-words">{cert.description}</p>
                         )}
-                        
-                        {/* Evidence Info Row */}
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-600">
+                      
+                      {/* Evidence Info Row */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="text-xs sm:text-sm text-gray-600 break-words">
                             Evidence: <span className="text-gray-700">{cert.evidence}</span> (1 file)
-                          </p>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-7 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 -mr-2"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="ml-3 flex-shrink-0">
-                        {cert.status === 'verified' && (
-                          <Badge className="bg-green-600 text-white">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Verified
-                          </Badge>
-                        )}
-                        {cert.status === 'pending' && (
-                          <Badge className="bg-amber-500 text-white">
-                            <Clock className="w-3 h-3 mr-1" />
-                            Pending verification
-                          </Badge>
-                        )}
-                        {cert.status === 'rejected' && (
-                          <Badge className="bg-red-600 text-white">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Rejected
-                          </Badge>
-                        )}
+                        </p>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                            className="h-7 text-xs sm:text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0 -mr-1 sm:-mr-2"
+                            onClick={() => {
+                              setSelectedCertification(cert);
+                              setIsCertificationModalOpen(true);
+                            }}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Additional info based on status */}
-                    {cert.status === 'verified' && cert.updated_at && (
-                      <p className="text-xs text-green-700">
-                        <CheckCircle2 className="w-3 h-3 inline mr-1" />
-                        Verified on {formatDate(cert.updated_at)}
-                      </p>
-                    )}
-                    {cert.status === 'pending' && (
-                      <p className="text-xs text-amber-700">
-                        <Clock className="w-3 h-3 inline mr-1" />
-                        Uploaded {formatDate(cert.created_at)} - Awaiting admin review
-                      </p>
-                    )}
-                    {cert.status === 'rejected' && cert.updated_at && (
-                      <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
-                        <p className="text-xs text-red-900 flex items-start gap-1">
-                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                          <span><strong>Rejected on:</strong> {formatDate(cert.updated_at)}</span>
-                        </p>
-                      </div>
-                    )}
+                    {/* Status Badge */}
+                      <div className="ml-2 sm:ml-3 flex-shrink-0">
+                      {cert.status === 'verified' && (
+                        <Badge className="bg-green-600 text-white">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Verified
+                        </Badge>
+                      )}
+                      {cert.status === 'pending' && (
+                        <Badge className="bg-amber-500 text-white">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pending verification
+                        </Badge>
+                      )}
+                      {cert.status === 'rejected' && (
+                        <Badge className="bg-red-600 text-white">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Rejected
+                        </Badge>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Additional info based on status */}
+                    {cert.status === 'verified' && cert.updated_at && (
+                    <p className="text-xs text-green-700">
+                      <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                        Verified on {formatDate(cert.updated_at)}
+                    </p>
+                  )}
+                  {cert.status === 'pending' && (
+                    <p className="text-xs text-amber-700">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                        Uploaded {formatDate(cert.created_at)} - Awaiting admin review
+                    </p>
+                  )}
+                    {cert.status === 'rejected' && cert.updated_at && (
+                    <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
+                      <p className="text-xs text-red-900 flex items-start gap-1">
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                          <span><strong>Rejected on:</strong> {formatDate(cert.updated_at)}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
                 ))
               ) : hasAttemptedFetch ? (
                 // Only show "no certifications" message if we've attempted to fetch (i.e., professional_id exists)
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No certifications found. Upload one to get started!</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-sm sm:text-base text-gray-500">No certifications found. Upload one to get started!</p>
                 </div>
               ) : (
                 // If no professional_id exists, show blank UI (no certifications displayed)
@@ -1381,7 +1391,7 @@ export function ProfessionalProfileContent() {
 
               <Button 
                 variant="outline" 
-                className="w-full mt-6"
+                className="w-full mt-4 sm:mt-6 h-10 sm:h-11 text-sm sm:text-base"
                 onClick={handleOpenCertificationForm}
               >
                 <Upload className="w-4 h-4 mr-2" />
@@ -1497,14 +1507,14 @@ export function ProfessionalProfileContent() {
         {/* Sidebar - Takes 1 column on desktop */}
         <div className="space-y-6">
           {/* Profile Preview */}
-          <Card className="border-0 shadow-md sticky top-6">
-            <CardHeader>
-              <CardTitle className="text-sm">Profile Preview</CardTitle>
+          <Card className="border-0 shadow-md sticky top-4 sm:top-6">
+            <CardHeader className="p-4 sm:p-6 pb-3 sm:pb-4">
+              <CardTitle className="text-sm sm:text-base">Profile Preview</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
               <div className="text-center">
                 <div 
-                  className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity"
+                  className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full mx-auto mb-2 sm:mb-3 flex items-center justify-center overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={handleImageClick}
                 >
                   {profileImageUrl ? (
@@ -1514,11 +1524,11 @@ export function ProfessionalProfileContent() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="w-12 h-12 text-gray-400" />
+                    <User className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" />
                   )}
                   {isUploadingImage && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                     </div>
                   )}
                 </div>
@@ -1555,24 +1565,24 @@ export function ProfessionalProfileContent() {
               </div>
 
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">{formData.name}</h3>
-                <p className="text-sm text-gray-600 mb-2">{formData.businessName}</p>
-                <div className="flex items-center gap-1 text-sm text-gray-500">
-                  <MapPin className="w-4 h-4" />
-                  <span>{formData.postcode}</span>
+                <h3 className="font-semibold text-sm sm:text-base text-gray-900 mb-1 break-words">{formData.name}</h3>
+                <p className="text-xs sm:text-sm text-gray-600 mb-2 break-words">{formData.businessName}</p>
+                <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-500 flex-wrap">
+                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span className="break-words">{formData.postcode}</span>
                 </div>
               </div>
 
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between text-sm mb-2">
+              <div className="pt-3 sm:pt-4 border-t">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                   <span className="text-gray-600">Services</span>
                   <span className="font-semibold text-gray-900">{selectedServices.length}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm mb-2">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                   <span className="text-gray-600">Service Radius</span>
                   <span className="font-semibold text-gray-900">{formData.serviceRadius[0]} mi</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-gray-600">Certifications</span>
                   <span className="font-semibold text-gray-900">
                     {hasAttemptedFetch ? certifications.length : 0}
@@ -1580,14 +1590,14 @@ export function ProfessionalProfileContent() {
                 </div>
               </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 sm:p-3">
                 <div className="flex gap-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-yellow-900 mb-1">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-yellow-900 mb-1 break-words">
                       Complete Your Profile
                     </p>
-                    <p className="text-sm text-yellow-800">
+                    <p className="text-xs sm:text-sm text-yellow-800 break-words">
                       Add a photo and more certifications to increase booking chances
                     </p>
                   </div>
@@ -1598,12 +1608,12 @@ export function ProfessionalProfileContent() {
 
           {/* Help Card */}
           <Card className="border-0 shadow-md bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex gap-3">
-                <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-blue-900 mb-1">Profile Tips</p>
-                  <ul className="text-sm text-blue-800 space-y-1">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex gap-2 sm:gap-3">
+                <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm sm:text-base text-blue-900 mb-1">Profile Tips</p>
+                  <ul className="text-xs sm:text-sm text-blue-800 space-y-0.5 sm:space-y-1">
                     <li>• Complete profiles get 3x more bookings</li>
                     <li>• Add a professional photo</li>
                     <li>• List all your certifications</li>
@@ -1631,6 +1641,158 @@ export function ProfessionalProfileContent() {
           </Button>
         </div>
       </div>
+
+      {/* Certification Details Modal */}
+      <Dialog open={isCertificationModalOpen} onOpenChange={setIsCertificationModalOpen}>
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto w-[95%] sm:w-[90%] md:w-[85%] lg:w-[80%] max-w-[1200px] p-4 sm:p-6 md:p-8 lg:p-[30px]"
+        >
+          <DialogHeader>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <DialogTitle className="text-2xl text-[#0A1A2F] flex items-center gap-2">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                  Certification Details
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedCertification ? `View details for ${selectedCertification.name}` : 'Certification information'}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCertificationModalOpen(false)}
+                className="h-8 w-8 hover:bg-gray-100 -mt-2 -mr-2"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          {selectedCertification && (
+            <div className="space-y-4 sm:space-y-6 mt-2 sm:mt-4">
+              {/* Certification Name */}
+              <div>
+                <Label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Certification Name
+                </Label>
+                <div className="flex items-center gap-2">
+                  {selectedCertification.status === 'verified' && (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  )}
+                  {selectedCertification.status === 'pending' && (
+                    <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                  )}
+                  {selectedCertification.status === 'rejected' && (
+                    <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  )}
+                  <p className="text-base font-medium text-gray-900">{selectedCertification.name}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              {selectedCertification.description && (
+                <div>
+                  <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                    Description
+                  </Label>
+                  <p className="text-xs sm:text-sm text-gray-700 bg-gray-50 p-2 sm:p-3 rounded-md border border-gray-200 break-words">
+                    {selectedCertification.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Evidence */}
+              <div>
+                <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                  Evidence
+                </Label>
+                <div className="flex items-center gap-2 bg-gray-50 p-2 sm:p-3 rounded-md border border-gray-200 flex-wrap">
+                  <FileText className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <p className="text-xs sm:text-sm text-gray-700 flex-1 min-w-0 break-words">{selectedCertification.evidence}</p>
+                  <Badge variant="outline" className="text-xs flex-shrink-0">
+                    1 file
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                  Status
+                </Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedCertification.status === 'verified' && (
+                    <Badge className="bg-green-600 text-white text-xs">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Verified
+                    </Badge>
+                  )}
+                  {selectedCertification.status === 'pending' && (
+                    <Badge className="bg-amber-500 text-white text-xs">
+                      <Clock className="w-3 h-3 mr-1" />
+                      <span className="whitespace-nowrap">Pending verification</span>
+                    </Badge>
+                  )}
+                  {selectedCertification.status === 'rejected' && (
+                    <Badge className="bg-red-600 text-white text-xs">
+                      <XCircle className="w-3 h-3 mr-1" />
+                      Rejected
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Date */}
+              <div>
+                <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                  Upload Date
+                </Label>
+                <p className="text-xs sm:text-sm text-gray-700 flex items-center gap-2 flex-wrap">
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                  <span>{formatDate(selectedCertification.created_at)}</span>
+                </p>
+              </div>
+
+              {/* Verification/Rejection Date */}
+              {selectedCertification.status === 'verified' && selectedCertification.updated_at && (
+                <div>
+                  <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                    Verified Date
+                  </Label>
+                  <p className="text-xs sm:text-sm text-green-700 flex items-center gap-2 flex-wrap">
+                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>{formatDate(selectedCertification.updated_at)}</span>
+                  </p>
+                </div>
+              )}
+
+              {selectedCertification.status === 'rejected' && selectedCertification.updated_at && (
+                <div>
+                  <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                    Rejected Date
+                  </Label>
+                  <p className="text-xs sm:text-sm text-red-700 flex items-center gap-2 flex-wrap">
+                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>{formatDate(selectedCertification.updated_at)}</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Status Message */}
+              {selectedCertification.status === 'pending' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-2 sm:p-3">
+                  <p className="text-xs sm:text-sm text-amber-800 flex items-center gap-2 flex-wrap">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>Awaiting admin review</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

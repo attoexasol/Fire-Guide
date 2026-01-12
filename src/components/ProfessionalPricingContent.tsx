@@ -377,9 +377,10 @@ export function ProfessionalPricingContent() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <CardTitle className="text-lg">{service.name}</CardTitle>
-                          {service.hasPricing && (
+                          
+                          {/* {service.hasPricing && (
                             <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                          )}
+                          )} */}
                         </div>
                         <CardDescription>{service.description}</CardDescription>
                       </div>
@@ -416,7 +417,7 @@ export function ProfessionalPricingContent() {
                         {service.hasPricing && (
                           <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg mb-2">
                             <CheckCircle2 className="w-4 h-4" />
-                            <span>Pricing Set</span>
+                            <span>Competitive</span>
                           </div>
                         )}
                         {isInRange && currentPrice > 0 && !service.hasPricing && (
@@ -425,18 +426,18 @@ export function ProfessionalPricingContent() {
                             <span>Competitive</span>
                           </div>
                         )}
-                        {isAboveSuggested && (
+                        {/* {isAboveSuggested && (
                           <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
                             <TrendingUp className="w-4 h-4" />
                             <span>Above market</span>
                           </div>
-                        )}
-                        {isBelowSuggested && (
+                        )} */}
+                        {/* {isBelowSuggested && (
                           <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
                             <TrendingUp className="w-4 h-4 rotate-180" />
                             <span>Below market</span>
                           </div>
-                        )}
+                        )} */}
                       </div>
                     </div>
                   </CardContent>

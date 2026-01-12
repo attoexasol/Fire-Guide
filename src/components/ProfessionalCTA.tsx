@@ -13,23 +13,23 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
   const benefits = [
     {
       icon: Users,
-      title: "Access Thousands of Customers",
-      description: "Connect with customers actively searching for fire safety services"
+      title: "Access Real Fire Safety Enquiries",
+      description: "Connect with dutyholders, landlords, and businesses actively searching for fire risk assessments, inspections, servicing, and advice — not cold leads."
     },
     {
       icon: Calendar,
-      title: "Flexible Scheduling",
-      description: "Control your availability and manage bookings on your terms"
+      title: "Work on Your Terms",
+      description: "Control your availability, service areas, and the types of work you accept. Take on jobs that suit your schedule and expertise."
     },
     {
       icon: CreditCard,
-      title: "Secure & Fast Payments",
-      description: "Get paid quickly with simple and transparent commission charges"
+      title: "Simple, Transparent Payments",
+      description: "Get paid securely through the platform with clear commission rates and no hidden charges. Spend less time chasing invoices."
     },
     {
       icon: Star,
-      title: "Customer-led ratings & feedback",
-      description: "Showcase verified reviews and grow your business"
+      title: "Build Trust Through Customer Feedback",
+      description: "Showcase genuine customer reviews to strengthen your reputation and help win repeat and future work."
     }
   ];
 
@@ -47,10 +47,10 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
             <span className="font-medium text-[14px]">For Fire Safety Professionals</span>
           </div>
           <h2 className="mb-6 text-[28px] md:text-5xl font-bold leading-[120%] tracking-[-0.01em] pt-4 pb-3 px-4">
-            Grow Your Fire Safety Business
+            Win More Fire Safety Work — Without the Hassle
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Join Fire Guide and connect with thousands of customers who need your expertise. No setup fees.
+            Join Fire Guide and connect with customers actively looking for fire safety services. We handle visibility, enquiries, and payments — so you can focus on delivering the work. No setup fees. Free to join.
           </p>
         </div>
 
@@ -105,6 +105,9 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
           </Button>
           <p className="text-sm text-gray-500 mt-4">
             Free to join
+          </p>
+          <p className="text-xs text-gray-400 mt-3 max-w-2xl mx-auto">
+            Fire Guide is a booking and management platform connecting customers with independent fire safety professionals.
           </p>
         </div>
       </div>

@@ -74,3 +74,91 @@ export const storeProfessionalBooking = async (
   }
 };
 
+
+// TypeScript types for Upcoming Bookings API
+export interface UpcomingBookingItem {
+  id?: number | string;
+  selected_date: string;
+  selected_time: string;
+  additional_notes?: string;
+  status: string;
+  service_name: string;
+  first_name?: string;
+  last_name?: string;
+  client_name?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface GetUpcomingBookingsRequest {
+  api_token: string;
+}
+
+export interface GetUpcomingBookingsResponse {
+  status: boolean;
+  message: string;
+  data?: UpcomingBookingItem[];
+  error?: string;
+}
+
+/**
+ * Get upcoming bookings for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/upcomming_bookings
+ * Method: POST
+ * @param data - Get upcoming bookings request data (api_token)
+ * @returns Promise with the API response
+ */
+export const getUpcomingBookings = async (
+  data: GetUpcomingBookingsRequest
+): Promise<GetUpcomingBookingsResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /upcomming_bookings - Request payload:', {
+      endpoint: '/upcomming_bookings',
+      has_api_token: !!requestBody.api_token,
+    });
+
+    const response = await apiClient.post<GetUpcomingBookingsResponse>(
+      '/upcomming_bookings',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /upcomming_bookings - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching upcoming bookings:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch upcoming bookings',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

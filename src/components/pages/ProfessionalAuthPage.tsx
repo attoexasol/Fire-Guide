@@ -32,16 +32,16 @@ export default function ProfessionalAuthPage() {
         
         // Redirect immediately based on role (wrapped in startTransition to avoid suspend during sync input)
         startTransition(() => {
-          if (userRole === "USER") {
-            navigate("/customer/dashboard", { replace: true });
-          } else if (userRole === "PROFESSIONAL") {
-            navigate("/professional/dashboard", { replace: true });
-          } else if (userRole === "ADMIN") {
-            navigate("/admin/dashboard", { replace: true });
-          } else {
-            // Fallback to professional dashboard if role is not set
-            navigate("/professional/dashboard", { replace: true });
-          }
+        if (userRole === "USER") {
+          navigate("/customer/dashboard", { replace: true });
+        } else if (userRole === "PROFESSIONAL") {
+          navigate("/professional/dashboard", { replace: true });
+        } else if (userRole === "ADMIN") {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          // Fallback to professional dashboard if role is not set
+          navigate("/professional/dashboard", { replace: true });
+        }
         });
       }}
       onBack={() => {

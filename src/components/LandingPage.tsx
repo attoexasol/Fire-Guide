@@ -73,6 +73,9 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
         <TrustIndicators />
       </Suspense>
       <Suspense fallback={null}>
+        <ServicesGrid onSelectService={onGetStarted} />
+      </Suspense>
+      <Suspense fallback={null}>
         <ProfessionalCTA onJoinNow={onProfessionalLogin} />
       </Suspense>
       <Suspense fallback={null}>
@@ -80,9 +83,6 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
       </Suspense>
       <Suspense fallback={null}>
         <HowItWorks />
-      </Suspense>
-      <Suspense fallback={null}>
-        <ServicesGrid onSelectService={onGetStarted} />
       </Suspense>
       <Suspense fallback={null}>
         <FeaturedProfessionals onViewProfile={onGetStarted} />

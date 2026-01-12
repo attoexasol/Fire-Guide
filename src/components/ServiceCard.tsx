@@ -49,9 +49,14 @@ export function ServiceCard({
     <Card
       onClick={isClickable ? onClick : undefined}
       className={`
-        border-2 border-transparent rounded-xl transition-all
-        ${isClickable ? "cursor-pointer hover:shadow-2xl hover:border-red-100 group" : "shadow-md"}
+        border-2 border-transparent rounded-xl transition-all duration-300 ease-out
+        ${isClickable ? "cursor-pointer hover:shadow-xl hover:border-red-100 group hover:-translate-y-1 hover:scale-[1.01] shadow-md" : "shadow-md"}
+        transform-gpu
       `}
+      style={{
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        transform: 'translateZ(0)'
+      }}
     >
       {/* Card Header - 16px padding from all edges */}
       <CardHeader className="p-4 pb-3">

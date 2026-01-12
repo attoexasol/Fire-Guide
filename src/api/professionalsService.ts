@@ -609,3 +609,344 @@ export const storeServicePrices = async (
     };
   }
 };
+
+// TypeScript types for working days API
+export interface WorkingDayResponse {
+  id: number;
+  week_day: string;
+  start_time: string;
+  end_time: string;
+  is_closed: number;
+  professional_id: number;
+  created_by: number | null;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+  professional: {
+    id: number;
+    name: string;
+  };
+}
+
+export interface GetWorkingDaysRequest {
+  api_token: string;
+}
+
+export interface GetWorkingDaysResponse {
+  status: boolean;
+  message: string;
+  data: WorkingDayResponse[];
+  error?: string;
+}
+
+/**
+ * Get working days for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_working_days/list
+ * Method: POST
+ * @param data - Get working days request data (api_token)
+ * @returns Promise with the API response
+ */
+export const getWorkingDays = async (
+  data: GetWorkingDaysRequest
+): Promise<GetWorkingDaysResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /professional_working_days/list - Request payload:', {
+      endpoint: '/professional_working_days/list',
+      has_api_token: !!requestBody.api_token,
+    });
+
+    const response = await apiClient.post<GetWorkingDaysResponse>(
+      '/professional_working_days/list',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional_working_days/list - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching working days:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch working days',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+// TypeScript types for Professional Days API
+export interface CreateProfessionalDayRequest {
+  api_token: string;
+  type: "block";
+  date: string;
+  start_time: string;
+  end_time: string;
+  reason: string;
+}
+
+export interface ProfessionalDayResponse {
+  id: number;
+  professional_id: number;
+  type: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  reason: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProfessionalDayResponse {
+  status: boolean;
+  message: string;
+  data?: ProfessionalDayResponse;
+  error?: string;
+}
+
+/**
+ * Create a professional day (block)
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_days/create
+ * Method: POST
+ * @param data - Create professional day request data
+ * @returns Promise with the API response
+ */
+export const createProfessionalDay = async (
+  data: CreateProfessionalDayRequest
+): Promise<CreateProfessionalDayResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+      type: data.type,
+      date: data.date,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      reason: data.reason,
+    };
+
+    console.log('POST /professional_days/create - Request payload:', {
+      endpoint: '/professional_days/create',
+      has_api_token: !!requestBody.api_token,
+      type: requestBody.type,
+      date: requestBody.date,
+      start_time: requestBody.start_time,
+      end_time: requestBody.end_time,
+      reason: requestBody.reason,
+    });
+
+    const response = await apiClient.post<CreateProfessionalDayResponse>(
+      '/professional_days/create',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional_days/create - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating professional day:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create professional day',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Get Blocked Days API
+export interface GetBlockedDaysRequest {
+  api_token: string;
+}
+
+export interface GetBlockedDaysResponse {
+  status: boolean;
+  message: string;
+  data?: ProfessionalDayResponse[];
+  error?: string;
+}
+
+/**
+ * Get blocked days for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_days/block
+ * Method: POST
+ * @param data - Get blocked days request data (api_token)
+ * @returns Promise with the API response
+ */
+export const getBlockedDays = async (
+  data: GetBlockedDaysRequest
+): Promise<GetBlockedDaysResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /professional_days/block - Request payload:', {
+      endpoint: '/professional_days/block',
+      has_api_token: !!requestBody.api_token,
+    });
+
+    const response = await apiClient.post<GetBlockedDaysResponse>(
+      '/professional_days/block',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional_days/block - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching blocked days:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch blocked days',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Delete Professional Day API
+export interface DeleteProfessionalDayRequest {
+  api_token: string;
+  id: number;
+}
+
+export interface DeleteProfessionalDayResponse {
+  status: boolean;
+  message: string;
+  error?: string;
+}
+
+/**
+ * Delete a professional day (block)
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_days/delete
+ * Method: POST
+ * @param data - Delete professional day request data (api_token, id)
+ * @returns Promise with the API response
+ */
+export const deleteProfessionalDay = async (
+  data: DeleteProfessionalDayRequest
+): Promise<DeleteProfessionalDayResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+      id: data.id,
+    };
+
+    console.log('POST /professional_days/delete - Request payload:', {
+      endpoint: '/professional_days/delete',
+      has_api_token: !!requestBody.api_token,
+      id: requestBody.id,
+    });
+
+    const response = await apiClient.post<DeleteProfessionalDayResponse>(
+      '/professional_days/delete',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional_days/delete - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting professional day:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to delete professional day',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
