@@ -950,3 +950,166 @@ export const deleteProfessionalDay = async (
     };
   }
 };
+
+// TypeScript types for Monthly Availability API
+export interface GetMonthlyAvailabilityRequest {
+  api_token: string;
+}
+
+export interface MonthlyAvailabilityData {
+  month: string;
+  past: string[];
+  booked: string[];
+  blocked: string[];
+  available: string[];
+}
+
+export interface GetMonthlyAvailabilityResponse {
+  status?: boolean;
+  message: string;
+  data?: MonthlyAvailabilityData;
+  error?: string;
+}
+
+/**
+ * Get monthly availability for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional/monthly_availability
+ * Method: POST
+ * @param data - Get monthly availability request data (api_token)
+ * @returns Promise with the API response
+ */
+export const getMonthlyAvailability = async (
+  data: GetMonthlyAvailabilityRequest
+): Promise<GetMonthlyAvailabilityResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /professional/monthly_availability - Request payload:', {
+      endpoint: '/professional/monthly_availability',
+      has_api_token: !!requestBody.api_token,
+    });
+
+    const response = await apiClient.post<GetMonthlyAvailabilityResponse>(
+      '/professional/monthly_availability',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional/monthly_availability - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching monthly availability:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch monthly availability',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Monthly Availability Summary API
+export interface GetMonthlyAvailabilitySummaryRequest {
+  api_token: string;
+}
+
+export interface MonthlyAvailabilitySummaryData {
+  month: string;
+  book_count: number;
+  block_count: number;
+  available_count: number;
+}
+
+export interface GetMonthlyAvailabilitySummaryResponse {
+  status: boolean;
+  message: string;
+  data?: MonthlyAvailabilitySummaryData;
+  error?: string;
+}
+
+/**
+ * Get monthly availability summary for a professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional/monthly_availability/summary
+ * Method: POST
+ * @param data - Get monthly availability summary request data (api_token)
+ * @returns Promise with the API response
+ */
+export const getMonthlyAvailabilitySummary = async (
+  data: GetMonthlyAvailabilitySummaryRequest
+): Promise<GetMonthlyAvailabilitySummaryResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /professional/monthly_availability/summary - Request payload:', {
+      endpoint: '/professional/monthly_availability/summary',
+      has_api_token: !!requestBody.api_token,
+    });
+
+    const response = await apiClient.post<GetMonthlyAvailabilitySummaryResponse>(
+      '/professional/monthly_availability/summary',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional/monthly_availability/summary - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching monthly availability summary:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch monthly availability summary',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

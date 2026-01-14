@@ -13,9 +13,10 @@ import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { getWorkingDays, WorkingDayResponse, createProfessionalDay, getBlockedDays, deleteProfessionalDay, ProfessionalDayResponse } from "../api/professionalsService";
+import { getWorkingDays, WorkingDayResponse, createProfessionalDay, getBlockedDays, deleteProfessionalDay, getMonthlyAvailability, getMonthlyAvailabilitySummary, ProfessionalDayResponse, MonthlyAvailabilityData, MonthlyAvailabilitySummaryData } from "../api/professionalsService";
 import { getProfessionalId, getApiToken } from "../lib/auth";
 import { getUpcomingBookings, UpcomingBookingItem } from "../api/bookingService";
+import { toast } from "sonner";
 
 interface BlockedDate {
   id: string;
@@ -51,13 +52,19 @@ export function ProfessionalAvailabilityContent() {
 
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
-console.log(upcomingBookings);
+  
+  const [monthlyAvailability, setMonthlyAvailability] = useState<MonthlyAvailabilityData | null>(null);
+  const [loadingMonthlyAvailability, setLoadingMonthlyAvailability] = useState(true);
+  
+  const [monthlySummary, setMonthlySummary] = useState<MonthlyAvailabilitySummaryData | null>(null);
+  const [loadingMonthlySummary, setLoadingMonthlySummary] = useState(true);
+  
   const removeBlockedDate = async (id: string) => {
     try {
       const apiToken = getApiToken();
       
       if (!apiToken) {
-        console.error("API token not found");
+        toast.error("Authentication required. Please log in again.");
         return;
       }
 
@@ -67,7 +74,20 @@ console.log(upcomingBookings);
         id: parseInt(id, 10)
       });
 
+      // Check if response indicates failure
+      if (response.status === false) {
+        const errorMsg = response.message || "Failed to remove blocked date. Please try again.";
+        if (errorMsg.toLowerCase().includes("invalid api token")) {
+          toast.error("Your session has expired. Please log in again.");
+        } else {
+          toast.error(errorMsg);
+        }
+        return;
+      }
+
       if (response.status === true) {
+        toast.success("Blocked date removed successfully!");
+        
         // Refresh blocked dates list by fetching from API
         const blockedResponse = await getBlockedDays({ api_token: apiToken });
         if (blockedResponse.status === true && blockedResponse.data) {
@@ -80,10 +100,33 @@ console.log(upcomingBookings);
           }));
           setBlockedDates(mappedBlockedDates);
         }
+        
+        // Refresh monthly availability
+        const availabilityResponse = await getMonthlyAvailability({ api_token: apiToken });
+        if (availabilityResponse.data) {
+          setMonthlyAvailability(availabilityResponse.data);
+        }
+        
+        // Refresh monthly summary
+        const summaryResponse = await getMonthlyAvailabilitySummary({ api_token: apiToken });
+        if (summaryResponse.status === true && summaryResponse.data) {
+          setMonthlySummary(summaryResponse.data);
+        }
+      } else {
+        toast.error(response.message || "Failed to remove blocked date. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting blocked date:", error);
-      // You could add a toast notification here to show error message
+      const errorMessage = error?.message || error?.error || "Failed to remove blocked date. Please try again.";
+      
+      // Check if it's an authentication error
+      if (errorMessage.toLowerCase().includes("invalid api token") || 
+          errorMessage.toLowerCase().includes("unauthorized") ||
+          error?.status === 401) {
+        toast.error("Your session has expired. Please log in again.");
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -94,7 +137,7 @@ console.log(upcomingBookings);
         const apiToken = getApiToken();
         
         if (!apiToken) {
-          console.error("API token not found");
+          toast.error("Authentication required. Please log in again.");
           setIsAddingBlock(false);
           return;
         }
@@ -121,7 +164,20 @@ console.log(upcomingBookings);
           reason: newBlockReason
         });
 
+        // Check if response indicates failure
+        if (response.status === false || !response.data) {
+          const errorMsg = response.message || "Failed to add blocked date. Please try again.";
+          if (errorMsg.toLowerCase().includes("invalid api token")) {
+            toast.error("Your session has expired. Please log in again.");
+          } else {
+            toast.error(errorMsg);
+          }
+          return;
+        }
+
         if (response.status === true && response.data) {
+          toast.success("Blocked date added successfully!");
+          
           // Refresh blocked dates list by fetching from API
           const apiToken = getApiToken();
           if (apiToken) {
@@ -136,6 +192,18 @@ console.log(upcomingBookings);
               }));
               setBlockedDates(mappedBlockedDates);
             }
+            
+            // Refresh monthly availability
+            const availabilityResponse = await getMonthlyAvailability({ api_token: apiToken });
+            if (availabilityResponse.data) {
+              setMonthlyAvailability(availabilityResponse.data);
+            }
+            
+            // Refresh monthly summary
+            const summaryResponse = await getMonthlyAvailabilitySummary({ api_token: apiToken });
+            if (summaryResponse.status === true && summaryResponse.data) {
+              setMonthlySummary(summaryResponse.data);
+            }
           }
           
           // Reset form
@@ -144,10 +212,21 @@ console.log(upcomingBookings);
           setNewBlockStartTime("");
           setNewBlockEndTime("");
           setIsAddBlockModalOpen(false);
+        } else {
+          toast.error(response.message || "Failed to add blocked date. Please try again.");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error adding blocked date:", error);
-        // You could add a toast notification here
+        const errorMessage = error?.message || error?.error || "Failed to add blocked date. Please try again.";
+        
+        // Check if it's an authentication error
+        if (errorMessage.toLowerCase().includes("invalid api token") || 
+            errorMessage.toLowerCase().includes("unauthorized") ||
+            error?.status === 401) {
+          toast.error("Your session has expired. Please log in again.");
+        } else {
+          toast.error(errorMessage);
+        }
       } finally {
         setIsAddingBlock(false);
       }
@@ -197,8 +276,16 @@ console.log(upcomingBookings);
           }));
           setBlockedDates(mappedBlockedDates);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching blocked dates:", error);
+        const errorMessage = error?.message || error?.error || "";
+        
+        // Only show toast for authentication errors
+        if (errorMessage.toLowerCase().includes("invalid api token") || 
+            errorMessage.toLowerCase().includes("unauthorized") ||
+            error?.status === 401) {
+          toast.error("Your session has expired. Please log in again.");
+        }
       } finally {
         setLoadingBlockedDates(false);
       }
@@ -224,8 +311,16 @@ console.log(upcomingBookings);
         if (response.status === true && response.data) {
           setWorkingDays(response.data);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching working days:", error);
+        const errorMessage = error?.message || error?.error || "";
+        
+        // Only show toast for authentication errors
+        if (errorMessage.toLowerCase().includes("invalid api token") || 
+            errorMessage.toLowerCase().includes("unauthorized") ||
+            error?.status === 401) {
+          toast.error("Your session has expired. Please log in again.");
+        }
       } finally {
         setLoadingWorkingDays(false);
       }
@@ -282,8 +377,16 @@ console.log(upcomingBookings);
 
           setUpcomingBookings(mappedBookings);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching upcoming bookings:", error);
+        const errorMessage = error?.message || error?.error || "";
+        
+        // Only show toast for authentication errors
+        if (errorMessage.toLowerCase().includes("invalid api token") || 
+            errorMessage.toLowerCase().includes("unauthorized") ||
+            error?.status === 401) {
+          toast.error("Your session has expired. Please log in again.");
+        }
       } finally {
         setLoadingBookings(false);
       }
@@ -291,6 +394,119 @@ console.log(upcomingBookings);
 
     fetchUpcomingBookings();
   }, []);
+
+  // Fetch monthly availability on mount
+  useEffect(() => {
+    const fetchMonthlyAvailability = async () => {
+      try {
+        setLoadingMonthlyAvailability(true);
+        const apiToken = getApiToken();
+        
+        if (!apiToken) {
+          console.warn("API token not found for monthly availability");
+          setLoadingMonthlyAvailability(false);
+          return;
+        }
+
+        const response = await getMonthlyAvailability({ api_token: apiToken });
+        
+        // Check if response indicates failure
+        if (response.status === false || !response.data) {
+          const errorMsg = response.message || "Failed to load calendar data.";
+          if (errorMsg.toLowerCase().includes("invalid api token")) {
+            toast.error("Your session has expired. Please log in again.");
+          } else {
+            console.warn("Calendar loading error:", errorMsg);
+          }
+          return;
+        }
+        
+        if (response.data) {
+          console.log('Monthly availability received:', {
+            month: response.data.month,
+            pastCount: response.data.past?.length || 0,
+            bookedCount: response.data.booked?.length || 0,
+            blockedCount: response.data.blocked?.length || 0,
+            availableCount: response.data.available?.length || 0,
+            samplePast: response.data.past?.slice(0, 3),
+            sampleBooked: response.data.booked?.slice(0, 3),
+            sampleBlocked: response.data.blocked?.slice(0, 3),
+            sampleAvailable: response.data.available?.slice(0, 3),
+          });
+          setMonthlyAvailability(response.data);
+        } else if (response.message && response.message.toLowerCase().includes("invalid api token")) {
+          toast.error("Your session has expired. Please log in again.");
+        }
+      } catch (error: any) {
+        console.error("Error fetching monthly availability:", error);
+        const errorMessage = error?.message || error?.error || "Failed to load calendar data.";
+        
+        // Check if it's an authentication error
+        if (errorMessage.toLowerCase().includes("invalid api token") || 
+            errorMessage.toLowerCase().includes("unauthorized") ||
+            error?.status === 401) {
+          toast.error("Your session has expired. Please log in again.");
+        } else {
+          // Don't show toast for calendar loading errors to avoid spam
+          console.warn("Calendar loading error:", errorMessage);
+        }
+      } finally {
+        setLoadingMonthlyAvailability(false);
+      }
+    };
+
+    fetchMonthlyAvailability();
+  }, []);
+
+  // Fetch monthly availability summary on mount and when blocked dates change
+  useEffect(() => {
+    const fetchMonthlySummary = async () => {
+      try {
+        setLoadingMonthlySummary(true);
+        const apiToken = getApiToken();
+        
+        if (!apiToken) {
+          console.warn("API token not found for monthly summary");
+          setLoadingMonthlySummary(false);
+          return;
+        }
+
+        const response = await getMonthlyAvailabilitySummary({ api_token: apiToken });
+        
+        // Check if response indicates failure
+        if (response.status === false || !response.data) {
+          const errorMsg = response.message || "Failed to load summary data.";
+          if (errorMsg.toLowerCase().includes("invalid api token")) {
+            toast.error("Your session has expired. Please log in again.");
+          } else {
+            console.warn("Summary loading error:", errorMsg);
+          }
+          return;
+        }
+        
+        if (response.data) {
+          console.log('Monthly summary received:', response.data);
+          setMonthlySummary(response.data);
+        }
+      } catch (error: any) {
+        console.error("Error fetching monthly summary:", error);
+        const errorMessage = error?.message || error?.error || "";
+        
+        // Check if it's an authentication error
+        if (errorMessage.toLowerCase().includes("invalid api token") || 
+            errorMessage.toLowerCase().includes("unauthorized") ||
+            error?.status === 401) {
+          toast.error("Your session has expired. Please log in again.");
+        } else {
+          console.warn("Summary loading error:", errorMessage);
+        }
+      } finally {
+        setLoadingMonthlySummary(false);
+      }
+    };
+
+    fetchMonthlySummary();
+  }, [blockedDates]); // Re-fetch when blockedDates change
 
   // Define week days order for sorting
   const weekDaysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -302,13 +518,14 @@ console.log(upcomingBookings);
     return indexA - indexB;
   });
 
-  // Calculate current month's stats
-  const currentMonthBookings = upcomingBookings.filter(b => 
+  // Use API summary data if available, otherwise fallback to calculated values
+  const currentMonthBookings = monthlySummary?.book_count ?? upcomingBookings.filter(b => 
     new Date(b.date).getMonth() === new Date().getMonth()
   ).length;
-  const currentMonthBlocked = blockedDates.filter(d => 
+  const currentMonthBlocked = monthlySummary?.block_count ?? blockedDates.filter(d => 
     new Date(d.date).getMonth() === new Date().getMonth()
   ).length;
+  const currentMonthAvailable = monthlySummary?.available_count ?? (30 - currentMonthBookings - currentMonthBlocked);
 
   return (
     <div>
@@ -333,7 +550,9 @@ console.log(upcomingBookings);
                   <p className="text-sm text-gray-600">This Month</p>
                   <CalendarIcon className="w-5 h-5 text-blue-600" />
                 </div>
-                <p className="text-3xl font-semibold text-gray-900">{currentMonthBookings}</p>
+                <p className="text-3xl font-semibold text-gray-900">
+                  {loadingMonthlySummary ? '...' : currentMonthBookings}
+                </p>
                 <p className="text-sm text-gray-500">Bookings</p>
               </CardContent>
             </Card>
@@ -344,7 +563,9 @@ console.log(upcomingBookings);
                   <p className="text-sm text-gray-600">Blocked Days</p>
                   <X className="w-5 h-5 text-red-600" />
                 </div>
-                <p className="text-3xl font-semibold text-gray-900">{currentMonthBlocked}</p>
+                <p className="text-3xl font-semibold text-gray-900">
+                  {loadingMonthlySummary ? '...' : currentMonthBlocked}
+                </p>
                 <p className="text-sm text-gray-500">This Month</p>
               </CardContent>
             </Card>
@@ -355,55 +576,142 @@ console.log(upcomingBookings);
                   <p className="text-sm text-green-700">Available</p>
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
                 </div>
-                <p className="text-3xl font-semibold text-green-900">{30 - currentMonthBookings - currentMonthBlocked}</p>
+                <p className="text-3xl font-semibold text-green-900">
+                  {loadingMonthlySummary ? '...' : currentMonthAvailable}
+                </p>
                 <p className="text-sm text-green-700">Days Open</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Calendar Placeholder */}
+          {/* Calendar */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>December 2025</CardTitle>
+              <CardTitle>{monthlyAvailability?.month || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</CardTitle>
               <CardDescription>Click on dates to block or unblock availability</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Simple calendar grid representation */}
-              <div className="bg-gray-50 rounded-lg p-6 min-h-[400px]">
-                <div className="grid grid-cols-7 gap-2 mb-4">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="text-center font-semibold text-sm text-gray-600 py-2">
-                      {day}
-                    </div>
-                  ))}
+              {loadingMonthlyAvailability ? (
+                <div className="bg-gray-50 rounded-lg p-6 min-h-[400px] flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 animate-spin" />
+                    <p>Loading calendar...</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {/* Simplified calendar days */}
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
-                    const dateStr = `2025-12-${String(day).padStart(2, '0')}`;
-                    const isBlocked = blockedDates.some(d => d.date === dateStr);
-                    const hasBooking = upcomingBookings.some(b => b.date === dateStr);
-                    const isPast = day < new Date().getDate();
-
-                    return (
-                      <button
-                        key={day}
-                        className={`aspect-square rounded-lg flex items-center justify-center text-sm transition-all ${
-                          isPast
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : isBlocked
-                            ? 'bg-red-100 text-red-700 border-2 border-red-300 hover:bg-red-200'
-                            : hasBooking
-                            ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 cursor-default'
-                            : 'bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50'
-                        }`}
-                        disabled={isPast || hasBooking}
-                      >
+              ) : (
+                <div className="bg-gray-50 rounded-lg p-6 min-h-[400px]">
+                  <div className="grid grid-cols-7 gap-2 mb-4">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                      <div key={day} className="text-center font-semibold text-sm text-gray-600 py-2">
                         {day}
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-2">
+                    {(() => {
+                      // Get current month and year from API data or use current date
+                      let year: number;
+                      let month: number;
+                      
+                      if (monthlyAvailability?.month) {
+                        // Parse month string like "January 2026" or "December 2025"
+                        const monthParts = monthlyAvailability.month.split(' ');
+                        if (monthParts.length >= 2) {
+                          const monthName = monthParts[0]; // "January" or "December"
+                          year = parseInt(monthParts[1], 10); // "2026" or "2025"
+                          // Create a date object to get the month index (0-11)
+                          const tempDate = new Date(`${monthName} 1, ${year}`);
+                          month = tempDate.getMonth();
+                        } else {
+                          // Fallback to current date if parsing fails
+                          const currentDate = new Date();
+                          year = currentDate.getFullYear();
+                          month = currentDate.getMonth();
+                        }
+                      } else {
+                        const currentDate = new Date();
+                        year = currentDate.getFullYear();
+                        month = currentDate.getMonth();
+                      }
+                      
+                      // Get first day of month and number of days
+                      const firstDay = new Date(year, month, 1).getDay();
+                      const daysInMonth = new Date(year, month + 1, 0).getDate();
+                      
+                      // Create array of all dates in the month
+                      const dates: Array<{ day: number; dateStr: string; status: 'past' | 'booked' | 'blocked' | 'available' | 'empty' }> = [];
+                      
+                      // Add empty cells for days before the first day of the month
+                      for (let i = 0; i < firstDay; i++) {
+                        dates.push({ day: 0, dateStr: '', status: 'empty' });
+                      }
+                      
+                      // Add all days of the month
+                      for (let day = 1; day <= daysInMonth; day++) {
+                        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        let status: 'past' | 'booked' | 'blocked' | 'available' = 'available';
+                        
+                        if (monthlyAvailability) {
+                          // Check status in priority order: past > booked > blocked > available
+                          const pastDates = monthlyAvailability.past || [];
+                          const bookedDates = monthlyAvailability.booked || [];
+                          const blockedDates = monthlyAvailability.blocked || [];
+                          const availableDates = monthlyAvailability.available || [];
+                          
+                          if (pastDates.includes(dateStr)) {
+                            status = 'past';
+                          } else if (bookedDates.includes(dateStr)) {
+                            status = 'booked';
+                          } else if (blockedDates.includes(dateStr)) {
+                            status = 'blocked';
+                          } else if (availableDates.includes(dateStr)) {
+                            status = 'available';
+                          }
+                        }
+                        
+                        dates.push({ day, dateStr, status });
+                      }
+                      
+                      return dates.map((dateInfo, index) => {
+                        if (dateInfo.status === 'empty') {
+                          return <div key={`empty-${index}`} className="aspect-square"></div>;
+                        }
+                        
+                        const { day, dateStr, status } = dateInfo;
+                        const isPast = status === 'past';
+                        const isBlocked = status === 'blocked';
+                        const isBooked = status === 'booked';
+                        const isAvailable = status === 'available';
+                        
+                        return (
+                          <button
+                            key={dateStr}
+                            className={`aspect-square rounded-lg flex items-center justify-center text-sm transition-all ${
+                              isPast
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                : isBlocked
+                                ? 'bg-red-100 text-red-700 border-2 border-red-300 hover:bg-red-200'
+                                : isBooked
+                                ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 cursor-default'
+                                : isAvailable
+                                ? 'bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                                : 'bg-white border border-gray-200'
+                            }`}
+                            disabled={isPast || isBooked}
+                            onClick={() => {
+                              if (isAvailable && !isPast) {
+                                // Open modal to block this date
+                                setIsAddBlockModalOpen(true);
+                                setNewBlockDate(dateStr);
+                              }
+                            }}
+                          >
+                            {day}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
                 
                 {/* Legend */}
                 <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t">
@@ -425,6 +733,7 @@ console.log(upcomingBookings);
                   </div>
                 </div>
               </div>
+              )}
             </CardContent>
           </Card>
 
