@@ -85,8 +85,16 @@ export function DialogTrigger({ children, className = "", onClick }: DialogTrigg
 }
 
 export function DialogContent({ children, className = "", style }: DialogContentProps) {
+  // Check if className contains a max-w class or custom class, if so don't apply default max-w-lg and w-full
+  const hasMaxWidth = className.includes('max-w-') || className.includes('booking-details-modal');
+  const defaultMaxWidth = hasMaxWidth ? '' : 'max-w-lg';
+  const defaultWidth = hasMaxWidth ? '' : 'w-full';
+  
+  // Merge inline styles with any existing styles
+  const mergedStyle = style || {};
+  
   return (
-    <div className={`bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 ${className}`} style={style}>
+    <div className={`bg-white rounded-xl shadow-2xl ${defaultMaxWidth} ${defaultWidth} mx-4 ${className}`} style={mergedStyle}>
       {children}
     </div>
   );

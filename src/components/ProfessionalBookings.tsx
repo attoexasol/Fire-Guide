@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Search, Calendar, MapPin, Clock, User, ChevronRight, Filter, X, CheckCircle, AlertCircle, Phone, Mail, Home, FileText, Navigation } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Calendar, MapPin, Clock, User, ChevronRight, Filter, X, CheckCircle, AlertCircle, Phone, Mail, Home, FileText, Navigation, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -9,6 +9,9 @@ import { Separator } from "./ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { getProfessionalBookings, ProfessionalBookingItem, acceptProfessionalBooking } from "../api/bookingService";
+import { getApiToken } from "../lib/auth";
+import { toast } from "sonner";
 
 interface ProfessionalBookingsProps {
   onViewDetails: (bookingId: number) => void;
@@ -34,6 +37,46 @@ interface Booking {
   accessInstructions?: string;
 }
 
+// Helper function to format date
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+};
+
+// Helper function to format price
+const formatPrice = (price: string): string => {
+  return `£${price}`;
+};
+
+// Helper function to map API response to Booking interface
+const mapApiResponseToBooking = (apiBooking: ProfessionalBookingItem): Booking => {
+  const fullName = `${apiBooking.first_name} ${apiBooking.last_name}`.trim();
+  const location = [apiBooking.property_address, apiBooking.city, apiBooking.post_code]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    id: apiBooking.id,
+    reference: apiBooking.ref_code || `FG-${apiBooking.id}`,
+    service: apiBooking.selected_service?.name || "General Service",
+    customer: fullName,
+    customerEmail: apiBooking.email,
+    customerPhone: apiBooking.phone,
+    date: formatDate(apiBooking.selected_date),
+    time: apiBooking.selected_time,
+    duration: "2-3 hours", // Default duration as API doesn't provide this
+    location: location,
+    propertySize: "Medium (6-25 people)", // Default as API doesn't provide this
+    price: formatPrice(apiBooking.price),
+    status: apiBooking.status,
+    notes: apiBooking.additional_notes || "",
+    propertyType: undefined, // Not available in API
+    floors: undefined, // Not available in API
+    accessInstructions: undefined, // Not available in API
+  };
+};
+
 export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -45,102 +88,31 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [rescheduleReason, setRescheduleReason] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [bookingsData, setBookingsData] = useState<Booking[]>([
-    {
-      id: 1,
-      reference: "FG-2025-00847",
-      service: "Fire Risk Assessment",
-      customer: "John Smith",
-      customerEmail: "john.smith@example.com",
-      customerPhone: "+44 20 1234 5678",
-      date: "Nov 21, 2025",
-      time: "10:00 AM",
-      duration: "2-3 hours",
-      location: "123 High Street, London, SW1A 1AA",
-      propertySize: "Medium (6-25 people)",
-      price: "£450",
-      status: "confirmed",
-      notes: "First floor office space, please bring standard equipment",
-      propertyType: "Office Building",
-      floors: 2,
-      accessInstructions: "Enter through main reception, ask for John"
-    },
-    {
-      id: 2,
-      reference: "FG-2025-00846",
-      service: "Fire Equipment Service",
-      customer: "Emma Davis",
-      customerEmail: "emma.davis@example.com",
-      customerPhone: "+44 161 234 5678",
-      date: "Nov 22, 2025",
-      time: "2:00 PM",
-      duration: "1-2 hours",
-      location: "456 Market Street, Manchester, M1 1AD",
-      propertySize: "Small (1-5 people)",
-      price: "£150",
-      status: "confirmed",
-      notes: "6 fire extinguishers need servicing",
-      propertyType: "Retail Shop",
-      floors: 1,
-      accessInstructions: "Shop open 9 AM - 6 PM, enter from front"
-    },
-    {
-      id: 3,
-      reference: "FG-2025-00845",
-      service: "Fire Door Inspection",
-      customer: "Michael Brown",
-      customerEmail: "michael.brown@example.com",
-      customerPhone: "+44 121 234 5678",
-      date: "Nov 23, 2025",
-      time: "9:00 AM",
-      duration: "3-4 hours",
-      location: "789 Business Park, Birmingham, B1 1BB",
-      propertySize: "Large (26-100 people)",
-      price: "£850",
-      status: "pending",
-      notes: "Full building inspection required, 15 fire doors",
-      propertyType: "Commercial Building",
-      floors: 3,
-      accessInstructions: "Security code: 1234, park in visitor bay"
-    },
-    {
-      id: 4,
-      reference: "FG-2025-00844",
-      service: "Fire Risk Assessment",
-      customer: "Sarah Wilson",
-      customerEmail: "sarah.wilson@example.com",
-      customerPhone: "+44 20 9876 5432",
-      date: "Nov 18, 2025",
-      time: "11:00 AM",
-      duration: "2-3 hours",
-      location: "321 Office Lane, London, EC1A 1BB",
-      propertySize: "Medium (6-25 people)",
-      price: "£450",
-      status: "completed",
-      notes: "Report uploaded and submitted",
-      propertyType: "Office",
-      floors: 1
-    },
-    {
-      id: 5,
-      reference: "FG-2025-00843",
-      service: "Emergency Lighting Test",
-      customer: "David Taylor",
-      customerEmail: "david.taylor@example.com",
-      customerPhone: "+44 113 234 5678",
-      date: "Nov 15, 2025",
-      time: "3:00 PM",
-      duration: "2 hours",
-      location: "555 Industrial Estate, Leeds, LS1 1AA",
-      propertySize: "Large (26-100 people)",
-      price: "£350",
-      status: "completed",
-      notes: "All tests completed successfully",
-      propertyType: "Warehouse",
-      floors: 1
-    },
-  ]);
+  const [bookingsData, setBookingsData] = useState<Booking[]>([]);
+
+  // Fetch bookings from API
+  const fetchBookings = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const bookings = await getProfessionalBookings();
+      const mappedBookings = bookings.map(mapApiResponseToBooking);
+      setBookingsData(mappedBookings);
+    } catch (err: any) {
+      console.error("Error fetching bookings:", err);
+      setError(err?.message || "Failed to fetch bookings");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const filteredBookings = bookingsData.filter((booking) => {
     const matchesSearch = 
@@ -187,13 +159,34 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     setShowAcceptModal(true);
   };
 
-  const confirmAcceptBooking = () => {
-    if (selectedBooking) {
-      setBookingsData(bookingsData.map(b => 
-        b.id === selectedBooking.id ? { ...b, status: "confirmed" } : b
-      ));
+  const confirmAcceptBooking = async () => {
+    if (!selectedBooking) return;
+
+    const apiToken = getApiToken();
+    if (!apiToken) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    try {
+      setIsAccepting(true);
+      await acceptProfessionalBooking({
+        api_token: apiToken,
+        id: selectedBooking.id
+      });
+
+      toast.success("Booking accepted successfully!");
+      
+      // Refresh the bookings list to get updated data
+      await fetchBookings();
+      
       setShowAcceptModal(false);
       setSelectedBooking(null);
+    } catch (err: any) {
+      console.error("Error accepting booking:", err);
+      toast.error(err?.message || "Failed to accept booking. Please try again.");
+    } finally {
+      setIsAccepting(false);
     }
   };
 
@@ -221,6 +214,23 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
 
   return (
     <div className="space-y-6">
+      <style>{`
+        .booking-details-modal {
+          max-width: 900px !important;
+          width: 95vw !important;
+          min-width: 320px !important;
+        }
+        @media (min-width: 640px) {
+          .booking-details-modal {
+            width: 90vw !important;
+          }
+        }
+        @media (min-width: 1024px) {
+          .booking-details-modal {
+            width: 900px !important;
+          }
+        }
+      `}</style>
       <div>
         <h1 className="text-3xl text-[#0A1A2F] mb-2">My Bookings</h1>
         <p className="text-gray-600">Manage your appointments and schedule</p>
@@ -249,36 +259,70 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                placeholder="Search bookings..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+<Card>
+  <CardContent className="p-4">
+    <div className="flex flex-col md:flex-row gap-4 w-full">
+      
+      {/* SEARCH – FULL WIDTH */}
+      <div className="relative w-full flex-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <Input
+          placeholder="Search bookings..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 w-full"
+        />
+      </div>
+
+      {/* FILTER */}
+      <div className="w-full md:w-48 shrink-0">
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+    </div>
+  </CardContent>
+</Card>
+
+      {/* Loading State */}
+      {isLoading && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Loader2 className="w-16 h-16 text-gray-300 mx-auto mb-4 animate-spin" />
+            <p className="text-gray-500">Loading bookings...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Bookings List */}
-      <div className="space-y-4">
-        {filteredBookings.map((booking) => (
+      {!isLoading && !error && (
+        <div className="space-y-4">
+          {filteredBookings.map((booking) => (
           <Card key={booking.id} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
@@ -384,10 +428,11 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {filteredBookings.length === 0 && (
+      {!isLoading && !error && filteredBookings.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -398,7 +443,9 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
 
       {/* View Details Modal */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="booking-details-modal max-h-[90vh] overflow-y-auto"
+        >
           <DialogHeader>
             <DialogTitle className="text-2xl text-[#0A1A2F]">Booking Details</DialogTitle>
             <DialogDescription>
@@ -407,7 +454,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
           </DialogHeader>
           
           {selectedBooking && (
-            <div className="space-y-6 mt-4">
+            <div className="space-y-6 mt-4 px-6">
               {/* Status Banner */}
               <div className={`p-4 rounded-lg ${
                 selectedBooking.status === 'confirmed' ? 'bg-green-50 border border-green-200' :
@@ -518,7 +565,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex gap-3 pt-4 border-t py-6">
                 {selectedBooking.status === "pending" && (
                   <Button 
                     className="flex-1 bg-green-600 hover:bg-green-700"
@@ -659,7 +706,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
           </DialogHeader>
           
           {selectedBooking && (
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4 mt-4 px-6">
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                 <p className="font-semibold text-gray-900 mb-2">{selectedBooking.service}</p>
                 <p className="text-sm text-gray-600">{selectedBooking.customer}</p>
@@ -682,15 +729,30 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 py-6">
                 <Button 
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   onClick={confirmAcceptBooking}
+                  disabled={isAccepting}
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Confirm & Accept
+                  {isAccepting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Accepting...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Confirm & Accept
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setShowAcceptModal(false)} className="flex-1">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowAcceptModal(false)} 
+                  className="flex-1"
+                  disabled={isAccepting}
+                >
                   Cancel
                 </Button>
               </div>
