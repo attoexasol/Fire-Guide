@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   DollarSign, 
   Download, 
@@ -6,17 +6,38 @@ import {
   Clock, 
   CheckCircle, 
   Calendar, 
-  Search
+  Search,
+  Loader2
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { getPaymentInvoices, PaymentInvoiceItem } from "../api/paymentService";
+import { getApiToken } from "../lib/auth";
+import { toast } from "sonner";
+
+interface PaymentHistoryItem {
+  id: number;
+  reference: string;
+  bookingRef: string;
+  date: string;
+  customer: string;
+  service: string;
+  amount: number;
+  commission: number;
+  netAmount: number;
+  status: "paid" | "pending";
+  paidOn: string | null;
+}
 
 export function ProfessionalPayments() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPeriod, setFilterPeriod] = useState("all");
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const balance = {
     available: 2450,
@@ -24,73 +45,92 @@ export function ProfessionalPayments() {
     total: 4250
   };
 
-  const paymentHistory = [
-    {
-      id: 1,
-      reference: "PAY-2025-00847",
-      bookingRef: "FG-2025-00847",
-      date: "Nov 18, 2025",
-      customer: "John Smith",
-      service: "Fire Risk Assessment",
-      amount: 450,
-      commission: 67.50,
-      netAmount: 382.50,
-      status: "paid",
-      paidOn: "Nov 19, 2025"
-    },
-    {
-      id: 2,
-      reference: "PAY-2025-00846",
-      bookingRef: "FG-2025-00846",
-      date: "Nov 15, 2025",
-      customer: "Emma Davis",
-      service: "Fire Equipment Service",
-      amount: 150,
-      commission: 22.50,
-      netAmount: 127.50,
-      status: "paid",
-      paidOn: "Nov 16, 2025"
-    },
-    {
-      id: 3,
-      reference: "PAY-2025-00845",
-      bookingRef: "FG-2025-00845",
-      date: "Nov 20, 2025",
-      customer: "Michael Brown",
-      service: "Fire Door Inspection",
-      amount: 850,
-      commission: 127.50,
-      netAmount: 722.50,
-      status: "pending",
-      paidOn: null
-    },
-    {
-      id: 4,
-      reference: "PAY-2025-00844",
-      bookingRef: "FG-2025-00844",
-      date: "Nov 12, 2025",
-      customer: "Sarah Wilson",
-      service: "Fire Risk Assessment",
-      amount: 335,
-      commission: 50.25,
-      netAmount: 284.75,
-      status: "paid",
-      paidOn: "Nov 13, 2025"
-    },
-    {
-      id: 5,
-      reference: "PAY-2025-00843",
-      bookingRef: "FG-2025-00843",
-      date: "Nov 10, 2025",
-      customer: "David Taylor",
-      service: "Emergency Lighting Test",
-      amount: 210,
-      commission: 31.50,
-      netAmount: 178.50,
-      status: "paid",
-      paidOn: "Nov 11, 2025"
-    },
-  ];
+  // Helper function to format date
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Helper function to map API response to PaymentHistoryItem
+  const mapApiResponseToPayment = (apiPayment: PaymentInvoiceItem): PaymentHistoryItem => {
+    const amount = parseFloat(apiPayment.price) || 0;
+    const commission = amount * 0.15; // 15% commission
+    const netAmount = amount - commission;
+    
+    // Get customer name from professional_booking or cardholder_name
+    const customer = apiPayment.professional_booking?.first_name || apiPayment.cardholder_name || "Unknown";
+    
+    // Generate booking reference from professional_booking id or use tx_ref
+    const bookingRef = apiPayment.professional_booking 
+      ? `FG-${apiPayment.professional_booking.id}` 
+      : apiPayment.tx_ref || `INV-${apiPayment.id}`;
+    
+    // Get paid date if status is paid
+    const paidOn = apiPayment.status === "paid" && apiPayment.updated_at 
+      ? formatDate(apiPayment.updated_at) 
+      : null;
+
+    // Get service name from API response
+    const serviceName = apiPayment.service?.name || "Fire Risk Assessment";
+
+    return {
+      id: apiPayment.id,
+      reference: apiPayment.tx_ref || `INV-${apiPayment.id}`,
+      bookingRef: bookingRef,
+      date: formatDate(apiPayment.created_at),
+      customer: customer,
+      service: serviceName,
+      amount: amount,
+      commission: commission,
+      netAmount: netAmount,
+      status: apiPayment.status === "paid" ? "paid" : "pending",
+      paidOn: paidOn
+    };
+  };
+
+  // Fetch payment invoices from API
+  const fetchPaymentInvoices = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        throw new Error("API token not found. Please log in.");
+      }
+
+      const invoices = await getPaymentInvoices(apiToken);
+      const mappedPayments = invoices.map(mapApiResponseToPayment);
+      
+      // Sort by date (newest first)
+      mappedPayments.sort((a, b) => {
+        const dateA = new Date(invoices.find(inv => inv.id === a.id)?.created_at || '');
+        const dateB = new Date(invoices.find(inv => inv.id === b.id)?.created_at || '');
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      setPaymentHistory(mappedPayments);
+    } catch (err: any) {
+      console.error("Error fetching payment invoices:", err);
+      setError(err?.message || "Failed to fetch payment invoices");
+      toast.error(err?.message || "Failed to fetch payment invoices");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch on component mount
+  useEffect(() => {
+    fetchPaymentInvoices();
+  }, []);
 
   const filteredPayments = paymentHistory.filter((payment) =>
     payment.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -350,7 +390,27 @@ export function ProfessionalPayments() {
             </table>
           </div>
 
-          {filteredPayments.length === 0 && (
+          {isLoading && (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400 mb-2" />
+              <p className="text-gray-500">Loading payment history...</p>
+            </div>
+          )}
+
+          {!isLoading && error && (
+            <div className="text-center py-12">
+              <p className="text-red-500 mb-2">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={fetchPaymentInvoices}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {!isLoading && !error && filteredPayments.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500">No payment records found</p>
             </div>

@@ -9,8 +9,8 @@ import { Separator } from "./ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { getProfessionalBookings, ProfessionalBookingItem, acceptProfessionalBooking } from "../api/bookingService";
-import { getApiToken } from "../lib/auth";
+import { getProfessionalBookings, ProfessionalBookingItem, acceptProfessionalBooking, updateProfessionalBooking, searchProfessionalBookings, getBookingSummary } from "../api/bookingService";
+import { getApiToken, getProfessionalId } from "../lib/auth";
 import { toast } from "sonner";
 
 interface ProfessionalBookingsProps {
@@ -44,6 +44,28 @@ const formatDate = (dateString: string): string => {
   return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
+// Helper function to format time from 24-hour to AM/PM format
+const formatTimeToAMPM = (time24Hour: string): string => {
+  // Handle formats like "15:00:00", "9:00:00", "15:30:00"
+  if (!time24Hour) return "";
+  
+  const match = time24Hour.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!match) return time24Hour; // Return original if parsing fails
+  
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const period = hours >= 12 ? "PM" : "AM";
+  
+  // Convert to 12-hour format
+  if (hours === 0) {
+    hours = 12;
+  } else if (hours > 12) {
+    hours = hours - 12;
+  }
+  
+  return `${hours}:${minutes} ${period}`;
+};
+
 // Helper function to format price
 const formatPrice = (price: string): string => {
   return `£${price}`;
@@ -64,7 +86,7 @@ const mapApiResponseToBooking = (apiBooking: ProfessionalBookingItem): Booking =
     customerEmail: apiBooking.email,
     customerPhone: apiBooking.phone,
     date: formatDate(apiBooking.selected_date),
-    time: apiBooking.selected_time,
+    time: formatTimeToAMPM(apiBooking.selected_time),
     duration: "2-3 hours", // Default duration as API doesn't provide this
     location: location,
     propertySize: "Medium (6-25 people)", // Default as API doesn't provide this
@@ -90,18 +112,96 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
   const [rescheduleReason, setRescheduleReason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [bookingsData, setBookingsData] = useState<Booking[]>([]);
+  const [allBookingsData, setAllBookingsData] = useState<Booking[]>([]); // For stats calculation
+  const [apiBookingsMap, setApiBookingsMap] = useState<Map<number, ProfessionalBookingItem>>(new Map());
+  const [stats, setStats] = useState({
+    upcoming: 0,
+    pending: 0,
+    completed: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // Fetch bookings from API
-  const fetchBookings = async () => {
+  // Fetch booking summary (stats) from API
+  const fetchBookingSummary = async () => {
+    try {
+      setIsLoadingStats(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching summary");
+        return;
+      }
+
+      const summaryResponse = await getBookingSummary(apiToken);
+      if (summaryResponse.status && summaryResponse.data) {
+        setStats({
+          upcoming: summaryResponse.data.upcoming || 0,
+          pending: summaryResponse.data.pending || 0,
+          completed: summaryResponse.data.completed || 0,
+        });
+      }
+    } catch (err: any) {
+      console.error("Error fetching booking summary:", err);
+      // On error, fall back to calculating from allBookingsData
+      setStats({
+        upcoming: allBookingsData.filter(b => b.status === "confirmed").length,
+        pending: allBookingsData.filter(b => b.status === "pending").length,
+        completed: allBookingsData.filter(b => b.status === "completed").length,
+      });
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  // Fetch all bookings (fallback for stats if API fails)
+  const fetchAllBookings = async () => {
+    try {
+      const bookings = await getProfessionalBookings();
+      const mappedBookings = bookings.map(mapApiResponseToBooking);
+      setAllBookingsData(mappedBookings);
+    } catch (err: any) {
+      console.error("Error fetching all bookings:", err);
+    }
+  };
+
+  // Fetch bookings from API with optional search/filter
+  const fetchBookings = async (search?: string, status?: string) => {
     try {
       setIsLoading(true);
       setError(null);
-      const bookings = await getProfessionalBookings();
+      
+      let bookings: ProfessionalBookingItem[];
+      
+      // Use search API if search term or status filter is active
+      // Always send both parameters if at least one is active
+      if (search?.trim() || (status && status !== "all")) {
+        const searchParams: { search?: string; status?: string } = {};
+        // Always include search if provided (even single characters)
+        if (search?.trim()) {
+          searchParams.search = search.trim();
+        }
+        // Include status if not "all"
+        if (status && status !== "all") {
+          searchParams.status = status;
+        }
+        // Call search API even with just search term
+        bookings = await searchProfessionalBookings(searchParams);
+      } else {
+        // Use regular get all API if no search/filter
+        bookings = await getProfessionalBookings();
+      }
+      
       const mappedBookings = bookings.map(mapApiResponseToBooking);
       setBookingsData(mappedBookings);
+      // Store raw API data for reschedule
+      const map = new Map<number, ProfessionalBookingItem>();
+      bookings.forEach(booking => {
+        map.set(booking.id, booking);
+      });
+      setApiBookingsMap(map);
     } catch (err: any) {
       console.error("Error fetching bookings:", err);
       setError(err?.message || "Failed to fetch bookings");
@@ -110,24 +210,31 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     }
   };
 
+  // Initial load - fetch summary and bookings
   useEffect(() => {
+    fetchBookingSummary();
+    fetchAllBookings();
     fetchBookings();
   }, []);
 
-  const filteredBookings = bookingsData.filter((booking) => {
-    const matchesSearch = 
-      booking.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.service.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === "all" || booking.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  // Debounced search/filter - fetch when search or filter changes
+  useEffect(() => {
+    // If search term is empty and status is "all", fetch all bookings
+    if (!searchTerm.trim() && filterStatus === "all") {
+      fetchBookings();
+      return;
+    }
 
-  const stats = {
-    upcoming: bookingsData.filter(b => b.status === "confirmed").length,
-    pending: bookingsData.filter(b => b.status === "pending").length,
-    completed: bookingsData.filter(b => b.status === "completed").length,
-  };
+    // For search/filter, use shorter debounce to show results quickly
+    const timeoutId = setTimeout(() => {
+      fetchBookings(searchTerm.trim() || undefined, filterStatus !== "all" ? filterStatus : undefined);
+    }, 300); // Reduced debounce to 300ms for faster response
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filterStatus]);
+
+  // Use bookingsData directly since filtering is done by API
+  const filteredBookings = bookingsData;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -177,8 +284,9 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
 
       toast.success("Booking accepted successfully!");
       
-      // Refresh the bookings list to get updated data
+      // Refresh the bookings list and summary to get updated data
       await fetchBookings();
+      await fetchBookingSummary();
       
       setShowAcceptModal(false);
       setSelectedBooking(null);
@@ -203,12 +311,99 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     setShowRescheduleModal(true);
   };
 
-  const confirmReschedule = () => {
-    if (selectedBooking && rescheduleDate && rescheduleTime) {
-      // In a real app, this would send a reschedule request
-      alert(`Reschedule request sent to customer!\n\nNew Date: ${rescheduleDate}\nNew Time: ${rescheduleTime}\n${rescheduleReason ? `Reason: ${rescheduleReason}` : ''}`);
-      setShowRescheduleModal(false);
-      setSelectedBooking(null);
+  // Helper function to convert 12-hour time to 24-hour format with seconds
+  const convertTimeTo24Hour = (time12Hour: string): string => {
+    // Handle formats like "9:00 AM", "10:30 AM", "12:00 PM", "1:00 PM"
+    const match = time12Hour.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return "09:00:00"; // Default if parsing fails
+    
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = match[3].toUpperCase();
+    
+    if (period === "PM" && hours !== 12) {
+      hours += 12;
+    } else if (period === "AM" && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
+  };
+
+  const confirmReschedule = async () => {
+    if (!selectedBooking || !rescheduleDate || !rescheduleTime) {
+      toast.error("Please select both date and time");
+      return;
+    }
+
+    const apiBooking = apiBookingsMap.get(selectedBooking.id);
+    if (!apiBooking) {
+      toast.error("Booking data not found");
+      return;
+    }
+
+    const apiToken = getApiToken();
+    const professionalId = getProfessionalId();
+    
+    if (!apiToken) {
+      toast.error("Authentication required. Please login again.");
+      return;
+    }
+
+    if (!professionalId) {
+      toast.error("Professional ID not found. Please login again.");
+      return;
+    }
+
+    try {
+      setIsRescheduling(true);
+      
+      // Convert time to 24-hour format with seconds
+      const time24Hour = convertTimeTo24Hour(rescheduleTime);
+      
+      // Extract numeric price (remove currency symbols)
+      const priceValue = parseFloat(apiBooking.price.replace(/[£$,\s]/g, '')) || 0;
+      
+      const updateData = {
+        api_token: apiToken,
+        id: apiBooking.id,
+        selected_date: rescheduleDate,
+        selected_time: time24Hour,
+        price: priceValue,
+        first_name: apiBooking.first_name,
+        last_name: apiBooking.last_name,
+        email: apiBooking.email,
+        phone: apiBooking.phone,
+        property_address: apiBooking.property_address,
+        longitude: parseFloat(apiBooking.longitude) || 0,
+        latitude: parseFloat(apiBooking.latitude) || 0,
+        city: apiBooking.city,
+        post_code: apiBooking.post_code,
+        additional_notes: apiBooking.additional_notes || "",
+        reason: rescheduleReason || "",
+        professional_id: professionalId,
+      };
+
+      const response = await updateProfessionalBooking(updateData);
+      
+      if (response.status === "success" || response.message?.toLowerCase().includes("success")) {
+        toast.success(response.message || "Appointment rescheduled successfully!");
+        setShowRescheduleModal(false);
+        setSelectedBooking(null);
+        setRescheduleDate("");
+        setRescheduleTime("");
+        setRescheduleReason("");
+        // Refresh bookings and summary to show updated data
+        await fetchBookings();
+        await fetchBookingSummary();
+      } else {
+        toast.error(response.message || "Failed to reschedule appointment");
+      }
+    } catch (err: any) {
+      console.error("Error rescheduling booking:", err);
+      toast.error(err?.message || "Failed to reschedule appointment. Please try again.");
+    } finally {
+      setIsRescheduling(false);
     }
   };
 
@@ -241,19 +436,31 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Upcoming</p>
-            <p className="text-2xl text-green-600 mt-1">{stats.upcoming}</p>
+            {isLoadingStats ? (
+              <Loader2 className="w-6 h-6 text-green-600 mt-1 animate-spin" />
+            ) : (
+              <p className="text-2xl text-green-600 mt-1">{stats.upcoming}</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Pending</p>
-            <p className="text-2xl text-yellow-600 mt-1">{stats.pending}</p>
+            {isLoadingStats ? (
+              <Loader2 className="w-6 h-6 text-yellow-600 mt-1 animate-spin" />
+            ) : (
+              <p className="text-2xl text-yellow-600 mt-1">{stats.pending}</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Completed</p>
-            <p className="text-2xl text-blue-600 mt-1">{stats.completed}</p>
+            {isLoadingStats ? (
+              <Loader2 className="w-6 h-6 text-blue-600 mt-1 animate-spin" />
+            ) : (
+              <p className="text-2xl text-blue-600 mt-1">{stats.completed}</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -837,12 +1044,26 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                 <Button 
                   className="flex-1 bg-red-600 hover:bg-red-700"
                   onClick={confirmReschedule}
-                  disabled={!rescheduleDate || !rescheduleTime}
+                  disabled={!rescheduleDate || !rescheduleTime || isRescheduling}
                 >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Send Reschedule Request
+                  {isRescheduling ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Rescheduling...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Send Reschedule Request
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setShowRescheduleModal(false)} className="flex-1">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowRescheduleModal(false)} 
+                  className="flex-1"
+                  disabled={isRescheduling}
+                >
                   Cancel
                 </Button>
               </div>

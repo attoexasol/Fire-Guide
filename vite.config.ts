@@ -4,8 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  // CRITICAL: Use relative base path for static hosting (works in any subdirectory)
-  base: './',
+  base: '/',
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     alias: {
@@ -28,49 +27,33 @@ export default defineConfig({
       'figma:asset/06f1b3e41c2783f18bdafecd74ab9e64333871d6.png': path.resolve(__dirname, './src/assets/06f1b3e41c2783f18bdafecd74ab9e64333871d6.png'),
       '@': path.resolve(__dirname, './src'),
     },
-    // CRITICAL: Deduplicate React to ensure only ONE instance
     dedupe: ['react', 'react-dom'],
   },
   build: {
     target: 'esnext',
     outDir: 'build',
     minify: 'esbuild',
-    // CRITICAL: Ensure assets use relative paths
     assetsDir: 'assets',
+    sourcemap: false,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // CRITICAL: Ensure React is in a single chunk to prevent duplicate instances
           if (id.includes('node_modules')) {
-            // React and React-DOM MUST be in the same chunk
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            // Separate React from vendor to prevent createContext error
+            if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
             }
-            if (id.includes('@radix-ui')) {
-              return 'ui-vendor';
-            }
-            if (id.includes('lucide-react')) {
-              return 'icons-vendor';
-            }
-            if (id.includes('axios') || id.includes('sonner') || id.includes('clsx') || id.includes('tailwind-merge')) {
-              return 'utils-vendor';
-            }
-            return 'vendor';
           }
         },
-        // CRITICAL: Use relative paths for all assets
-        chunkFileNames: 'js/[name]-[hash].js',
-        entryFileNames: 'js/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
     },
-    chunkSizeWarningLimit: 1000,
-    sourcemap: false,
-    cssCodeSplit: true,
-    // CRITICAL: Ensure proper module format for production
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
+    },
+    modulePreload: {
+      polyfill: true,
     },
   },
   server: {

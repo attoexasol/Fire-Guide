@@ -1,65 +1,29 @@
-# Enable Rewrite Engine
+# Enable Rewrite Engine for React Router
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Handle Angular and React Router - Don't rewrite files or directories
+  # Don't rewrite existing files or directories
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
+  
+  # Rewrite all other requests to index.html for React Router
+  RewriteRule ^ index.html [L]
 </IfModule>
 
-# Set MIME types for JavaScript modules
+# Set correct MIME types for JavaScript and CSS
 <IfModule mod_mime.c>
-  # JavaScript files
   AddType application/javascript .js
   AddType application/javascript .mjs
-  
-  # Ensure correct charset
-  AddCharset UTF-8 .js
-  AddCharset UTF-8 .mjs
+  AddType text/css .css
 </IfModule>
 
-# Set proper content type headers for JavaScript modules
+# Set proper Content-Type headers
 <IfModule mod_headers.c>
-  # JavaScript modules
   <FilesMatch "\.(js|mjs)$">
     Header set Content-Type "application/javascript; charset=utf-8"
   </FilesMatch>
-  
-  # CSS files
   <FilesMatch "\.css$">
     Header set Content-Type "text/css; charset=utf-8"
   </FilesMatch>
-</IfModule>
-
-# Enable compression
-<IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
-  AddOutputFilterByType DEFLATE application/javascript application/json
-  AddOutputFilterByType DEFLATE application/x-javascript text/javascript
-</IfModule>
-
-# Browser caching
-<IfModule mod_expires.c>
-  ExpiresActive On
-  ExpiresByType image/jpg "access plus 1 year"
-  ExpiresByType image/jpeg "access plus 1 year"
-  ExpiresByType image/gif "access plus 1 year"
-  ExpiresByType image/png "access plus 1 year"
-  ExpiresByType image/webp "access plus 1 year"
-  ExpiresByType text/css "access plus 1 month"
-  ExpiresByType application/javascript "access plus 1 month"
-  ExpiresByType application/x-javascript "access plus 1 month"
-  ExpiresByType text/javascript "access plus 1 month"
-</IfModule>
-
-# Security headers
-<IfModule mod_headers.c>
-  # Prevent MIME type sniffing
-  Header set X-Content-Type-Options "nosniff"
-  # Prevent clickjacking
-  Header set X-Frame-Options "SAMEORIGIN"
-  # XSS Protection
-  Header set X-XSS-Protection "1; mode=block"
 </IfModule>
