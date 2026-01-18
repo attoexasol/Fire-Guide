@@ -52,7 +52,6 @@ export function ProfessionalAvailabilityContent() {
 
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
-  
   const [monthlyAvailability, setMonthlyAvailability] = useState<MonthlyAvailabilityData | null>(null);
   const [loadingMonthlyAvailability, setLoadingMonthlyAvailability] = useState(true);
   
@@ -341,7 +340,7 @@ export function ProfessionalAvailabilityContent() {
           return;
         }
 
-        const response = await getUpcomingBookings({ api_token: apiToken });
+        const response = await getUpcomingBookings(apiToken);
         
         if (response.status === true && response.data) {
           // Map API response to component Booking interface using exact API keys
@@ -364,11 +363,14 @@ export function ProfessionalAvailabilityContent() {
             }
 
             // Use exact API response keys: selected_date, selected_time, service_name, status, additional_notes
+            // Handle null service_name - use fallback string if null
+            const serviceName = item.service_name || "Service";
+
             return {
               id: item.id?.toString() || `booking-${index}`,
               date: item.selected_date, // Exact API key
               time: item.selected_time, // Exact API key
-              service: item.service_name, // Exact API key
+              service: serviceName, // Handle null service_name
               client: clientName,
               status: bookingStatus, // Mapped from API status
               additional_notes: item.additional_notes // Exact API key

@@ -1,17 +1,239 @@
-import React, { useState } from "react";
-import { Shield, CheckCircle, AlertCircle, Upload, FileText, Award, X, ShieldCheck } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Shield, CheckCircle, AlertCircle, Upload, FileText, Award, X, ShieldCheck, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
+import { getProfessionalWiseIdentity, updateProfessionalIdentity, ProfessionalIdentityItem, getVerificationSummary, VerificationSummaryData, getProfessionalWiseDBS, ProfessionalDBSItem, updateProfessionalDBS, getProfessionalWiseEvidence, ProfessionalEvidenceItem } from "../api/professionalsService";
+import { createCertification, updateEvidence } from "../api/qualificationsService";
+import { showInsuranceCoverage, InsuranceItem } from "../api/insuranceService";
+import { getApiToken, getProfessionalId } from "../lib/auth";
+import { toast } from "sonner";
 
 export function ProfessionalVerification() {
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+  const [identityData, setIdentityData] = useState<ProfessionalIdentityItem | null>(null);
+  const [dbsData, setDbsData] = useState<ProfessionalDBSItem | null>(null);
+  const [qualificationsEvidence, setQualificationsEvidence] = useState<ProfessionalEvidenceItem[]>([]);
+  const [insuranceData, setInsuranceData] = useState<InsuranceItem[]>([]);
+  const [isLoadingIdentity, setIsLoadingIdentity] = useState(false);
+  const [verificationSummary, setVerificationSummary] = useState<VerificationSummaryData | null>(null);
+  const [currentUploadRequirement, setCurrentUploadRequirement] = useState<string | null>(null);
+  const [currentEvidenceId, setCurrentEvidenceId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper function to format date
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Fetch verification summary data
+  const fetchVerificationSummary = async () => {
+    try {
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching verification summary");
+        return;
+      }
+
+      const response = await getVerificationSummary({ api_token: apiToken });
+      
+      if (response.status === true && response.data) {
+        setVerificationSummary(response.data);
+      }
+    } catch (err: any) {
+      console.error("Error fetching verification summary:", err);
+    }
+  };
+
+  // Fetch DBS data (extracted to a function so we can call it after upload)
+  const fetchDBSData = async () => {
+    try {
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching DBS");
+        return;
+      }
+
+      const response = await getProfessionalWiseDBS({ api_token: apiToken });
+      
+      if (response.status === true && response.data && response.data.length > 0) {
+        // Use the first DBS item (most recent)
+        setDbsData(response.data[0]);
+      } else {
+        setDbsData(null);
+      }
+    } catch (err: any) {
+      console.error("Error fetching DBS:", err);
+      setDbsData(null);
+    }
+  };
+
+  // Fetch qualifications evidence data
+  const fetchQualificationsEvidence = async () => {
+    try {
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching qualifications evidence");
+        return;
+      }
+
+      const response = await getProfessionalWiseEvidence({ api_token: apiToken });
+      
+      if (response.status === true && response.data) {
+        setQualificationsEvidence(response.data);
+      } else {
+        setQualificationsEvidence([]);
+      }
+    } catch (err: any) {
+      console.error("Error fetching qualifications evidence:", err);
+      setQualificationsEvidence([]);
+    }
+  };
+
+  // Fetch insurance coverage data
+  const fetchInsuranceData = async () => {
+    try {
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching insurance coverage");
+        return;
+      }
+
+      const response = await showInsuranceCoverage({ api_token: apiToken });
+      
+      if (response.status === 'success' && response.data) {
+        setInsuranceData(response.data);
+      } else {
+        setInsuranceData([]);
+      }
+    } catch (err: any) {
+      console.error("Error fetching insurance coverage:", err);
+      setInsuranceData([]);
+    }
+  };
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchIdentityData();
+    fetchVerificationSummary();
+    fetchDBSData();
+    fetchQualificationsEvidence();
+    fetchInsuranceData();
+  }, []);
+
+  // Determine verification status based on verification summary API data
   const verificationStatus = {
-    overall: "verified",
-    completionPercentage: 100
+    overall: verificationSummary?.active_status || identityData?.status || "pending",
+    completionPercentage: verificationSummary?.progress_percentage ?? (identityData?.status === "verified" ? 100 : 75)
+  };
+
+  // Map API checks to requirement status (verified = true, pending = false)
+  const getRequirementStatus = (checkValue: boolean | undefined) => {
+    if (checkValue === undefined) return "pending";
+    return checkValue ? "verified" : "pending";
+  };
+
+  // Helper function to format price
+  const formatPrice = (price: string): string => {
+    try {
+      const priceNum = parseFloat(price);
+      if (isNaN(priceNum)) return price;
+      // Format as currency with appropriate scale
+      if (priceNum >= 1000000) {
+        return `£${(priceNum / 1000000).toFixed(1)}M`;
+      } else if (priceNum >= 1000) {
+        // For values >= 1000, show as K or full amount with commas
+        if (priceNum >= 10000) {
+          return `£${(priceNum / 1000).toFixed(0)}K`;
+        }
+        return `£${priceNum.toLocaleString('en-GB')}`;
+      }
+      return `£${priceNum.toLocaleString('en-GB')}`;
+    } catch (e) {
+      return price;
+    }
+  };
+
+  // Helper function to format expire date
+  const formatExpireDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', { 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Get insurance details from fetched data
+  const getInsuranceDetails = () => {
+    if (!insuranceData || insuranceData.length === 0) {
+      return {
+        publicLiability: "£5M",
+        professionalIndemnity: "£2M",
+        provider: "AXA Insurance",
+        validUntil: "Dec 2025"
+      };
+    }
+
+    // Try to find insurance items by title
+    const publicLiabilityItem = insuranceData.find(item => 
+      item.title.toLowerCase().includes('public liability') || 
+      item.title.toLowerCase().includes('liability')
+    );
+    const professionalIndemnityItem = insuranceData.find(item => 
+      item.title.toLowerCase().includes('professional indemnity') ||
+      item.title.toLowerCase().includes('indemnity')
+    );
+
+    // Use found items or fallback to first/second items from API
+    // First item for Public Liability, second item for Professional Indemnity
+    const plItem = publicLiabilityItem || insuranceData[0];
+    const piItem = professionalIndemnityItem || (insuranceData.length > 1 ? insuranceData[1] : insuranceData[0]);
+
+    // Get the most recent expire date for "Valid Until"
+    const allExpireDates = insuranceData.map(item => item.expire_date).filter(Boolean);
+    const latestExpireDate = allExpireDates.length > 0 
+      ? allExpireDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
+      : null;
+
+    // Get provider name from first item or default
+    const provider = insuranceData[0]?.provider_name || "AXA Insurance";
+
+    return {
+      publicLiability: plItem ? formatPrice(plItem.price) : "£5M",
+      professionalIndemnity: piItem ? formatPrice(piItem.price) : "£2M",
+      provider: provider,
+      validUntil: latestExpireDate ? formatExpireDate(latestExpireDate) : "Dec 2025"
+    };
+  };
+
+  // Get insurance verified date from fetched data
+  const getInsuranceVerifiedDate = () => {
+    if (!insuranceData || insuranceData.length === 0) {
+      return verificationSummary?.checks?.insurance ? "Oct 17, 2024" : null;
+    }
+
+    // Get the most recent updated_at date
+    const allDates = insuranceData
+      .map(item => item.updated_at)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+    return allDates.length > 0 ? formatDate(allDates[0]) : null;
   };
 
   const requirements = [
@@ -19,42 +241,107 @@ export function ProfessionalVerification() {
       id: "identity",
       title: "Identity Verification",
       description: "Government-issued ID verified",
-      status: "verified",
-      verifiedDate: "Oct 15, 2024",
+      status: verificationSummary?.checks?.identity !== undefined 
+        ? getRequirementStatus(verificationSummary.checks.identity)
+        : (identityData?.status || "pending"),
+      verifiedDate: identityData?.updated_at ? formatDate(identityData.updated_at) : null,
+      file: identityData?.file || null,
       icon: Shield
     },
     {
       id: "qualifications",
       title: "Professional Qualifications",
       description: "Fire Safety Diploma, NEBOSH Certificate",
-      status: "verified",
-      verifiedDate: "Oct 16, 2024",
+      status: verificationSummary?.checks?.certificate !== undefined
+        ? getRequirementStatus(verificationSummary.checks.certificate)
+        : (qualificationsEvidence.length > 0 && qualificationsEvidence.some(item => item.status === "verified") ? "verified" : (qualificationsEvidence.length > 0 ? "pending" : "pending")),
+      verifiedDate: qualificationsEvidence.length > 0 
+        ? (() => {
+            // Find the most recent evidence item (by created_at date)
+            const sortedEvidence = [...qualificationsEvidence].sort((a, b) => {
+              const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return dateB - dateA; // Sort descending (newest first)
+            });
+            const mostRecent = sortedEvidence[0];
+            return mostRecent && mostRecent.created_at 
+              ? formatDate(mostRecent.created_at)
+              : null;
+          })()
+        : null,
       icon: Award,
-      documents: [
-        { name: "Fire Safety Diploma.pdf", uploadedOn: "Oct 16, 2024" },
-        { name: "NEBOSH Certificate.pdf", uploadedOn: "Oct 16, 2024" },
-      ]
+      documents: qualificationsEvidence.map((item) => {
+        // Extract filename from URL or use evidence as filename
+        let fileName = item.evidence;
+        let fileUrl = item.evidence;
+        
+        // If it's already a full URL, use it directly
+        // Otherwise, construct the full URL from the base URL
+        if (!item.evidence.includes('http://') && !item.evidence.includes('https://')) {
+          // It's a filename, construct the full URL
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
+          // Remove /api from the end if present
+          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+          fileUrl = `${apiBaseUrl}/certificates/${item.evidence}`;
+        }
+        
+        if (item.evidence.includes('/')) {
+          // Extract filename from URL
+          const urlParts = item.evidence.split('/');
+          fileName = urlParts[urlParts.length - 1];
+        }
+        
+        return {
+          name: fileName,
+          uploadedOn: item.created_at ? formatDate(item.created_at) : formatDate(new Date().toISOString()),
+          url: fileUrl, // Store the full URL for viewing
+          id: item.id // Store the evidence ID for updates
+        };
+      })
     },
     {
       id: "insurance",
       title: "Insurance Coverage",
       description: "Public Liability & Professional Indemnity",
-      status: "verified",
-      verifiedDate: "Oct 17, 2024",
+      status: verificationSummary?.checks?.insurance !== undefined
+        ? getRequirementStatus(verificationSummary.checks.insurance)
+        : (insuranceData.length > 0 && insuranceData.some(item => item.status === "verified") ? "verified" : (insuranceData.length > 0 ? "pending" : "pending")),
+      verifiedDate: getInsuranceVerifiedDate(),
       icon: Shield,
-      details: {
-        publicLiability: "£5M",
-        professionalIndemnity: "£2M",
-        provider: "AXA Insurance",
-        validUntil: "Dec 2025"
-      }
+      details: getInsuranceDetails(),
+      documents: insuranceData.map((item) => {
+        // Use title as display name
+        let fileName = item.title || "Insurance Document";
+        let fileUrl = item.document || "";
+        
+        // If we don't have a title, try to extract filename from URL
+        if (!fileName && item.document && item.document.includes('/')) {
+          const urlParts = item.document.split('/');
+          fileName = urlParts[urlParts.length - 1] || "Insurance Document";
+        }
+        
+        return {
+          name: fileName,
+          uploadedOn: item.created_at ? formatDate(item.created_at) : formatDate(new Date().toISOString()),
+          url: fileUrl, // Store the full document URL for viewing
+          id: item.id, // Store the insurance ID
+          title: item.title, // Store the insurance title
+          price: item.price, // Store the price
+          provider: item.provider_name, // Store the provider
+          expireDate: item.expire_date, // Store the expire date
+          status: item.status // Store the status
+        };
+      })
     },
     {
       id: "dbs",
       title: "DBS Check",
       description: "Enhanced DBS clearance",
-      status: "verified",
-      verifiedDate: "Oct 18, 2024",
+      status: verificationSummary?.checks?.dbs !== undefined
+        ? getRequirementStatus(verificationSummary.checks.dbs)
+        : (dbsData?.status || "pending"),
+      verifiedDate: dbsData?.updated_at ? formatDate(dbsData.updated_at) : null,
+      file: dbsData?.file || null,
       icon: ShieldCheck
     }
   ];
@@ -73,24 +360,246 @@ export function ProfessionalVerification() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "verified":
-        return <Badge className="bg-green-100 text-green-700">Verified</Badge>;
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-700">Under Review</Badge>;
-      case "rejected":
-        return <Badge className="bg-red-100 text-red-700">Needs Update</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-700">Not Submitted</Badge>;
+    // Display the actual status value from API dynamically
+    // Map colors based on status value
+    let badgeClass = "bg-gray-100 text-gray-700";
+    if (status === "verified") {
+      badgeClass = "bg-green-100 text-green-700";
+    } else if (status === "pending") {
+      badgeClass = "bg-yellow-100 text-yellow-700";
+    } else if (status === "rejected") {
+      badgeClass = "bg-red-100 text-red-700";
+    }
+    
+    return <Badge className={badgeClass}>{status || "Not Submitted"}</Badge>;
+  };
+
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Fetch identity data (extracted to a function so we can call it after upload)
+  const fetchIdentityData = async () => {
+    try {
+      setIsLoadingIdentity(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching identity");
+        return;
+      }
+
+      const response = await getProfessionalWiseIdentity({ api_token: apiToken });
+      
+      if (response.status === true && response.data && response.data.length > 0) {
+        // Use the first identity item (most recent)
+        setIdentityData(response.data[0]);
+      } else {
+        setIdentityData(null);
+      }
+    } catch (err: any) {
+      console.error("Error fetching identity:", err);
+      setIdentityData(null);
+    } finally {
+      setIsLoadingIdentity(false);
     }
   };
 
-  const handleFileUpload = (requirementId: string) => {
+  const handleFileButtonClick = (requirementId: string, evidenceId?: number) => {
+    setCurrentUploadRequirement(requirementId);
+    setCurrentEvidenceId(evidenceId || null);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const requirementId = currentUploadRequirement;
+    if (!requirementId) {
+      console.error("No requirement ID set for file upload");
+      return;
+    }
+
+    // Validate file type (allow images, PDFs, Word, Excel, etc.)
+    const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const documentTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    ];
+    const allValidTypes = [...imageTypes, ...documentTypes];
+    
+    // Also check by file extension for compatibility
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+    
+    if (!allValidTypes.includes(file.type) && !validExtensions.includes(fileExtension || '')) {
+      toast.error("Please select an image file (JPEG, PNG, GIF), PDF, Word, Excel, or PowerPoint document.");
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setCurrentUploadRequirement(null);
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast.error("File size must be less than 10MB.");
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setCurrentUploadRequirement(null);
+      return;
+    }
+
+    const apiToken = getApiToken();
+    const professionalId = getProfessionalId();
+
+    if (!apiToken) {
+      toast.error("Please log in to upload document.");
+      setCurrentUploadRequirement(null);
+      return;
+    }
+
+    if (!professionalId) {
+      toast.error("Professional ID not found. Please try again.");
+      setCurrentUploadRequirement(null);
+      return;
+    }
+
+    // Check if we have existing data to update based on requirement type
+    if (requirementId === "identity") {
+      if (!identityData || !identityData.id) {
+        toast.error("Identity record not found. Please contact support.");
+        setCurrentUploadRequirement(null);
+        return;
+      }
+    } else if (requirementId === "dbs") {
+      if (!dbsData || !dbsData.id) {
+        toast.error("DBS record not found. Please contact support.");
+        setCurrentUploadRequirement(null);
+        return;
+      }
+    }
+    // Note: qualifications doesn't require existing record check - we can create new evidence
+
     setUploadingDoc(requirementId);
-    // Simulate upload
-    setTimeout(() => {
+
+    try {
+      // Determine if file is an image or document
+      const isImage = imageTypes.includes(file.type) || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '');
+      
+      let fileToSend: string | File;
+      
+      if (isImage) {
+        // For images: convert to base64 and send as JSON body
+        fileToSend = await fileToBase64(file);
+      } else {
+        // For documents (PDF, Word, Excel, etc.): send File object as FormData
+        fileToSend = file;
+      }
+
+      // Call the appropriate update API based on requirement type
+      if (requirementId === "identity") {
+        const response = await updateProfessionalIdentity({
+          api_token: apiToken,
+          id: identityData!.id,
+          professional_id: professionalId,
+          file: fileToSend,
+        });
+
+        if (response.status === true || response.data) {
+          toast.success(response.message || "Identity document updated successfully!");
+          // Immediately refresh the identity data
+          await fetchIdentityData();
+        } else {
+          toast.error(response.message || "Failed to update identity document.");
+        }
+      } else if (requirementId === "dbs") {
+        const response = await updateProfessionalDBS({
+          api_token: apiToken,
+          id: dbsData!.id,
+          professional_id: professionalId,
+          file: fileToSend,
+        });
+
+        if (response.status === true || response.data) {
+          toast.success(response.message || "DBS document updated successfully!");
+          // Immediately refresh the DBS data
+          await fetchDBSData();
+        } else {
+          toast.error(response.message || "Failed to update DBS document.");
+        }
+      } else if (requirementId === "qualifications") {
+        // fileToSend is already determined above:
+        // - For images: base64 string (will be sent as JSON body)
+        // - For documents (PDF, Word, Excel, etc.): File object (will be sent as FormData)
+        
+        if (currentEvidenceId) {
+          // Update existing evidence
+          const response = await updateEvidence({
+            api_token: apiToken,
+            id: currentEvidenceId,
+            professional_id: professionalId,
+            evidence: fileToSend, // base64 string (images) or File object (documents)
+          });
+
+          if (response.status === true || response.success === true || response.data) {
+            toast.success(response.message || "Qualification evidence updated successfully!");
+            // Immediately refresh the qualifications evidence data
+            await fetchQualificationsEvidence();
+          } else {
+            toast.error(response.message || "Failed to update qualification evidence.");
+          }
+        } else {
+          // Create new evidence (fallback, though this shouldn't happen with Update button)
+          const fileName = file.name;
+          const response = await createCertification({
+            api_token: apiToken,
+            certificate_name: fileName,
+            description: `Qualification document: ${fileName}`,
+            evidence: fileToSend, // base64 string (images) or File object (documents)
+            status: "pending",
+            professional_id: professionalId,
+          });
+
+          if (response.status === "success" || response.success === true || response.data) {
+            toast.success(response.message || "Qualification document uploaded successfully!");
+            // Immediately refresh the qualifications evidence data
+            await fetchQualificationsEvidence();
+          } else {
+            toast.error(response.message || "Failed to upload qualification document.");
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error(`Error uploading ${requirementId} document:`, error);
+      toast.error(error.message || `Failed to upload ${requirementId} document. Please try again.`);
+    } finally {
       setUploadingDoc(null);
-    }, 2000);
+      setCurrentUploadRequirement(null);
+      setCurrentEvidenceId(null);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   return (
@@ -109,13 +618,13 @@ export function ProfessionalVerification() {
                 <Shield className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold mb-1">Fully Verified Professional</h2>
-                <p className="text-green-100">All verification requirements completed</p>
+                <h2 className="text-2xl font-bold mb-1">{verificationSummary?.title || "Fully Verified Professional"}</h2>
+                <p className="text-green-100">{verificationSummary?.subtitle || "All verification requirements completed"}</p>
               </div>
             </div>
             <Badge className="bg-white text-green-600 text-lg px-4 py-2">
               <CheckCircle className="w-5 h-5 mr-2" />
-              Active
+              {verificationSummary?.active_status || "Active"}
             </Badge>
           </div>
           <div className="space-y-2">
@@ -150,6 +659,15 @@ export function ProfessionalVerification() {
       <div className="space-y-4">
         <h2 className="text-xl text-[#0A1A2F]">Verification Requirements</h2>
         
+        {/* Hidden file input for all uploads */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        
         {requirements.map((requirement) => (
           <Card key={requirement.id}>
             <CardContent className="p-6">
@@ -170,7 +688,7 @@ export function ProfessionalVerification() {
                     {getStatusIcon(requirement.status)}
                   </div>
 
-                  {requirement.status === "verified" && (
+                  {(requirement.status === "verified" || requirement.verifiedDate) && requirement.verifiedDate && (
                     <div className="mt-3">
                       <p className="text-sm text-green-600 flex items-center gap-1">
                         <CheckCircle className="w-4 h-4" />
@@ -179,28 +697,115 @@ export function ProfessionalVerification() {
                     </div>
                   )}
 
+                  {requirement.id === "identity" && isLoadingIdentity && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Loading identity verification...</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {(requirement.id === "identity" || requirement.id === "dbs") && requirement.file && (
+                    <div className="mt-4">
+                      <Separator className="mb-3" />
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-900">
+                              {requirement.id === "identity" ? "Identity Document" : "DBS Document"}
+                            </p>
+                            {requirement.verifiedDate && (
+                              <p className="text-xs text-gray-500">Verified {requirement.verifiedDate}</p>
+                            )}
+                          </div>
+                        </div>
+                        {requirement.file && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => window.open(requirement.file || '', '_blank')}
+                          >
+                            View
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {requirement.documents && (
                     <div className="mt-4">
                       <Separator className="mb-3" />
                       <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Documents:</p>
                       <div className="space-y-2">
-                        {requirement.documents.map((doc, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-4 h-4 text-gray-400" />
-                              <div>
-                                <p className="text-sm text-gray-900">{doc.name}</p>
-                                <p className="text-xs text-gray-500">Uploaded {doc.uploadedOn}</p>
+                        {requirement.documents.map((doc, index) => {
+                          // For insurance, show additional details (price, provider, expire date)
+                          const isInsurance = requirement.id === "insurance";
+                          const docAny = doc as any;
+                          
+                          return (
+                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                              <div className="flex items-center gap-2 flex-1">
+                                <FileText className="w-4 h-4 text-gray-400" />
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-900">{doc.name}</p>
+                                  <p className="text-xs text-gray-500">Uploaded {doc.uploadedOn}</p>
+                                  {isInsurance && docAny.price && (
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      {docAny.provider && <span>Provider: {docAny.provider} • </span>}
+                                      Price: {formatPrice(docAny.price)}
+                                      {docAny.expireDate && <span> • Valid Until: {formatExpireDate(docAny.expireDate)}</span>}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    // If doc has a url property (from qualifications/insurance), use it
+                                    // Otherwise, fall back to the name (for other requirements)
+                                    const urlToOpen = (doc as any).url || doc.name;
+                                    if (urlToOpen.includes('http://') || urlToOpen.includes('https://')) {
+                                      window.open(urlToOpen, '_blank');
+                                    } else {
+                                      // Try to construct URL from base path
+                                      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
+                                      const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+                                      window.open(`${apiBaseUrl}/certificates/${urlToOpen}`, '_blank');
+                                    }
+                                  }}
+                                >
+                                  View
+                                </Button>
+                                {requirement.id === "qualifications" && (doc as any).id && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleFileButtonClick("qualifications", (doc as any).id)}
+                                    disabled={uploadingDoc === "qualifications" && currentEvidenceId === (doc as any).id}
+                                  >
+                                    {(uploadingDoc === "qualifications" && currentEvidenceId === (doc as any).id) ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <Upload className="w-4 h-4 mr-1" />
+                                        Update Document
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm">View</Button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {requirement.details && (
+                  {requirement.details && requirement.id !== "insurance" && (
                     <div className="mt-4">
                       <Separator className="mb-3" />
                       <div className="grid grid-cols-2 gap-4">
@@ -224,20 +829,26 @@ export function ProfessionalVerification() {
                     </div>
                   )}
 
-                  {requirement.status === "verified" && (
+                  {(requirement.id === "identity" || requirement.id === "dbs") && (
                     <div className="mt-4">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleFileUpload(requirement.id)}
-                        disabled={uploadingDoc === requirement.id}
+                        onClick={() => handleFileButtonClick(requirement.id)}
+                        disabled={uploadingDoc === requirement.id || isLoadingIdentity}
                       >
                         {uploadingDoc === requirement.id ? (
-                          <>Uploading...</>
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
                         ) : (
                           <>
                             <Upload className="w-4 h-4 mr-2" />
-                            Update Document
+                            {(requirement.id === "identity" && identityData) || 
+                             (requirement.id === "dbs" && dbsData)
+                              ? "Update Document"
+                              : "Upload Document"}
                           </>
                         )}
                       </Button>

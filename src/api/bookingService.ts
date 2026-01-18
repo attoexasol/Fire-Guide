@@ -82,7 +82,7 @@ export interface UpcomingBookingItem {
   selected_time: string;
   additional_notes?: string;
   status: string;
-  service_name: string;
+  service_name: string | null;
   first_name?: string;
   last_name?: string;
   client_name?: string;
@@ -103,8 +103,8 @@ export interface GetUpcomingBookingsResponse {
 
 /**
  * Get upcoming bookings for the authenticated user
- * BaseURL: https://fireguide.attoexasolutions.com/api/upcoming_bookings
- * Method: GET
+ * BaseURL: https://fireguide.attoexasolutions.com/api/upcomming_bookings
+ * Method: POST
  * @param api_token - The API token for authentication
  * @returns Promise with the API response containing array of upcoming bookings
  */
@@ -112,16 +112,15 @@ export const getUpcomingBookings = async (
   api_token: string
 ): Promise<GetUpcomingBookingsResponse> => {
   try {
-    const response = await apiClient.get<GetUpcomingBookingsResponse>(
-      '/upcoming_bookings',
-      {
-        params: {
-          api_token: api_token
-        }
-      }
+    const response = await apiClient.post<GetUpcomingBookingsResponse>(
+      '/upcomming_bookings',
+      { api_token }
     );
+    
+    console.log('POST /upcomming_bookings - Response:', response.data);
     return response.data;
   } catch (error) {
+    console.error('Error fetching upcoming bookings:', error);
     if (axios.isAxiosError(error)) {
       // Handle axios errors
       if (error.response) {

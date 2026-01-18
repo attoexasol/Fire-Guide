@@ -30,6 +30,7 @@ export function ProfessionalPricingContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
+  const [validServiceIds, setValidServiceIds] = useState<Set<number>>(new Set()); // Store valid service IDs for this professional
 
   // Fetch services and pricing data on mount
   useEffect(() => {
@@ -77,6 +78,7 @@ export function ProfessionalPricingContent() {
           // Create a map of service_id -> pricing data for quick lookup
           // API returns service ID nested in service.id, not at top level service_id
           const pricingMap = new Map<number, SelectedServiceItem>();
+          const validIds = new Set<number>();
           pricingResponse.data.forEach((item) => {
             // Use service.id from nested object if service_id doesn't exist at top level
             // API response structure: { ..., "service": { "id": 34, "service_name": "...", ... } }
@@ -84,8 +86,14 @@ export function ProfessionalPricingContent() {
             const serviceId = item.service_id ?? item.service?.id;
             if (serviceId && !isNaN(serviceId) && serviceId > 0) {
               pricingMap.set(serviceId, item);
+              validIds.add(serviceId); // Track valid service IDs for this professional
             }
           });
+          
+          // Store valid service IDs to filter when saving
+          if (isMounted) {
+            setValidServiceIds(validIds);
+          }
           
           console.log('Pricing Map Created:', Array.from(pricingMap.entries()).map(([id, item]) => ({
             serviceId: id,
@@ -216,9 +224,14 @@ export function ProfessionalPricingContent() {
   };
 
   const handleSave = async () => {
-    // Get services with valid prices (price > 0)
+    // Get services with valid prices (price > 0) AND valid service_ids for this professional
+    // Only send service_ids that belong to this professional (from getSelectedServices)
     const servicesWithPrices = services
-      .filter(service => service.price && parseInt(service.price) > 0)
+      .filter(service => 
+        service.price && 
+        parseInt(service.price) > 0 && 
+        validServiceIds.has(service.id) // Only include services that are valid for this professional
+      )
       .map(service => ({
         service_id: service.id,
         price: parseInt(service.price) // Convert to number as API expects

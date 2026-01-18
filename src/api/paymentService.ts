@@ -166,3 +166,131 @@ export const getPaymentInvoices = async (
     };
   }
 };
+
+// TypeScript types for Earnings Summary request
+export interface EarningsSummaryRequest {
+  api_token: string;
+}
+
+export interface EarningsSummaryResponse {
+  success: boolean;
+  data: {
+    available_balance: number;
+    pending: number;
+    total_earned: number;
+  };
+}
+
+/**
+ * Get earnings summary
+ * BaseURL: https://fireguide.attoexasolutions.com/api/payment_invoice/earnings_summary
+ * Method: POST
+ * @param api_token - The API token for authentication
+ * @returns Promise with the API response containing earnings summary
+ */
+export const getEarningsSummary = async (
+  api_token: string
+): Promise<EarningsSummaryResponse> => {
+  try {
+    const response = await apiClient.post<EarningsSummaryResponse>(
+      '/payment_invoice/earnings_summary',
+      { api_token }
+    );
+    
+    console.log('POST /payment_invoice/earnings_summary - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching earnings summary:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch earnings summary',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Monthly Earnings request
+export interface MonthlyEarningsRequest {
+  api_token: string;
+}
+
+export interface MonthlyEarningsItem {
+  month: string;
+  earnings: number;
+  jobs: number;
+}
+
+export interface MonthlyEarningsResponse {
+  status: string;
+  message: string;
+  data: MonthlyEarningsItem[];
+}
+
+/**
+ * Get monthly earnings
+ * BaseURL: https://fireguide.attoexasolutions.com/api/payment_invoice/earnings_monthly
+ * Method: POST
+ * @param api_token - The API token for authentication
+ * @returns Promise with the API response containing monthly earnings data
+ */
+export const getMonthlyEarnings = async (
+  api_token: string
+): Promise<MonthlyEarningsItem[]> => {
+  try {
+    const response = await apiClient.post<MonthlyEarningsResponse>(
+      '/payment_invoice/earnings_monthly',
+      { api_token }
+    );
+    
+    console.log('POST /payment_invoice/earnings_monthly - Response:', response.data);
+    
+    // Handle the response structure: { status: 'success', data: [...] }
+    if (response.data.status === 'success' && Array.isArray(response.data.data)) {
+      console.log('Monthly earnings found:', response.data.data.length);
+      return response.data.data;
+    }
+    
+    // Fallback: return empty array if structure is unexpected
+    console.warn('Unexpected monthly earnings API response structure:', response.data);
+    return [];
+  } catch (error) {
+    console.error('Error fetching monthly earnings:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch monthly earnings',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

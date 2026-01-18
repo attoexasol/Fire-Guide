@@ -21,6 +21,10 @@ import {
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { getProfessionalBookings, ProfessionalBookingItem } from "../api/bookingService";
+import { getApiToken, getProfessionalId } from "../lib/auth";
+import { getProfileCompletionPercentage, ProfileCompletionDetails } from "../api/professionalsService";
+import { getPaymentInvoices, PaymentInvoiceItem } from "../api/paymentService";
 import { ProfessionalBookings } from "./ProfessionalBookings";
 import { ProfessionalPayments } from "./ProfessionalPayments";
 import { ProfessionalVerification } from "./ProfessionalVerification";
@@ -111,32 +115,242 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     }
   ];
 
-  const upcomingJobs = [
-    {
-      id: 1,
-      service: "Fire Risk Assessment",
-      client: "ABC Office Ltd",
-      date: "Tomorrow, 10:00 AM",
-      location: "London, SW1A 1AA",
-      status: "confirmed"
-    },
-    {
-      id: 2,
-      service: "Fire Extinguisher Service",
-      client: "XYZ Retail Shop",
-      date: "Nov 22, 2:00 PM",
-      location: "Manchester, M1 1AD",
-      status: "confirmed"
-    },
-    {
-      id: 3,
-      service: "Fire Door Inspection",
-      client: "Tech Startup Inc",
-      date: "Nov 23, 9:00 AM",
-      location: "Birmingham, B1 1BB",
-      status: "pending"
+  const [upcomingJobs, setUpcomingJobs] = useState<Array<{
+    id: number | string;
+    service: string;
+    client: string;
+    date: string;
+    location: string;
+    status: "confirmed" | "pending";
+  }>>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [profileCompletionPercentage, setProfileCompletionPercentage] = useState(0);
+  const [profileCompletionDetails, setProfileCompletionDetails] = useState<ProfileCompletionDetails | null>(null);
+  const [isLoadingProfileCompletion, setIsLoadingProfileCompletion] = useState(false);
+  const [recentPayments, setRecentPayments] = useState<Array<{
+    amount: string;
+    client: string;
+    date: string;
+    status: string;
+  }>>([]);
+  const [isLoadingRecentPayments, setIsLoadingRecentPayments] = useState(false);
+
+  // Helper function to format date
+  const formatJobDate = (dateStr: string, timeStr: string): string => {
+    try {
+      const date = new Date(dateStr);
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      // Reset time to compare dates only
+      today.setHours(0, 0, 0, 0);
+      tomorrow.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      
+      // Format time
+      let formattedTime = timeStr;
+      if (timeStr.includes("AM") || timeStr.includes("PM")) {
+        formattedTime = timeStr; // Already in AM/PM format
+      } else {
+        // Convert 24-hour to AM/PM if needed
+        const [hours, minutes] = timeStr.split(':');
+        const hour = parseInt(hours, 10);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        formattedTime = `${hour12}:${minutes} ${ampm}`;
+      }
+      
+      if (date.getTime() === today.getTime()) {
+        return `Today, ${formattedTime}`;
+      } else if (date.getTime() === tomorrow.getTime()) {
+        return `Tomorrow, ${formattedTime}`;
+      } else {
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${monthNames[date.getMonth()]} ${date.getDate()}, ${formattedTime}`;
+      }
+    } catch (e) {
+      return `${dateStr} at ${timeStr}`;
     }
-  ];
+  };
+
+  // Fetch upcoming jobs from API
+  const fetchUpcomingJobs = async () => {
+    try {
+      setIsLoadingJobs(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching upcoming jobs");
+        return;
+      }
+
+      const bookings = await getProfessionalBookings();
+      
+      // Filter for upcoming/pending/confirmed bookings and map to job format
+      const jobs = bookings
+        .filter((booking) => {
+          const status = booking.status?.toLowerCase() || '';
+          return status === 'pending' || status === 'confirmed';
+        })
+        .slice(0, 3) // Only show first 3
+        .map((booking: ProfessionalBookingItem) => {
+          // Get service name from selected_service or default
+          const serviceName = booking.selected_service?.name || "Fire Risk Assessment";
+          
+          // Get client name from first_name and last_name
+          const clientName = booking.first_name && booking.last_name 
+            ? `${booking.first_name} ${booking.last_name}`
+            : booking.first_name || "Client";
+          
+          // Format date and time
+          const formattedDate = formatJobDate(booking.selected_date, booking.selected_time);
+          
+          // Format location from city and post_code
+          const location = booking.city && booking.post_code
+            ? `${booking.city}, ${booking.post_code}`
+            : booking.city || booking.property_address || "Location";
+          
+          // Map status
+          const status = booking.status?.toLowerCase() === 'confirmed' ? 'confirmed' : 'pending';
+          
+          return {
+            id: booking.id,
+            service: serviceName,
+            client: clientName,
+            date: formattedDate,
+            location: location,
+            status: status as "confirmed" | "pending"
+          };
+        });
+      
+      setUpcomingJobs(jobs);
+    } catch (err: any) {
+      console.error("Error fetching upcoming jobs:", err);
+      // On error, set empty array so UI doesn't break
+      setUpcomingJobs([]);
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  };
+
+  // Helper function to format date as "X days ago"
+  const formatTimeAgo = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInMs = now.getTime() - date.getTime();
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      const diffInMonths = Math.floor(diffInDays / 30);
+
+      if (diffInDays === 0) {
+        return "Today";
+      } else if (diffInDays === 1) {
+        return "1 day ago";
+      } else if (diffInDays < 7) {
+        return `${diffInDays} days ago`;
+      } else if (diffInWeeks === 1) {
+        return "1 week ago";
+      } else if (diffInWeeks < 4) {
+        return `${diffInWeeks} weeks ago`;
+      } else if (diffInMonths === 1) {
+        return "1 month ago";
+      } else {
+        return `${diffInMonths} months ago`;
+      }
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Fetch recent payments from API
+  const fetchRecentPayments = async () => {
+    try {
+      setIsLoadingRecentPayments(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching recent payments");
+        return;
+      }
+
+      const invoices = await getPaymentInvoices(apiToken);
+      
+      // Sort by created_at (newest first) and take first 3
+      const sortedInvoices = [...invoices].sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA;
+      }).slice(0, 3);
+
+      // Map to display format
+      const payments = sortedInvoices.map((invoice: PaymentInvoiceItem) => {
+        // Get client name from professional_booking or cardholder_name
+        const clientName = invoice.professional_booking?.first_name || invoice.cardholder_name || "Client";
+        
+        // Format amount with £ symbol
+        const amount = `£${parseFloat(invoice.price) || 0}`;
+        
+        // Format date as "X days ago"
+        const timeAgo = formatTimeAgo(invoice.created_at);
+        
+        // Map status - API uses "pending"/"paid", UI shows "completed" for paid
+        const status = invoice.status === "paid" ? "completed" : invoice.status || "pending";
+
+        return {
+          amount,
+          client: clientName,
+          date: timeAgo,
+          status
+        };
+      });
+
+      setRecentPayments(payments);
+    } catch (err: any) {
+      console.error("Error fetching recent payments:", err);
+      // On error, keep empty array
+      setRecentPayments([]);
+    } finally {
+      setIsLoadingRecentPayments(false);
+    }
+  };
+
+  // Fetch profile completion from API
+  const fetchProfileCompletion = async () => {
+    try {
+      setIsLoadingProfileCompletion(true);
+      const professionalId = getProfessionalId();
+      const apiToken = getApiToken();
+      
+      if (!professionalId) {
+        console.warn("No professional ID available for fetching profile completion");
+        return;
+      }
+
+      const response = await getProfileCompletionPercentage({
+        professional_id: professionalId,
+        api_token: apiToken || undefined
+      });
+      
+      if (response.status === true && response.details && response.profile_completion_percentage !== undefined) {
+        setProfileCompletionPercentage(response.profile_completion_percentage);
+        setProfileCompletionDetails(response.details);
+      }
+    } catch (err: any) {
+      console.error("Error fetching profile completion:", err);
+      // On error, keep default values (0)
+    } finally {
+      setIsLoadingProfileCompletion(false);
+    }
+  };
+
+  // Fetch upcoming jobs on component mount
+  useEffect(() => {
+    if (activeMenu === "dashboard") {
+      fetchUpcomingJobs();
+      fetchProfileCompletion();
+      fetchRecentPayments();
+    }
+  }, [activeMenu]);
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -264,43 +478,54 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {upcomingJobs.map((job) => (
-              <div
-                key={job.id}
-                className="flex items-start gap-4 p-4 border rounded-lg hover:border-red-200 hover:bg-red-50/50 transition-all cursor-pointer"
-              >
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Briefcase className="w-6 h-6 text-red-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <h4 className="font-semibold text-gray-900">{job.service}</h4>
-                    <Badge
-                      variant={job.status === "confirmed" ? "default" : "secondary"}
-                      className={
-                        job.status === "confirmed"
-                          ? "bg-green-100 text-green-700 border-0"
-                          : "bg-yellow-100 text-yellow-700 border-0"
-                      }
-                    >
-                      {job.status}</Badge>
+          {isLoadingJobs ? (
+            <div className="text-center py-8 text-gray-500">
+              <Clock className="w-6 h-6 mx-auto mb-2 text-gray-300 animate-spin" />
+              <p className="text-sm">Loading upcoming jobs...</p>
+            </div>
+          ) : upcomingJobs.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="text-sm">No upcoming jobs</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {upcomingJobs.map((job) => (
+                <div
+                  key={job.id}
+                  className="flex items-start gap-4 p-4 border rounded-lg hover:border-red-200 hover:bg-red-50/50 transition-all cursor-pointer"
+                >
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Briefcase className="w-6 h-6 text-red-600" />
                   </div>
-                  <p className="text-sm text-gray-600 mb-1">{job.client}</p>
-                  <div className="flex flex-wrap gap-3 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {job.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {job.location}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h4 className="font-semibold text-gray-900">{job.service}</h4>
+                      <Badge
+                        variant={job.status === "confirmed" ? "default" : "secondary"}
+                        className={
+                          job.status === "confirmed"
+                            ? "bg-green-100 text-green-700 border-0"
+                            : "bg-yellow-100 text-yellow-700 border-0"
+                        }
+                      >
+                        {job.status}</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">{job.client}</p>
+                    <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {job.date}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {job.location}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -311,24 +536,31 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
             <CardTitle>Recent Payments</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { amount: "£450", client: "ABC Office Ltd", date: "2 days ago", status: "completed" },
-                { amount: "£850", client: "Tech Hub", date: "5 days ago", status: "completed" },
-                { amount: "£250", client: "Retail Store", date: "1 week ago", status: "completed" }
-              ].map((payment, index) => (
-                <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div>
-                    <p className="font-medium text-gray-900">{payment.client}</p>
-                    <p className="text-sm text-gray-500">{payment.date}</p>
+            {isLoadingRecentPayments ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="w-6 h-6 mx-auto mb-2 text-gray-300 animate-spin" />
+                <p className="text-sm">Loading recent payments...</p>
+              </div>
+            ) : recentPayments.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">No recent payments</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentPayments.map((payment, index) => (
+                  <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
+                    <div>
+                      <p className="font-medium text-gray-900">{payment.client}</p>
+                      <p className="text-sm text-gray-500">{payment.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-green-600">{payment.amount}</p>
+                      <p className="text-xs text-gray-500">{payment.status}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-green-600">{payment.amount}</p>
-                    <p className="text-xs text-gray-500">{payment.status}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -341,34 +573,63 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-600">Profile Strength</span>
-                  <span className="text-sm font-semibold text-gray-900">85%</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {isLoadingProfileCompletion ? "..." : `${profileCompletionPercentage}%`}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full" style={{ width: "85%" }}></div>
+                  <div 
+                    className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${isLoadingProfileCompletion ? 0 : profileCompletionPercentage}%` }}
+                  ></div>
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 text-xs">✓</span>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    profileCompletionDetails?.basic_info === 20 ? "bg-green-100" : "bg-yellow-100"
+                  }`}>
+                    <span className={`text-xs ${
+                      profileCompletionDetails?.basic_info === 20 ? "text-green-600" : "text-yellow-600"
+                    }`}>
+                      {profileCompletionDetails?.basic_info === 20 ? "✓" : "!"}
+                    </span>
                   </div>
                   <span className="text-gray-600">Basic information completed</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 text-xs">✓</span>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    profileCompletionDetails?.certificates === 20 ? "bg-green-100" : "bg-yellow-100"
+                  }`}>
+                    <span className={`text-xs ${
+                      profileCompletionDetails?.certificates === 20 ? "text-green-600" : "text-yellow-600"
+                    }`}>
+                      {profileCompletionDetails?.certificates === 20 ? "✓" : "!"}
+                    </span>
                   </div>
                   <span className="text-gray-600">Certifications uploaded</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <span className="text-yellow-600 text-xs">!</span>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    profileCompletionDetails?.profile_image === 20 ? "bg-green-100" : "bg-yellow-100"
+                  }`}>
+                    <span className={`text-xs ${
+                      profileCompletionDetails?.profile_image === 20 ? "text-green-600" : "text-yellow-600"
+                    }`}>
+                      {profileCompletionDetails?.profile_image === 20 ? "✓" : "!"}
+                    </span>
                   </div>
                   <span className="text-gray-600">Add profile photo</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <span className="text-yellow-600 text-xs">!</span>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    profileCompletionDetails?.selected_services === 20 ? "bg-green-100" : "bg-yellow-100"
+                  }`}>
+                    <span className={`text-xs ${
+                      profileCompletionDetails?.selected_services === 20 ? "text-green-600" : "text-yellow-600"
+                    }`}>
+                      {profileCompletionDetails?.selected_services === 20 ? "✓" : "!"}
+                    </span>
                   </div>
                   <span className="text-gray-600">Update availability calendar</span>
                 </div>

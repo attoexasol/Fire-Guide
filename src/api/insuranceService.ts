@@ -5,6 +5,10 @@ export interface InsuranceItem {
   id: number;
   title: string;
   price: string;
+  provider_name?: string;
+  document?: string;
+  status?: string;
+  provider_id?: number | null;
   expire_date: string;
   created_at: string;
   updated_at: string;
@@ -81,6 +85,50 @@ const apiClient = axios.create({
   },
   timeout: 10000, // 10 seconds timeout
 });
+
+/**
+ * Show insurance coverages (POST endpoint)
+ * @param data - Request data with api_token
+ * @returns Promise with the API response
+ */
+export const showInsuranceCoverage = async (data: { api_token: string }): Promise<InsuranceApiResponse> => {
+  try {
+    const response = await apiClient.post<InsuranceApiResponse>('/insurance-coverage/show', {
+      api_token: data.api_token
+    });
+    
+    // Handle the response structure
+    if (response.data.status === 'success' && response.data.data) {
+      return response.data;
+    }
+    
+    // Fallback: return response as is
+    return response.data;
+  } catch (error) {
+    console.error('Error showing insurance coverages:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch insurance coverages',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
 
 /**
  * Fetch all insurance coverages

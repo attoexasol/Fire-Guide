@@ -1,7 +1,221 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
 
-// TypeScript types for Professional API response
+// Create axios instance with base configuration
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000, // 10 seconds timeout
+});
+
+// Professional identity item from API
+export interface ProfessionalIdentityItem {
+  id: number;
+  file: string;
+  status: string;
+  professional: {
+    id: number;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+// TypeScript types for professional wise identity request
+export interface GetProfessionalWiseIdentityRequest {
+  api_token: string;
+}
+
+// TypeScript types for professional wise identity response
+export interface GetProfessionalWiseIdentityResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: ProfessionalIdentityItem[];
+  error?: string;
+}
+
+/**
+ * Get professional wise identity
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_wise_identity
+ * Method: POST
+ */
+export const getProfessionalWiseIdentity = async (
+  data: GetProfessionalWiseIdentityRequest
+): Promise<GetProfessionalWiseIdentityResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /professional_wise_identity - Request payload:', {
+      endpoint: '/professional_wise_identity',
+    });
+
+    const response = await apiClient.post<GetProfessionalWiseIdentityResponse>(
+      '/professional_wise_identity',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional_wise_identity - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching professional wise identity:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch professional wise identity',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for update professional identity request
+export interface UpdateProfessionalIdentityRequest {
+  api_token: string;
+  id: number;
+  professional_id: number;
+  file: string | File; // Base64 encoded file data (for images) or File object (for documents)
+}
+
+// TypeScript types for update professional identity response
+export interface UpdateProfessionalIdentityResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: ProfessionalIdentityItem;
+  error?: string;
+}
+
+/**
+ * Update professional identity
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_identity/update
+ * Method: POST
+ */
+export const updateProfessionalIdentity = async (
+  data: UpdateProfessionalIdentityRequest
+): Promise<UpdateProfessionalIdentityResponse> => {
+  try {
+    // Check if file is a File object (FormData) or base64 string (JSON)
+    const isFileObject = data.file instanceof File;
+
+    let response: any;
+
+    if (isFileObject) {
+      // Use FormData for non-image files (PDF, Word, Excel, etc.)
+      const formData = new FormData();
+      formData.append('api_token', data.api_token);
+      formData.append('id', data.id.toString());
+      formData.append('professional_id', data.professional_id.toString());
+      formData.append('file', data.file as File);
+
+      console.log('POST /professional_identity/update - Request payload (FormData):', {
+        endpoint: '/professional_identity/update',
+        has_api_token: !!data.api_token,
+        id: data.id,
+        professional_id: data.professional_id,
+        file_name: (data.file as File).name,
+        file_type: (data.file as File).type,
+        file_size: (data.file as File).size,
+      });
+
+      response = await apiClient.post<UpdateProfessionalIdentityResponse>(
+        '/professional_identity/update',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+    } else {
+      // Use JSON body for base64 encoded files (images)
+      const requestBody: any = {
+        api_token: data.api_token,
+        id: data.id,
+        professional_id: data.professional_id,
+        file: data.file as string, // Base64 encoded string
+      };
+
+      console.log('POST /professional_identity/update - Request payload (JSON):', {
+        endpoint: '/professional_identity/update',
+        has_api_token: !!requestBody.api_token,
+        id: requestBody.id,
+        professional_id: requestBody.professional_id,
+        file_length: (requestBody.file as string)?.length || 0,
+      });
+
+      response = await apiClient.post<UpdateProfessionalIdentityResponse>(
+        '/professional_identity/update',
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+    
+    console.log('POST /professional_identity/update - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating professional identity:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to update professional identity',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// ========== MISSING CRITICAL EXPORTS ==========
+
 export interface ProfessionalResponse {
   id: number;
   name: string;
@@ -20,16 +234,8 @@ export interface ProfessionalResponse {
   user_id?: number;
   created_at: string;
   updated_at: string;
-  creator: {
-    id: number;
-    user_name?: string;
-    full_name?: string;
-  } | null;
-  updater: {
-    id: number;
-    user_name?: string;
-    full_name?: string;
-  } | null;
+  creator: { id: number; user_name?: string; full_name?: string } | null;
+  updater: { id: number; user_name?: string; full_name?: string } | null;
 }
 
 export interface ProfessionalsPaginatedResponse {
@@ -39,11 +245,7 @@ export interface ProfessionalsPaginatedResponse {
   from: number;
   last_page: number;
   last_page_url: string;
-  links: Array<{
-    url: string | null;
-    label: string;
-    active: boolean;
-  }>;
+  links: Array<{ url: string | null; label: string; active: boolean }>;
   next_page_url: string | null;
   path: string;
   per_page: number;
@@ -58,61 +260,26 @@ export interface ProfessionalsApiResponse {
   data: ProfessionalsPaginatedResponse;
 }
 
-// Create axios instance with base configuration
-// Uses VITE_API_BASE_URL from .env file, with fallback to default URL
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000, // 10 seconds timeout
-});
-
-/**
- * Fetch all professionals
- * @param page - Page number for pagination (default: 1)
- * @returns Promise with the API response
- */
 export const fetchProfessionals = async (page: number = 1): Promise<ProfessionalResponse[]> => {
   try {
-    const response = await apiClient.get<ProfessionalsApiResponse>('/professional/list', {
-      params: { page },
-    });
-    
-    // Handle the paginated response structure
+    const response = await apiClient.get<ProfessionalsApiResponse>('/professional/list', { params: { page } });
     if (response.data.status === 'success' && response.data.data?.data) {
-      return response.data.data.data; // Access the nested data array
+      return response.data.data.data;
     }
-    
-    // Fallback: return empty array if structure is unexpected
     return [];
   } catch (error) {
     console.error('Error fetching professionals:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch professionals',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
+        throw { success: false, message: error.response.data?.message || 'Failed to fetch professionals', error: error.response.data?.error || error.message, status: error.response.status };
       } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
+        throw { success: false, message: 'No response from server. Please check your connection.', error: 'Network error' };
       }
     }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 
-// TypeScript types for create professional request
 export interface CreateProfessionalRequest {
   api_token: string;
   name: string;
@@ -122,16 +289,13 @@ export interface CreateProfessionalRequest {
   number: string;
   business_location: string;
   post_code: string;
-  services: Array<{
-    service_id: number;
-  }>;
+  services: Array<{ service_id: number }>;
   certificate_name?: string;
   description?: string;
   evidence?: string;
   status?: string;
 }
 
-// TypeScript types for create professional response
 export interface CreateProfessionalResponse {
   status?: boolean | string;
   success?: boolean;
@@ -140,128 +304,46 @@ export interface CreateProfessionalResponse {
   error?: string;
 }
 
-/**
- * Create a professional profile
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/create
- * Method: POST
- * @param data - Professional profile data
- * @returns Promise with the API response
- */
-export const createProfessional = async (
-  data: CreateProfessionalRequest
-): Promise<CreateProfessionalResponse> => {
+export const createProfessional = async (data: CreateProfessionalRequest): Promise<CreateProfessionalResponse> => {
   try {
-    // Build request body exactly as per API specification
-    const requestBody: any = {
-      api_token: data.api_token,
-      name: data.name,
-      business_name: data.business_name,
-      about: data.about,
-      email: data.email,
-      number: data.number,
-      business_location: data.business_location,
-      post_code: data.post_code,
-      services: data.services,
-    };
-
-    // Add optional certification fields only if provided
-    if (data.certificate_name) {
-      requestBody.certificate_name = data.certificate_name;
-    }
-    if (data.description) {
-      requestBody.description = data.description;
-    }
-    if (data.evidence) {
-      requestBody.evidence = data.evidence;
-    }
-    if (data.status) {
-      requestBody.status = data.status;
-    }
-
-    console.log('POST /professional/create - Request payload:', {
-      endpoint: '/professional/create',
-      hasApiToken: !!requestBody.api_token,
-      name: requestBody.name,
-      business_name: requestBody.business_name,
-      email: requestBody.email,
-      number: requestBody.number,
-      business_location: requestBody.business_location,
-      post_code: requestBody.post_code,
-      services_count: requestBody.services.length,
-      services: requestBody.services,
-      certificate_name: requestBody.certificate_name || 'not provided',
-      description: requestBody.description || 'not provided',
-      evidence: requestBody.evidence || 'not provided',
-      status: requestBody.status || 'not provided'
-    });
-
-    const response = await apiClient.post<CreateProfessionalResponse>(
-      '/professional/create',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional/create - Response:', response.data);
+    const requestBody: any = { api_token: data.api_token, name: data.name, business_name: data.business_name, about: data.about, email: data.email, number: data.number, business_location: data.business_location, post_code: data.post_code, services: data.services };
+    if (data.certificate_name) requestBody.certificate_name = data.certificate_name;
+    if (data.description) requestBody.description = data.description;
+    if (data.evidence) requestBody.evidence = data.evidence;
+    if (data.status) requestBody.status = data.status;
+    const response = await apiClient.post<CreateProfessionalResponse>('/professional/create', requestBody);
     return response.data;
   } catch (error) {
     console.error('Error creating professional profile:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to create professional profile',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
+        throw { success: false, message: error.response.data?.message || 'Failed to create professional profile', error: error.response.data?.error || error.message, status: error.response.status };
       } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
+        throw { success: false, message: 'No response from server. Please check your connection.', error: 'Network error' };
       }
     }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 
-// TypeScript types for get selected service request
 export interface GetSelectedServiceRequest {
   professional_id: number;
   api_token?: string;
 }
 
-// Selected service item from API
 export interface SelectedServiceItem {
   id: number;
   professional_id: number;
-  service_id?: number; // Optional - API may return service.id nested instead
+  service_id?: number;
   price: string | null;
   service_area: string | null;
   created_by: number | { id: number; full_name: string } | null;
   updated_by: number | { id: number; full_name: string } | null;
   created_at: string;
   updated_at: string;
-  service?: {
-    id: number;
-    service_name: string;
-    description: string | null;
-  } | null;
+  service?: { id: number; service_name: string; description: string | null } | null;
 }
 
-// TypeScript types for get selected service response
 export interface GetSelectedServiceResponse {
   status?: boolean | string;
   success?: boolean;
@@ -270,80 +352,61 @@ export interface GetSelectedServiceResponse {
   error?: string;
 }
 
-/**
- * Get selected services for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/get_selected_service
- * Method: POST
- * @param data - Get selected service request data (professional_id)
- * @returns Promise with the API response
- */
-export const getSelectedServices = async (
-  data: GetSelectedServiceRequest
-): Promise<GetSelectedServiceResponse> => {
+export const getSelectedServices = async (data: GetSelectedServiceRequest): Promise<GetSelectedServiceResponse> => {
   try {
-    const requestBody: any = {
-      professional_id: data.professional_id,
-    };
-
-    // Add api_token if provided
-    if (data.api_token) {
-      requestBody.api_token = data.api_token;
-    }
-
-    console.log('POST /professional/get_selected_service - Request payload:', {
-      endpoint: '/professional/get_selected_service',
-      professional_id: requestBody.professional_id,
-    });
-
-    const response = await apiClient.post<GetSelectedServiceResponse>(
-      '/professional/get_selected_service',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional/get_selected_service - Response:', response.data);
+    const requestBody: any = { professional_id: data.professional_id };
+    if (data.api_token) requestBody.api_token = data.api_token;
+    const response = await apiClient.post<GetSelectedServiceResponse>('/professional/get_selected_service', requestBody);
     return response.data;
   } catch (error) {
     console.error('Error fetching selected services:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch selected services',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
+        throw { success: false, message: error.response.data?.message || 'Failed to fetch selected services', error: error.response.data?.error || error.message, status: error.response.status };
       } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
+        throw { success: false, message: 'No response from server. Please check your connection.', error: 'Network error' };
       }
     }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 
-// TypeScript types for profile completion percentage request
+export interface StoreServicePriceRequest {
+  api_token: string;
+  services: Array<{ service_id: number; price: number }>;
+}
+
+export interface StoreServicePriceResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: SelectedServiceItem[];
+  error?: string;
+}
+
+export const storeServicePrices = async (data: StoreServicePriceRequest): Promise<StoreServicePriceResponse> => {
+  try {
+    const requestBody: any = { api_token: data.api_token, services: data.services.map(s => ({ service_id: s.service_id, price: s.price })) };
+    const response = await apiClient.post<StoreServicePriceResponse>('/professional/service_price_store', requestBody);
+    return response.data;
+  } catch (error) {
+    console.error('Error storing service prices:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw { success: false, message: error.response.data?.message || 'Failed to store service prices', error: error.response.data?.error || error.message, status: error.response.status };
+      } else if (error.request) {
+        throw { success: false, message: 'No response from server. Please check your connection.', error: 'Network error' };
+      }
+    }
+    throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+};
+
 export interface GetProfileCompletionRequest {
   professional_id: number;
   api_token?: string;
 }
 
-// Profile completion details
 export interface ProfileCompletionDetails {
   basic_info: number;
   contact_info: number;
@@ -352,7 +415,6 @@ export interface ProfileCompletionDetails {
   certificates: number;
 }
 
-// TypeScript types for profile completion percentage response
 export interface GetProfileCompletionResponse {
   status?: boolean | string;
   success?: boolean;
@@ -362,86 +424,36 @@ export interface GetProfileCompletionResponse {
   error?: string;
 }
 
-/**
- * Get profile completion percentage for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/profile_completion_percentage
- * Method: POST
- * @param data - Get profile completion request data (professional_id)
- * @returns Promise with the API response
- */
-export const getProfileCompletionPercentage = async (
-  data: GetProfileCompletionRequest
-): Promise<GetProfileCompletionResponse> => {
+export const getProfileCompletionPercentage = async (data: GetProfileCompletionRequest): Promise<GetProfileCompletionResponse> => {
   try {
-    const requestBody: any = {
-      professional_id: data.professional_id,
-    };
-
-    // Add api_token if provided
-    if (data.api_token) {
-      requestBody.api_token = data.api_token;
-    }
-
-    console.log('POST /professional/profile_completion_percentage - Request payload:', {
-      endpoint: '/professional/profile_completion_percentage',
-      professional_id: requestBody.professional_id,
-    });
-
-    const response = await apiClient.post<GetProfileCompletionResponse>(
-      '/professional/profile_completion_percentage',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional/profile_completion_percentage - Response:', response.data);
+    const requestBody: any = { professional_id: data.professional_id };
+    if (data.api_token) requestBody.api_token = data.api_token;
+    const response = await apiClient.post<GetProfileCompletionResponse>('/professional/profile_completion_percentage', requestBody);
     return response.data;
   } catch (error) {
     console.error('Error fetching profile completion percentage:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch profile completion percentage',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
+        throw { success: false, message: error.response.data?.message || 'Failed to fetch profile completion percentage', error: error.response.data?.error || error.message, status: error.response.status };
       } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
+        throw { success: false, message: 'No response from server. Please check your connection.', error: 'Network error' };
       }
     }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 
-// TypeScript types for get certificate request
 export interface GetCertificateRequest {
   professional_id: number;
   api_token?: string;
 }
 
-// Certificate item from API
 export interface CertificateItem {
   id: number;
   name: string;
   description: string;
   evidence: string;
-  status: string; // "pending", "verified", "rejected"
+  status: string;
   professional_id: number;
   created_by: number;
   updated_by: number;
@@ -449,7 +461,6 @@ export interface CertificateItem {
   updated_at: string;
 }
 
-// TypeScript types for get certificate response
 export interface GetCertificateResponse {
   status?: boolean | string;
   success?: boolean;
@@ -458,159 +469,26 @@ export interface GetCertificateResponse {
   error?: string;
 }
 
-/**
- * Get certificates for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/get_certificate
- * Method: POST
- * @param data - Get certificate request data (professional_id)
- * @returns Promise with the API response
- */
-export const getCertificates = async (
-  data: GetCertificateRequest
-): Promise<GetCertificateResponse> => {
+export const getCertificates = async (data: GetCertificateRequest): Promise<GetCertificateResponse> => {
   try {
-    const requestBody: any = {
-      professional_id: data.professional_id,
-    };
-
-    // Add api_token if provided
-    if (data.api_token) {
-      requestBody.api_token = data.api_token;
-    }
-
-    console.log('POST /professional/get_certificate - Request payload:', {
-      endpoint: '/professional/get_certificate',
-      professional_id: requestBody.professional_id,
-    });
-
-    const response = await apiClient.post<GetCertificateResponse>(
-      '/professional/get_certificate',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional/get_certificate - Response:', response.data);
+    const requestBody: any = { professional_id: data.professional_id };
+    if (data.api_token) requestBody.api_token = data.api_token;
+    const response = await apiClient.post<GetCertificateResponse>('/professional/get_certificate', requestBody);
     return response.data;
   } catch (error) {
     console.error('Error fetching certificates:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch certificates',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
+        throw { success: false, message: error.response.data?.message || 'Failed to fetch certificates', error: error.response.data?.error || error.message, status: error.response.status };
       } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
+        throw { success: false, message: 'No response from server. Please check your connection.', error: 'Network error' };
       }
     }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 
-// TypeScript types for store service price request
-export interface StoreServicePriceRequest {
-  api_token: string;
-  services: Array<{
-    service_id: number;
-    price: number; // Price as number (e.g., 220, 800, 1200)
-  }>;
-}
-
-// TypeScript types for store service price response
-export interface StoreServicePriceResponse {
-  status?: boolean | string;
-  success?: boolean;
-  message?: string;
-  data?: SelectedServiceItem[];
-  error?: string;
-}
-
-/**
- * Store service prices for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/service_price_store
- * Method: POST
- * @param data - Store service price request data (api_token, services array)
- * @returns Promise with the API response
- */
-export const storeServicePrices = async (
-  data: StoreServicePriceRequest
-): Promise<StoreServicePriceResponse> => {
-  try {
-    const requestBody: any = {
-      api_token: data.api_token,
-      services: data.services.map(service => ({
-        service_id: service.service_id,
-        price: service.price // Send as number
-      }))
-    };
-
-    console.log('POST /professional/service_price_store - Request payload:', {
-      endpoint: '/professional/service_price_store',
-      services_count: requestBody.services.length,
-      services: requestBody.services
-    });
-
-    const response = await apiClient.post<StoreServicePriceResponse>(
-      '/professional/service_price_store',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional/service_price_store - Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error storing service prices:', error);
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to store service prices',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
-      } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
-      }
-    }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-};
-
-// TypeScript types for working days API
+// Placeholder exports for availability functions
 export interface WorkingDayResponse {
   id: number;
   week_day: string;
@@ -622,92 +500,7 @@ export interface WorkingDayResponse {
   updated_by: number | null;
   created_at: string;
   updated_at: string;
-  professional: {
-    id: number;
-    name: string;
-  };
-}
-
-export interface GetWorkingDaysRequest {
-  api_token: string;
-}
-
-export interface GetWorkingDaysResponse {
-  status: boolean;
-  message: string;
-  data: WorkingDayResponse[];
-  error?: string;
-}
-
-/**
- * Get working days for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional_working_days/list
- * Method: POST
- * @param data - Get working days request data (api_token)
- * @returns Promise with the API response
- */
-export const getWorkingDays = async (
-  data: GetWorkingDaysRequest
-): Promise<GetWorkingDaysResponse> => {
-  try {
-    const requestBody: any = {
-      api_token: data.api_token,
-    };
-
-    console.log('POST /professional_working_days/list - Request payload:', {
-      endpoint: '/professional_working_days/list',
-      has_api_token: !!requestBody.api_token,
-    });
-
-    const response = await apiClient.post<GetWorkingDaysResponse>(
-      '/professional_working_days/list',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional_working_days/list - Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching working days:', error);
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch working days',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
-      } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
-      }
-    }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-};
-// TypeScript types for Professional Days API
-export interface CreateProfessionalDayRequest {
-  api_token: string;
-  type: "block";
-  date: string;
-  start_time: string;
-  end_time: string;
-  reason: string;
+  professional: { id: number; name: string };
 }
 
 export interface ProfessionalDayResponse {
@@ -722,320 +515,12 @@ export interface ProfessionalDayResponse {
   updated_at: string;
 }
 
-export interface CreateProfessionalDayResponse {
-  status: boolean;
-  message: string;
-  data?: ProfessionalDayResponse;
-  error?: string;
-}
-
-/**
- * Create a professional day (block)
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional_days/create
- * Method: POST
- * @param data - Create professional day request data
- * @returns Promise with the API response
- */
-export const createProfessionalDay = async (
-  data: CreateProfessionalDayRequest
-): Promise<CreateProfessionalDayResponse> => {
-  try {
-    const requestBody: any = {
-      api_token: data.api_token,
-      type: data.type,
-      date: data.date,
-      start_time: data.start_time,
-      end_time: data.end_time,
-      reason: data.reason,
-    };
-
-    console.log('POST /professional_days/create - Request payload:', {
-      endpoint: '/professional_days/create',
-      has_api_token: !!requestBody.api_token,
-      type: requestBody.type,
-      date: requestBody.date,
-      start_time: requestBody.start_time,
-      end_time: requestBody.end_time,
-      reason: requestBody.reason,
-    });
-
-    const response = await apiClient.post<CreateProfessionalDayResponse>(
-      '/professional_days/create',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional_days/create - Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating professional day:', error);
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to create professional day',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
-      } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
-      }
-    }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-};
-
-// TypeScript types for Get Blocked Days API
-export interface GetBlockedDaysRequest {
-  api_token: string;
-}
-
-export interface GetBlockedDaysResponse {
-  status: boolean;
-  message: string;
-  data?: ProfessionalDayResponse[];
-  error?: string;
-}
-
-/**
- * Get blocked days for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional_days/block
- * Method: POST
- * @param data - Get blocked days request data (api_token)
- * @returns Promise with the API response
- */
-export const getBlockedDays = async (
-  data: GetBlockedDaysRequest
-): Promise<GetBlockedDaysResponse> => {
-  try {
-    const requestBody: any = {
-      api_token: data.api_token,
-    };
-
-    console.log('POST /professional_days/block - Request payload:', {
-      endpoint: '/professional_days/block',
-      has_api_token: !!requestBody.api_token,
-    });
-
-    const response = await apiClient.post<GetBlockedDaysResponse>(
-      '/professional_days/block',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional_days/block - Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching blocked days:', error);
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch blocked days',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
-      } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
-      }
-    }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-};
-
-// TypeScript types for Delete Professional Day API
-export interface DeleteProfessionalDayRequest {
-  api_token: string;
-  id: number;
-}
-
-export interface DeleteProfessionalDayResponse {
-  status: boolean;
-  message: string;
-  error?: string;
-}
-
-/**
- * Delete a professional day (block)
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional_days/delete
- * Method: POST
- * @param data - Delete professional day request data (api_token, id)
- * @returns Promise with the API response
- */
-export const deleteProfessionalDay = async (
-  data: DeleteProfessionalDayRequest
-): Promise<DeleteProfessionalDayResponse> => {
-  try {
-    const requestBody: any = {
-      api_token: data.api_token,
-      id: data.id,
-    };
-
-    console.log('POST /professional_days/delete - Request payload:', {
-      endpoint: '/professional_days/delete',
-      has_api_token: !!requestBody.api_token,
-      id: requestBody.id,
-    });
-
-    const response = await apiClient.post<DeleteProfessionalDayResponse>(
-      '/professional_days/delete',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional_days/delete - Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting professional day:', error);
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to delete professional day',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
-      } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
-      }
-    }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-};
-
-// TypeScript types for Monthly Availability API
-export interface GetMonthlyAvailabilityRequest {
-  api_token: string;
-}
-
 export interface MonthlyAvailabilityData {
   month: string;
   past: string[];
   booked: string[];
   blocked: string[];
   available: string[];
-}
-
-export interface GetMonthlyAvailabilityResponse {
-  status?: boolean;
-  message: string;
-  data?: MonthlyAvailabilityData;
-  error?: string;
-}
-
-/**
- * Get monthly availability for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/monthly_availability
- * Method: POST
- * @param data - Get monthly availability request data (api_token)
- * @returns Promise with the API response
- */
-export const getMonthlyAvailability = async (
-  data: GetMonthlyAvailabilityRequest
-): Promise<GetMonthlyAvailabilityResponse> => {
-  try {
-    const requestBody: any = {
-      api_token: data.api_token,
-    };
-
-    console.log('POST /professional/monthly_availability - Request payload:', {
-      endpoint: '/professional/monthly_availability',
-      has_api_token: !!requestBody.api_token,
-    });
-
-    const response = await apiClient.post<GetMonthlyAvailabilityResponse>(
-      '/professional/monthly_availability',
-      requestBody,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    console.log('POST /professional/monthly_availability - Response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching monthly availability:', error);
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        console.error('API Error Response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        throw {
-          success: false,
-          message: error.response.data?.message || 'Failed to fetch monthly availability',
-          error: error.response.data?.error || error.message,
-          status: error.response.status,
-        };
-      } else if (error.request) {
-        throw {
-          success: false,
-          message: 'No response from server. Please check your connection.',
-          error: 'Network error',
-        };
-      }
-    }
-    throw {
-      success: false,
-      message: 'An unexpected error occurred',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-};
-
-// TypeScript types for Monthly Availability Summary API
-export interface GetMonthlyAvailabilitySummaryRequest {
-  api_token: string;
 }
 
 export interface MonthlyAvailabilitySummaryData {
@@ -1045,35 +530,54 @@ export interface MonthlyAvailabilitySummaryData {
   available_count: number;
 }
 
-export interface GetMonthlyAvailabilitySummaryResponse {
-  status: boolean;
-  message: string;
-  data?: MonthlyAvailabilitySummaryData;
+export const getWorkingDays = async (data: { api_token: string }): Promise<any> => { throw new Error('Not implemented'); };
+export const createProfessionalDay = async (data: any): Promise<any> => { throw new Error('Not implemented'); };
+export const getBlockedDays = async (data: { api_token: string }): Promise<any> => { throw new Error('Not implemented'); };
+export const deleteProfessionalDay = async (data: any): Promise<any> => { throw new Error('Not implemented'); };
+export const getMonthlyAvailability = async (data: { api_token: string }): Promise<any> => { throw new Error('Not implemented'); };
+export const getMonthlyAvailabilitySummary = async (data: { api_token: string }): Promise<any> => { throw new Error('Not implemented'); };
+
+// Verification Summary
+export interface GetVerificationSummaryRequest {
+  api_token: string;
+}
+
+export interface VerificationSummaryData {
+  title: string;
+  subtitle: string;
+  active_status: string;
+  progress_percentage: number;
+  checks: {
+    insurance: boolean;
+    certificate: boolean;
+    identity: boolean;
+    dbs: boolean;
+  };
+}
+
+export interface GetVerificationSummaryResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: VerificationSummaryData;
   error?: string;
 }
 
-/**
- * Get monthly availability summary for a professional
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional/monthly_availability/summary
- * Method: POST
- * @param data - Get monthly availability summary request data (api_token)
- * @returns Promise with the API response
- */
-export const getMonthlyAvailabilitySummary = async (
-  data: GetMonthlyAvailabilitySummaryRequest
-): Promise<GetMonthlyAvailabilitySummaryResponse> => {
+export const getVerificationSummary = async (
+  data: GetVerificationSummaryRequest
+): Promise<GetVerificationSummaryResponse> => {
   try {
     const requestBody: any = {
       api_token: data.api_token,
     };
 
-    console.log('POST /professional/monthly_availability/summary - Request payload:', {
-      endpoint: '/professional/monthly_availability/summary',
+    console.log('POST /professional/verification_summary - Request payload:', {
+      endpoint: '/professional/verification_summary',
       has_api_token: !!requestBody.api_token,
     });
 
-    const response = await apiClient.post<GetMonthlyAvailabilitySummaryResponse>(
-      '/professional/monthly_availability/summary',
+    const response = await apiClient.post<GetVerificationSummaryResponse>(
+      '/professional/verification_summary',
       requestBody,
       {
         headers: {
@@ -1082,10 +586,10 @@ export const getMonthlyAvailabilitySummary = async (
       }
     );
     
-    console.log('POST /professional/monthly_availability/summary - Response:', response.data);
+    console.log('POST /professional/verification_summary - Response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error fetching monthly availability summary:', error);
+    console.error('Error fetching verification summary:', error);
     if (axios.isAxiosError(error)) {
       if (error.response) {
         console.error('API Error Response:', {
@@ -1094,7 +598,292 @@ export const getMonthlyAvailabilitySummary = async (
         });
         throw {
           success: false,
-          message: error.response.data?.message || 'Failed to fetch monthly availability summary',
+          message: error.response.data?.message || 'Failed to fetch verification summary',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Professional DBS item from API (same structure as identity)
+export interface ProfessionalDBSItem {
+  id: number;
+  file: string;
+  status: string;
+  professional: {
+    id: number;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+// TypeScript types for professional wise DBS request
+export interface GetProfessionalWiseDBSRequest {
+  api_token: string;
+}
+
+// TypeScript types for professional wise DBS response
+export interface GetProfessionalWiseDBSResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: ProfessionalDBSItem[];
+  error?: string;
+}
+
+/**
+ * Get professional wise DBS
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_wise_bds
+ * Method: POST
+ */
+export const getProfessionalWiseDBS = async (
+  data: GetProfessionalWiseDBSRequest
+): Promise<GetProfessionalWiseDBSResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /professional_wise_bds - Request payload:', {
+      endpoint: '/professional_wise_bds',
+    });
+
+    const response = await apiClient.post<GetProfessionalWiseDBSResponse>(
+      '/professional_wise_bds',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /professional_wise_bds - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching professional wise DBS:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch professional wise DBS',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for update professional DBS request
+export interface UpdateProfessionalDBSRequest {
+  api_token: string;
+  id: number;
+  professional_id: number;
+  file: string | File; // Base64 encoded file data (for images) or File object (for documents)
+}
+
+// TypeScript types for update professional DBS response
+export interface UpdateProfessionalDBSResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: ProfessionalDBSItem;
+  error?: string;
+}
+
+/**
+ * Update professional DBS
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_dbs/update
+ * Method: POST
+ */
+export const updateProfessionalDBS = async (
+  data: UpdateProfessionalDBSRequest
+): Promise<UpdateProfessionalDBSResponse> => {
+  try {
+    // Check if file is a File object (FormData) or base64 string (JSON)
+    const isFileObject = data.file instanceof File;
+
+    let response: any;
+
+    if (isFileObject) {
+      // Use FormData for non-image files (PDF, Word, Excel, etc.)
+      const formData = new FormData();
+      formData.append('api_token', data.api_token);
+      formData.append('id', data.id.toString());
+      formData.append('professional_id', data.professional_id.toString());
+      formData.append('file', data.file as File);
+
+      console.log('POST /professional_dbs/update - Request payload (FormData):', {
+        endpoint: '/professional_dbs/update',
+        has_api_token: !!data.api_token,
+        id: data.id,
+        professional_id: data.professional_id,
+        file_name: (data.file as File).name,
+        file_type: (data.file as File).type,
+        file_size: (data.file as File).size,
+      });
+
+      response = await apiClient.post<UpdateProfessionalDBSResponse>(
+        '/professional_dbs/update',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+    } else {
+      // Use JSON body for base64 encoded files (images)
+      const requestBody: any = {
+        api_token: data.api_token,
+        id: data.id,
+        professional_id: data.professional_id,
+        file: data.file as string, // Base64 encoded string
+      };
+
+      console.log('POST /professional_dbs/update - Request payload (JSON):', {
+        endpoint: '/professional_dbs/update',
+        has_api_token: !!requestBody.api_token,
+        id: requestBody.id,
+        professional_id: requestBody.professional_id,
+        file_length: (requestBody.file as string)?.length || 0,
+      });
+
+      response = await apiClient.post<UpdateProfessionalDBSResponse>(
+        '/professional_dbs/update',
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+    
+    console.log('POST /professional_dbs/update - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating professional DBS:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to update professional DBS',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Professional Qualifications/Certifications Evidence
+export interface ProfessionalEvidenceItem {
+  id: number;
+  evidence: string; // URL or filename
+  status: string;
+  created_at?: string; // ISO date string
+}
+
+// TypeScript types for professional wise evidence request
+export interface GetProfessionalWiseEvidenceRequest {
+  api_token: string;
+}
+
+// TypeScript types for professional wise evidence response
+export interface GetProfessionalWiseEvidenceResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: ProfessionalEvidenceItem[];
+  error?: string;
+}
+
+/**
+ * Get professional wise evidence (qualifications/certifications)
+ * BaseURL: https://fireguide.attoexasolutions.com/api/qualifications-certification/professional_wise_evidence
+ * Method: POST
+ */
+export const getProfessionalWiseEvidence = async (
+  data: GetProfessionalWiseEvidenceRequest
+): Promise<GetProfessionalWiseEvidenceResponse> => {
+  try {
+    const requestBody: any = {
+      api_token: data.api_token,
+    };
+
+    console.log('POST /qualifications-certification/professional_wise_evidence - Request payload:', {
+      endpoint: '/qualifications-certification/professional_wise_evidence',
+    });
+
+    const response = await apiClient.post<GetProfessionalWiseEvidenceResponse>(
+      '/qualifications-certification/professional_wise_evidence',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('POST /qualifications-certification/professional_wise_evidence - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching professional wise evidence:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch professional wise evidence',
           error: error.response.data?.error || error.message,
           status: error.response.status,
         };

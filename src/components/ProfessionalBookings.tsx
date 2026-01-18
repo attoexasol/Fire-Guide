@@ -979,7 +979,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
           </DialogHeader>
           
           {selectedBooking && (
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4 mt-4 px-6">
               {/* Current Booking */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Current Appointment</p>
@@ -1040,7 +1040,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 py-4">
                 <Button 
                   className="flex-1 bg-red-600 hover:bg-red-700"
                   onClick={confirmReschedule}

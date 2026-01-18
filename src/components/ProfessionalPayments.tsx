@@ -14,7 +14,7 @@ import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { getPaymentInvoices, PaymentInvoiceItem } from "../api/paymentService";
+import { getPaymentInvoices, PaymentInvoiceItem, getEarningsSummary, getMonthlyEarnings } from "../api/paymentService";
 import { getApiToken } from "../lib/auth";
 import { toast } from "sonner";
 
@@ -38,12 +38,14 @@ export function ProfessionalPayments() {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const balance = {
-    available: 2450,
-    pending: 890,
-    total: 4250
-  };
+  const [balance, setBalance] = useState({
+    available: 0,
+    pending: 0,
+    total: 0
+  });
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const [monthlyEarnings, setMonthlyEarnings] = useState<Array<{ month: string; earnings: number; jobs: number }>>([]);
+  const [isLoadingMonthlyEarnings, setIsLoadingMonthlyEarnings] = useState(false);
 
   // Helper function to format date
   const formatDate = (dateString: string): string => {
@@ -96,6 +98,56 @@ export function ProfessionalPayments() {
     };
   };
 
+  // Fetch earnings summary from API
+  const fetchEarningsSummary = async () => {
+    try {
+      setIsLoadingBalance(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching earnings summary");
+        return;
+      }
+
+      const summary = await getEarningsSummary(apiToken);
+      if (summary.success && summary.data) {
+        setBalance({
+          available: summary.data.available_balance || 0,
+          pending: summary.data.pending || 0,
+          total: summary.data.total_earned || 0
+        });
+      }
+    } catch (err: any) {
+      console.error("Error fetching earnings summary:", err);
+      // Don't show toast for earnings summary errors, just log them
+      // Keep default values (0) on error
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  };
+
+  // Fetch monthly earnings from API
+  const fetchMonthlyEarnings = async () => {
+    try {
+      setIsLoadingMonthlyEarnings(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching monthly earnings");
+        return;
+      }
+
+      const earnings = await getMonthlyEarnings(apiToken);
+      // API returns array directly, map it to the format expected by the UI
+      setMonthlyEarnings(earnings);
+    } catch (err: any) {
+      console.error("Error fetching monthly earnings:", err);
+      // Don't show toast for monthly earnings errors, just log them
+      // Keep empty array on error
+      setMonthlyEarnings([]);
+    } finally {
+      setIsLoadingMonthlyEarnings(false);
+    }
+  };
+
   // Fetch payment invoices from API
   const fetchPaymentInvoices = async () => {
     try {
@@ -129,20 +181,20 @@ export function ProfessionalPayments() {
 
   // Fetch on component mount
   useEffect(() => {
+    fetchEarningsSummary();
+    fetchMonthlyEarnings();
     fetchPaymentInvoices();
   }, []);
 
-  const filteredPayments = paymentHistory.filter((payment) =>
-    payment.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.service.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const monthlyEarnings = [
-    { month: "November", earnings: 2450, jobs: 8 },
-    { month: "October", earnings: 3200, jobs: 11 },
-    { month: "September", earnings: 2850, jobs: 9 },
-  ];
+  const filteredPayments = paymentHistory.filter((payment) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      payment.reference.toLowerCase().includes(searchLower) ||
+      payment.bookingRef.toLowerCase().includes(searchLower) ||
+      payment.customer.toLowerCase().includes(searchLower) ||
+      payment.service.toLowerCase().includes(searchLower)
+    );
+  });
 
   return (
     <div className="space-y-6 px-4 md:px-6 pb-20 md:pb-6">
