@@ -745,59 +745,101 @@ export function ProfessionalVerification() {
                           const docAny = doc as any;
                           
                           return (
-                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <div className="flex items-center gap-2 flex-1">
-                                <FileText className="w-4 h-4 text-gray-400" />
-                                <div className="flex-1">
-                                  <p className="text-sm text-gray-900">{doc.name}</p>
-                                  <p className="text-xs text-gray-500">Uploaded {doc.uploadedOn}</p>
-                                  {isInsurance && docAny.price && (
-                                    <p className="text-xs text-gray-600 mt-1">
-                                      {docAny.provider && <span>Provider: {docAny.provider} • </span>}
-                                      Price: {formatPrice(docAny.price)}
-                                      {docAny.expireDate && <span> • Valid Until: {formatExpireDate(docAny.expireDate)}</span>}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => {
-                                    // If doc has a url property (from qualifications/insurance), use it
-                                    // Otherwise, fall back to the name (for other requirements)
-                                    const urlToOpen = (doc as any).url || doc.name;
-                                    if (urlToOpen.includes('http://') || urlToOpen.includes('https://')) {
-                                      window.open(urlToOpen, '_blank');
-                                    } else {
-                                      // Try to construct URL from base path
-                                      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
-                                      const apiBaseUrl = baseUrl.replace(/\/api$/, '');
-                                      window.open(`${apiBaseUrl}/certificates/${urlToOpen}`, '_blank');
-                                    }
-                                  }}
-                                >
-                                  View
-                                </Button>
-                                {requirement.id === "qualifications" && (doc as any).id && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => handleFileButtonClick("qualifications", (doc as any).id)}
-                                    disabled={uploadingDoc === "qualifications" && currentEvidenceId === (doc as any).id}
-                                  >
-                                    {(uploadingDoc === "qualifications" && currentEvidenceId === (doc as any).id) ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <>
-                                        <Upload className="w-4 h-4 mr-1" />
-                                        Update Document
-                                      </>
+                            <div key={index} className="p-2 bg-gray-50 rounded space-y-2">
+                              {isInsurance ? (
+                                <>
+                                  {/* Title and details outside document section - using individual item data */}
+                                  <div className="space-y-2">
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Public Liability</p>
+                                        <p className="text-sm font-medium text-gray-900">{docAny.title ? formatPrice(docAny.title) : 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Professional Indemnity</p>
+                                        <p className="text-sm font-medium text-gray-900">{docAny.price ? formatPrice(docAny.price) : 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Provider</p>
+                                        <p className="text-sm font-medium text-gray-900">{docAny.provider || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Valid Until</p>
+                                        <p className="text-sm font-medium text-gray-900">{docAny.expireDate ? formatExpireDate(docAny.expireDate) : 'N/A'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {/* Document section separate */}
+                                  <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-gray-400" />
+                                      <span className="text-sm text-gray-700">Document</span>
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => {
+                                        const urlToOpen = (doc as any).url || doc.name;
+                                        if (urlToOpen.includes('http://') || urlToOpen.includes('https://')) {
+                                          window.open(urlToOpen, '_blank');
+                                        } else {
+                                          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
+                                          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+                                          window.open(`${apiBaseUrl}/certificates/${urlToOpen}`, '_blank');
+                                        }
+                                      }}
+                                    >
+                                      View
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <FileText className="w-4 h-4 text-gray-400" />
+                                    <div className="flex-1">
+                                      <p className="text-sm text-gray-900">{doc.name}</p>
+                                      <p className="text-xs text-gray-500">Uploaded {doc.uploadedOn}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => {
+                                        const urlToOpen = (doc as any).url || doc.name;
+                                        if (urlToOpen.includes('http://') || urlToOpen.includes('https://')) {
+                                          window.open(urlToOpen, '_blank');
+                                        } else {
+                                          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
+                                          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+                                          window.open(`${apiBaseUrl}/certificates/${urlToOpen}`, '_blank');
+                                        }
+                                      }}
+                                    >
+                                      View
+                                    </Button>
+                                    {requirement.id === "qualifications" && (doc as any).id && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => handleFileButtonClick("qualifications", (doc as any).id)}
+                                        disabled={uploadingDoc === "qualifications" && currentEvidenceId === (doc as any).id}
+                                      >
+                                        {(uploadingDoc === "qualifications" && currentEvidenceId === (doc as any).id) ? (
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                          <>
+                                            <Upload className="w-4 h-4 mr-1" />
+                                            Update Document
+                                          </>
+                                        )}
+                                      </Button>
                                     )}
-                                  </Button>
-                                )}
-                              </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -805,27 +847,10 @@ export function ProfessionalVerification() {
                     </div>
                   )}
 
-                  {requirement.details && requirement.id !== "insurance" && (
+                  {requirement.details && (
                     <div className="mt-4">
                       <Separator className="mb-3" />
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-gray-500">Public Liability</p>
-                          <p className="text-sm font-medium text-gray-900">{requirement.details.publicLiability}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Professional Indemnity</p>
-                          <p className="text-sm font-medium text-gray-900">{requirement.details.professionalIndemnity}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Provider</p>
-                          <p className="text-sm font-medium text-gray-900">{requirement.details.provider}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Valid Until</p>
-                          <p className="text-sm font-medium text-gray-900">{requirement.details.validUntil}</p>
-                        </div>
-                      </div>
+                  
                     </div>
                   )}
 
