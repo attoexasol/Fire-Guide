@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, Calendar, DollarSign, AlertCircle, CheckCircle, Info, Trash2, Filter, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
+import { fetchNotifications } from "../api/notificationsService";
+import { getApiToken } from "../lib/auth";
 
 interface Notification {
   id: number;
@@ -17,82 +19,94 @@ interface Notification {
 }
 
 export function ProfessionalNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      type: "booking",
-      title: "New Booking Request",
-      message: "ABC Office Ltd has requested a Fire Risk Assessment for tomorrow at 10:00 AM",
-      timestamp: "2 minutes ago",
-      read: false,
-      priority: "high"
-    },
-    {
-      id: 2,
-      type: "payment",
-      title: "Payment Received",
-      message: "£450 has been added to your account for job #1234",
-      timestamp: "1 hour ago",
-      read: false,
-      priority: "medium"
-    },
-    {
-      id: 3,
-      type: "booking",
-      title: "Booking Confirmed",
-      message: "XYZ Retail Shop confirmed their appointment for Nov 22 at 2:00 PM",
-      timestamp: "3 hours ago",
-      read: true,
-      priority: "medium"
-    },
-    {
-      id: 4,
-      type: "review",
-      title: "New Review Received",
-      message: "Sarah Johnson left a 5-star review for your Fire Extinguisher Service",
-      timestamp: "5 hours ago",
-      read: true,
-      priority: "low"
-    },
-    {
-      id: 5,
-      type: "payment",
-      title: "Payout Processed",
-      message: "Your weekly payout of £1,250 has been transferred to your bank account",
-      timestamp: "1 day ago",
-      read: true,
-      priority: "high"
-    },
-    {
-      id: 6,
-      type: "system",
-      title: "Profile Update Required",
-      message: "Please update your certifications. Some documents will expire in 30 days",
-      timestamp: "2 days ago",
-      read: false,
-      priority: "high"
-    },
-    {
-      id: 7,
-      type: "booking",
-      title: "Booking Cancelled",
-      message: "Customer cancelled the appointment scheduled for Nov 21 at 9:00 AM",
-      timestamp: "2 days ago",
-      read: true,
-      priority: "medium"
-    },
-    {
-      id: 8,
-      type: "system",
-      title: "Platform Maintenance",
-      message: "Scheduled maintenance on Nov 25 from 2:00 AM to 4:00 AM",
-      timestamp: "3 days ago",
-      read: true,
-      priority: "low"
-    }
-  ]);
-
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeTab, setActiveTab] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  // Format timestamp from ISO date string to relative time
+  const formatTimestamp = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+      
+      if (diffInSeconds < 60) {
+        return `${diffInSeconds} second${diffInSeconds !== 1 ? 's' : ''} ago`;
+      } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else if (diffInSeconds < 604800) {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+      } else {
+        // Format as date if older than a week
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Map API category to component type
+  const mapCategoryToType = (category: string): "booking" | "payment" | "system" | "review" => {
+    switch (category) {
+      case "bookings":
+        return "booking";
+      case "payments":
+        return "payment";
+      case "reviews":
+        return "review";
+      case "system":
+        return "system";
+      default:
+        return "system";
+    }
+  };
+
+  // Fetch notifications from API
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoading(true);
+        const apiToken = getApiToken();
+        
+        if (!apiToken) {
+          toast.error("Authentication token not found. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetchNotifications({ api_token: apiToken });
+        
+        if (response.status && response.data) {
+          // Map API response to component interface
+          const mappedNotifications: Notification[] = response.data.map((item) => ({
+            id: item.id,
+            type: mapCategoryToType(item.category),
+            title: item.title,
+            message: item.content,
+            timestamp: formatTimestamp(item.created_at),
+            read: item.is_read,
+            priority: item.priority,
+          }));
+          
+          setNotifications(mappedNotifications);
+        } else {
+          toast.error(response.message || "Failed to load notifications");
+        }
+      } catch (error: any) {
+        console.error("Error fetching notifications:", error);
+        toast.error(error.message || "Failed to load notifications");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadNotifications();
+  }, []);
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -152,6 +166,25 @@ export function ProfessionalNotifications() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const filteredNotifications = filterNotifications(activeTab);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 w-full">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl text-[#0A1A2F] mb-2">Notifications</h1>
+            <p className="text-gray-600">Loading notifications...</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4 animate-pulse" />
+            <p className="text-gray-500">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full">
@@ -261,7 +294,7 @@ export function ProfessionalNotifications() {
                           <p className="text-xs text-gray-400">{notification.timestamp}</p>
                           
                           <div className="flex items-center gap-2 flex-wrap">
-                            {!notification.read && (
+                            {notification.read && (
                               <Button
                                 variant="ghost"
                                 size="sm"

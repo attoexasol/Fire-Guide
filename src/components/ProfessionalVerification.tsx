@@ -7,7 +7,7 @@ import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
 import { getProfessionalWiseIdentity, updateProfessionalIdentity, ProfessionalIdentityItem, getVerificationSummary, VerificationSummaryData, getProfessionalWiseDBS, ProfessionalDBSItem, updateProfessionalDBS, getProfessionalWiseEvidence, ProfessionalEvidenceItem } from "../api/professionalsService";
 import { createCertification, updateEvidence } from "../api/qualificationsService";
-import { showInsuranceCoverage, InsuranceItem } from "../api/insuranceService";
+import { showInsuranceCoverage, InsuranceItem, updateInsuranceDocument } from "../api/insuranceService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
 import { toast } from "sonner";
 
@@ -314,6 +314,16 @@ export function ProfessionalVerification() {
         let fileName = item.title || "Insurance Document";
         let fileUrl = item.document || "";
         
+        // If it's already a full URL, use it directly
+        // Otherwise, construct the full URL from the base URL
+        if (fileUrl && !fileUrl.includes('http://') && !fileUrl.includes('https://')) {
+          // It's a filename, construct the full URL
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
+          // Remove /api from the end if present
+          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+          fileUrl = `${apiBaseUrl}/image/${fileUrl}`;
+        }
+        
         // If we don't have a title, try to extract filename from URL
         if (!fileName && item.document && item.document.includes('/')) {
           const urlParts = item.document.split('/');
@@ -414,6 +424,7 @@ export function ProfessionalVerification() {
   };
 
   const handleFileButtonClick = (requirementId: string, evidenceId?: number) => {
+    console.log('handleFileButtonClick - requirementId:', requirementId, 'evidenceId:', evidenceId);
     setCurrentUploadRequirement(requirementId);
     setCurrentEvidenceId(evidenceId || null);
     fileInputRef.current?.click();
@@ -587,6 +598,43 @@ export function ProfessionalVerification() {
             toast.error(response.message || "Failed to upload qualification document.");
           }
         }
+      } else if (requirementId === "insurance") {
+        // fileToSend is already determined above:
+        // - For images: base64 string (will be sent as JSON body)
+        // - For documents (PDF, Word, Excel, etc.): File object (will be sent as FormData)
+        
+        // Capture the ID at this point to ensure we use the correct one
+        const insuranceIdToUpdate = currentEvidenceId;
+        
+        if (!insuranceIdToUpdate) {
+          toast.error("Insurance ID not found. Please try again.");
+          setCurrentUploadRequirement(null);
+          setCurrentEvidenceId(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          return;
+        }
+        
+        // Update existing insurance document
+        console.log('Updating insurance document - ID:', insuranceIdToUpdate, 'File:', file.name);
+        const response = await updateInsuranceDocument({
+          api_token: apiToken,
+          id: insuranceIdToUpdate,
+          professional_id: professionalId,
+          document: fileToSend, // base64 string (images) or File object (documents)
+        });
+        
+        console.log('Update insurance document response:', response);
+        console.log('Response insurance_id:', response.data?.insurance_id);
+
+        if (response.status === true || response.success === true || response.data) {
+          toast.success(response.message || "Insurance document updated successfully!");
+          // Immediately refresh the insurance data to get the updated document URL
+          await fetchInsuranceData();
+        } else {
+          toast.error(response.message || "Failed to update insurance document.");
+        }
       }
     } catch (error: any) {
       console.error(`Error uploading ${requirementId} document:`, error);
@@ -744,8 +792,11 @@ export function ProfessionalVerification() {
                           const isInsurance = requirement.id === "insurance";
                           const docAny = doc as any;
                           
+                          // Use the document ID as the key to ensure React correctly tracks each item
+                          const docKey = docAny.id || `doc-${index}`;
+                          
                           return (
-                            <div key={index} className="p-2 bg-gray-50 rounded space-y-2">
+                            <div key={docKey} className="p-2 bg-gray-50 rounded space-y-2">
                               {isInsurance ? (
                                 <>
                                   {/* Title and details outside document section - using individual item data */}
@@ -776,22 +827,36 @@ export function ProfessionalVerification() {
                                       <FileText className="w-4 h-4 text-gray-400" />
                                       <span className="text-sm text-gray-700">Document</span>
                                     </div>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      onClick={() => {
-                                        const urlToOpen = (doc as any).url || doc.name;
-                                        if (urlToOpen.includes('http://') || urlToOpen.includes('https://')) {
+                                    <div className="flex items-center gap-2">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => {
+                                          // Use the stored URL from the document (same as Identity and DBS)
+                                          const urlToOpen = (doc as any).url || '';
                                           window.open(urlToOpen, '_blank');
-                                        } else {
-                                          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
-                                          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
-                                          window.open(`${apiBaseUrl}/certificates/${urlToOpen}`, '_blank');
-                                        }
-                                      }}
-                                    >
-                                      View
-                                    </Button>
+                                        }}
+                                      >
+                                        View
+                                      </Button>
+                                      {requirement.id === "insurance" && (doc as any).id && (
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          onClick={() => handleFileButtonClick("insurance", (doc as any).id)}
+                                          disabled={uploadingDoc === "insurance" && currentEvidenceId === (doc as any).id}
+                                        >
+                                          {(uploadingDoc === "insurance" && currentEvidenceId === (doc as any).id) ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                          ) : (
+                                            <>
+                                              <Upload className="w-4 h-4 mr-1" />
+                                              Update Document
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 </>
                               ) : (
