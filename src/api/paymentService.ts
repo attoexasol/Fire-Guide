@@ -447,3 +447,104 @@ export const createOrUpdatePayoutDetails = async (
     };
   }
 };
+
+// TypeScript types for Professional Invoice
+export interface ProfessionalInvoiceBooking {
+  id: number;
+  selected_date: string;
+  selected_time: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  price: string;
+  property_address: string;
+  longitude: string;
+  latitude: string;
+  city: string;
+  reason: string | null;
+  post_code: string;
+  ref_code: string | null;
+  additional_notes: string | null;
+  status: string;
+  selected_service_id: number;
+  professional_id: number;
+  created_by: number;
+  updated_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfessionalInvoiceItem {
+  id: number;
+  user_id: number;
+  professional_id: number;
+  booking_id: number;
+  invoice_number: string;
+  total_amount: string;
+  created_at: string;
+  user: {
+    id: number;
+    full_name: string;
+  };
+  professional: {
+    id: number;
+    name: string;
+  };
+  booking: ProfessionalInvoiceBooking;
+}
+
+export interface GetProfessionalInvoicesResponse {
+  success: boolean;
+  user_id: number;
+  professional_id: number;
+  total_invoices: number;
+  data: ProfessionalInvoiceItem[];
+}
+
+/**
+ * Get professional invoices for statement download
+ * BaseURL: https://fireguide.attoexasolutions.com/api/invoice/professional_get
+ * Method: POST
+ * @param api_token - The API token for authentication
+ * @returns Promise with the API response containing professional invoices
+ */
+export const getProfessionalInvoices = async (
+  api_token: string
+): Promise<GetProfessionalInvoicesResponse> => {
+  try {
+    console.log('POST /invoice/professional_get - Requesting...');
+    
+    const response = await apiClient.post<GetProfessionalInvoicesResponse>(
+      '/invoice/professional_get',
+      { api_token }
+    );
+    
+    console.log('POST /invoice/professional_get - Response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching professional invoices:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch invoices',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

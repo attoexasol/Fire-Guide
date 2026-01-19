@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { getPaymentInvoices, PaymentInvoiceItem, getEarningsSummary, getMonthlyEarnings } from "../api/paymentService";
 import { getApiToken } from "../lib/auth";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface PaymentHistoryItem {
   id: number;
@@ -46,6 +48,205 @@ export function ProfessionalPayments() {
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [monthlyEarnings, setMonthlyEarnings] = useState<Array<{ month: string; earnings: number; jobs: number }>>([]);
   const [isLoadingMonthlyEarnings, setIsLoadingMonthlyEarnings] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Function to download statement as PDF using Payment History data
+  const handleDownloadStatement = async () => {
+    try {
+      setIsDownloading(true);
+      
+      // Use the paymentHistory state which is already loaded from the API
+      if (!paymentHistory || paymentHistory.length === 0) {
+        toast.error("No payment history found to download");
+        return;
+      }
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // Colors
+      const primaryBlue = [0, 51, 102] as [number, number, number];
+      const headerBg = [0, 51, 102] as [number, number, number];
+      const lightGray = [245, 245, 245] as [number, number, number];
+      
+      // Calculate totals from payment history
+      const totalAmount = paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
+      const totalCommission = paymentHistory.reduce((sum, payment) => sum + payment.commission, 0);
+      const totalNetEarnings = paymentHistory.reduce((sum, payment) => sum + payment.netAmount, 0);
+      const statementDate = new Date().toLocaleDateString('en-GB');
+      const statementNumber = `STM-${new Date().getFullYear()}-${String(paymentHistory.length).padStart(4, '0')}`;
+      
+      // Header Section
+      // Logo placeholder (red rectangle for Fire Guide)
+      doc.setFillColor(220, 38, 38);
+      doc.rect(14, 10, 12, 12, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FG', 16.5, 17.5);
+      
+      // Company Name
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fire Guide', 30, 18);
+      
+      // STATEMENT Title
+      doc.setTextColor(...primaryBlue);
+      doc.setFontSize(28);
+      doc.setFont('helvetica', 'bold');
+      doc.text('STATEMENT', pageWidth - 14, 18, { align: 'right' });
+      
+      // Statement Info Box (right side)
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Statement Date', pageWidth - 60, 30);
+      doc.text('Statement #', pageWidth - 60, 37);
+      doc.text('Total Entries', pageWidth - 60, 44);
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text(statementDate, pageWidth - 14, 30, { align: 'right' });
+      doc.text(statementNumber, pageWidth - 14, 37, { align: 'right' });
+      doc.text(String(paymentHistory.length), pageWidth - 14, 44, { align: 'right' });
+      
+      // Bill To Section
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Professional Statement', 14, 35);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Fire Guide Professional', 14, 42);
+      doc.text('Payment History Report', 14, 48);
+      doc.text('United Kingdom', 14, 54);
+      
+      // Account Summary Box
+      const summaryY = 65;
+      doc.setFillColor(...lightGray);
+      doc.rect(pageWidth - 80, summaryY, 66, 32, 'F');
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(pageWidth - 80, summaryY, 66, 32, 'S');
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryBlue);
+      doc.text('Account Summary', pageWidth - 77, summaryY + 7);
+      
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Total Amount', pageWidth - 77, summaryY + 14);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`£${totalAmount.toFixed(2)}`, pageWidth - 17, summaryY + 14, { align: 'right' });
+      
+      doc.setTextColor(100, 100, 100);
+      doc.text('Commission (15%)', pageWidth - 77, summaryY + 21);
+      doc.setTextColor(220, 38, 38);
+      doc.text(`-£${totalCommission.toFixed(2)}`, pageWidth - 17, summaryY + 21, { align: 'right' });
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 100, 100);
+      doc.text('Your Earnings', pageWidth - 77, summaryY + 28);
+      doc.setTextColor(34, 139, 34);
+      doc.text(`£${totalNetEarnings.toFixed(2)}`, pageWidth - 17, summaryY + 28, { align: 'right' });
+      
+      // Payment History Section
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Payment History', 14, 105);
+      
+      // Table data from paymentHistory
+      const tableData = paymentHistory.map((payment) => {
+        return [
+          payment.reference,
+          payment.date,
+          payment.customer,
+          payment.service,
+          `£${payment.amount.toFixed(2)}`,
+          `-£${payment.commission.toFixed(2)}`,
+          `£${payment.netAmount.toFixed(2)}`,
+          payment.status.charAt(0).toUpperCase() + payment.status.slice(1)
+        ];
+      });
+      
+      // Add the table
+      autoTable(doc, {
+        startY: 110,
+        head: [['REFERENCE', 'DATE', 'CUSTOMER', 'SERVICE', 'AMOUNT', 'COMMISSION', 'EARNINGS', 'STATUS']],
+        body: tableData,
+        theme: 'plain',
+        headStyles: {
+          fillColor: headerBg,
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          cellPadding: 2,
+        },
+        bodyStyles: {
+          fontSize: 7,
+          cellPadding: 2,
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 250],
+        },
+        columnStyles: {
+          0: { cellWidth: 28 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 32 },
+          4: { cellWidth: 18, halign: 'right' },
+          5: { cellWidth: 22, halign: 'right', textColor: [220, 38, 38] },
+          6: { cellWidth: 20, halign: 'right', textColor: [34, 139, 34] },
+          7: { cellWidth: 18, halign: 'center' },
+        },
+        margin: { left: 14, right: 14 },
+      });
+      
+      // Get the final Y position after the table
+      const finalY = (doc as any).lastAutoTable?.finalY || 150;
+      
+      // Total Earnings Box
+      const balanceBoxY = finalY + 15;
+      doc.setFillColor(...lightGray);
+      doc.rect(pageWidth - 80, balanceBoxY, 66, 12, 'F');
+      doc.setDrawColor(...primaryBlue);
+      doc.setLineWidth(0.5);
+      doc.rect(pageWidth - 80, balanceBoxY, 66, 12, 'S');
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryBlue);
+      doc.text('Total Earnings:', pageWidth - 77, balanceBoxY + 8);
+      doc.setTextColor(34, 139, 34);
+      doc.text(`£${totalNetEarnings.toFixed(2)}`, pageWidth - 17, balanceBoxY + 8, { align: 'right' });
+      
+      // Footer Section
+      const footerY = balanceBoxY + 35;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text('If you have any questions about this statement, please contact', pageWidth / 2, footerY, { align: 'center' });
+      doc.text('Fire Guide Support | support@fireguide.co.uk', pageWidth / 2, footerY + 6, { align: 'center' });
+      
+      // Thank you message
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bolditalic');
+      doc.setTextColor(...primaryBlue);
+      doc.text('Thank You For Your Business!', pageWidth / 2, footerY + 20, { align: 'center' });
+      
+      // Download the PDF
+      doc.save(`Fire_Guide_Statement_${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.success(`Statement downloaded with ${paymentHistory.length} payment(s)`);
+    } catch (err: any) {
+      console.error("Error downloading statement:", err);
+      toast.error(err?.message || "Failed to download statement");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Helper function to format date
   const formatDate = (dateString: string): string => {
@@ -218,9 +419,22 @@ export function ProfessionalPayments() {
           <h1 className="text-[#0A1A2F] mb-2">Payments & Earnings</h1>
           <p className="text-gray-600">Track your income and payment history</p>
         </div>
-        <Button className="bg-red-600 hover:bg-red-700 w-full md:w-auto">
-          <Download className="w-4 h-4 mr-2" />
-          Download Statement
+        <Button 
+          className="bg-red-600 hover:bg-red-700 w-full md:w-auto"
+          onClick={handleDownloadStatement}
+          disabled={isDownloading}
+        >
+          {isDownloading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Downloading...
+            </>
+          ) : (
+            <>
+              <Download className="w-4 h-4 mr-2" />
+              Download Statement
+            </>
+          )}
         </Button>
       </div>
 
