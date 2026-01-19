@@ -1,6 +1,43 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
 
+/**
+ * API ENDPOINT PATTERNS - IMPORTANT REFERENCE
+ * ===========================================
+ * 
+ * This file contains all professional-related API endpoints. To prevent 404 errors,
+ * ensure all endpoints match the exact patterns documented below:
+ * 
+ * VERIFIED WORKING ENDPOINTS:
+ * ---------------------------
+ * 1. Professional Identity: '/professional_wise_identity'
+ * 2. Professional DBS: '/professional_wise_bds' (note: "bds" not "dbs")
+ * 3. Professional Evidence: '/qualifications-certification/professional_wise_evidence'
+ * 4. Verification Summary: '/professional/verification_summary'
+ * 5. Selected Services: '/professional/get_selected_service'
+ * 6. Profile Completion: '/professional/profile_completion_percentage'
+ * 7. Certificates: '/professional/get_certificate'
+ * 8. Store Service Prices: '/professional/service_price_store' (note: singular "price" and no "/store" suffix)
+ * 9. Working Days: '/professional_working_days/list' (note: underscore format with "/list" suffix)
+ * 10. Blocked Days: '/professional_days/block' (note: underscore format with "/block" suffix)
+ * 11. Monthly Availability Summary: '/professional/monthly_availability/summary' (note: nested path format)
+ * 12. Create Professional Day: '/professional_days/create' (note: underscore format with "/create" suffix)
+ * 13. Delete Professional Day: '/professional_days/delete' (note: underscore format with "/delete" suffix)
+ * 
+ * ENDPOINT NAMING CONVENTIONS:
+ * -----------------------------
+ * - "professional_wise_*" endpoints: Use underscore format (e.g., professional_wise_identity)
+ * - "professional/*" endpoints: Use slash format (e.g., professional/get_selected_service)
+ * - "qualifications-certification/*": Use hyphen in path segment
+ * 
+ * IMPORTANT NOTES:
+ * ---------------
+ * - DO NOT add "/show" suffix to these endpoints
+ * - DO NOT change "bds" to "dbs" in professional_wise_bds
+ * - Always verify endpoint paths match API documentation before making changes
+ * - Test endpoints after any modifications to prevent 404 errors
+ */
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
@@ -18,6 +55,16 @@ export interface ProfessionalUserAccountData {
   business_location: string;
 }
 
+export interface GetProfessionalUserRequest {
+  api_token: string;
+}
+
+export interface GetProfessionalUserResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalUserAccountData;
+}
+
 export interface UpdateProfessionalUserRequest {
   api_token: string;
   full_name: string;
@@ -31,6 +78,63 @@ export interface UpdateProfessionalUserResponse {
   message: string;
   data: ProfessionalUserAccountData;
 }
+
+/**
+ * Get professional user account data
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_user/get
+ * Method: POST
+ * @param data - API token
+ * @returns Promise with the API response containing professional user account data
+ */
+export const getProfessionalUser = async (
+  data: GetProfessionalUserRequest
+): Promise<ProfessionalUserAccountData> => {
+  try {
+    const response = await apiClient.post<GetProfessionalUserResponse>(
+      '/professional_user/get',
+      {
+        api_token: data.api_token
+      }
+    );
+    
+    console.log('POST /professional_user/get - Response:', response.data);
+    
+    // Handle the response structure: { status: true, data: {...} }
+    if (response.data.status === true && response.data.data) {
+      console.log('Professional user account data fetched successfully');
+      return response.data.data;
+    }
+    
+    throw {
+      success: false,
+      message: response.data.message || 'Failed to fetch professional user account data',
+      error: 'Invalid response structure',
+    };
+  } catch (error) {
+    console.error('Error fetching professional user account data:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch professional user account data',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
 
 /**
  * Update professional user account settings
@@ -132,9 +236,10 @@ export const getProfessionalWiseIdentity = async (
 ): Promise<GetProfessionalWiseIdentityResponse> => {
   try {
     const response = await apiClient.post<GetProfessionalWiseIdentityResponse>(
-      '/professional_identity/show',
+      '/professional_wise_identity',
       { api_token: data.api_token }
     );
+    console.log('POST /professional_wise_identity - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching professional identity:', error);
@@ -271,9 +376,10 @@ export const getProfessionalWiseDBS = async (
 ): Promise<GetProfessionalWiseDBSResponse> => {
   try {
     const response = await apiClient.post<GetProfessionalWiseDBSResponse>(
-      '/professional_dbs/show',
+      '/professional_wise_bds',
       { api_token: data.api_token }
     );
+    console.log('POST /professional_wise_bds - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching professional DBS:', error);
@@ -398,9 +504,10 @@ export const getProfessionalWiseEvidence = async (
 ): Promise<GetProfessionalWiseEvidenceResponse> => {
   try {
     const response = await apiClient.post<GetProfessionalWiseEvidenceResponse>(
-      '/professional_evidence/show',
+      '/qualifications-certification/professional_wise_evidence',
       { api_token: data.api_token }
     );
+    console.log('POST /qualifications-certification/professional_wise_evidence - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching professional evidence:', error);
@@ -464,9 +571,10 @@ export const getVerificationSummary = async (
 ): Promise<GetVerificationSummaryResponse> => {
   try {
     const response = await apiClient.post<GetVerificationSummaryResponse>(
-      '/professional_verification/summary',
+      '/professional/verification_summary',
       { api_token: data.api_token }
     );
+    console.log('POST /professional/verification_summary - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching verification summary:', error);
@@ -913,12 +1021,13 @@ export const getSelectedServices = async (
 ): Promise<GetSelectedServicesResponse> => {
   try {
     const response = await apiClient.post<GetSelectedServicesResponse>(
-      '/professional/selected_services',
+      '/professional/get_selected_service',
       {
         api_token: data.api_token,
         professional_id: data.professional_id,
       }
     );
+    console.log('POST /professional/get_selected_service - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching selected services:', error);
@@ -973,12 +1082,13 @@ export const getProfileCompletionPercentage = async (
 ): Promise<GetProfileCompletionPercentageResponse> => {
   try {
     const response = await apiClient.post<GetProfileCompletionPercentageResponse>(
-      '/professional/profile_completion',
+      '/professional/profile_completion_percentage',
       {
         api_token: data.api_token,
         professional_id: data.professional_id,
       }
     );
+    console.log('POST /professional/profile_completion_percentage - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching profile completion:', error);
@@ -1035,12 +1145,13 @@ export const getCertificates = async (
 ): Promise<GetCertificatesResponse> => {
   try {
     const response = await apiClient.post<GetCertificatesResponse>(
-      '/professional/certificates',
+      '/professional/get_certificate',
       {
         api_token: data.api_token,
         professional_id: data.professional_id,
       }
     );
+    console.log('POST /professional/get_certificate - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching certificates:', error);
@@ -1093,11 +1204,11 @@ export const storeServicePrices = async (
 ): Promise<StoreServicePricesResponse> => {
   try {
     const response = await apiClient.post<StoreServicePricesResponse>(
-      '/professional/service_prices/store',
+      '/professional/service_price_store',
       data
     );
     
-    console.log('POST /professional/service_prices/store - Response:', response.data);
+    console.log('POST /professional/service_price_store - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error storing service prices:', error);
@@ -1235,9 +1346,10 @@ export const getWorkingDays = async (
 ): Promise<WorkingDayResponse> => {
   try {
     const response = await apiClient.post<WorkingDayResponse>(
-      '/professional/working_days',
+      '/professional_working_days/list',
       { api_token: data.api_token }
     );
+    console.log('POST /professional_working_days/list - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching working days:', error);
@@ -1270,11 +1382,11 @@ export const createProfessionalDay = async (
 ): Promise<CreateProfessionalDayResponse> => {
   try {
     const response = await apiClient.post<CreateProfessionalDayResponse>(
-      '/professional/day/create',
+      '/professional_days/create',
       data
     );
     
-    console.log('POST /professional/day/create - Response:', response.data);
+    console.log('POST /professional_days/create - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error creating professional day:', error);
@@ -1307,9 +1419,10 @@ export const getBlockedDays = async (
 ): Promise<GetBlockedDaysResponse> => {
   try {
     const response = await apiClient.post<GetBlockedDaysResponse>(
-      '/professional/blocked_days',
+      '/professional_days/block',
       { api_token: data.api_token }
     );
+    console.log('POST /professional_days/block - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching blocked days:', error);
@@ -1342,14 +1455,14 @@ export const deleteProfessionalDay = async (
 ): Promise<DeleteProfessionalDayResponse> => {
   try {
     const response = await apiClient.post<DeleteProfessionalDayResponse>(
-      '/professional/day/delete',
+      '/professional_days/delete',
       {
         api_token: data.api_token,
         id: data.id,
       }
     );
     
-    console.log('POST /professional/day/delete - Response:', response.data);
+    console.log('POST /professional_days/delete - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error deleting professional day:', error);
@@ -1417,9 +1530,10 @@ export const getMonthlyAvailabilitySummary = async (
 ): Promise<GetMonthlyAvailabilitySummaryResponse> => {
   try {
     const response = await apiClient.post<GetMonthlyAvailabilitySummaryResponse>(
-      '/professional/monthly_availability_summary',
+      '/professional/monthly_availability/summary',
       { api_token: data.api_token }
     );
+    console.log('POST /professional/monthly_availability/summary - Response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching monthly availability summary:', error);

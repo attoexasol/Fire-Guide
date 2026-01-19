@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { getApiToken } from '../lib/auth';
 
 // TypeScript types for Professional Booking Store request
 export interface ProfessionalBookingStoreRequest {
@@ -194,17 +195,27 @@ export interface GetProfessionalBookingsResponse {
 
 /**
  * Get all professional bookings
- * BaseURL: https://fireguide.attoexasolutions.com/api/professional_booking
- * Method: GET
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_booking/professional_wise_get
+ * Method: POST
  * @returns Promise with the API response containing array of professional bookings
  */
 export const getProfessionalBookings = async (): Promise<ProfessionalBookingItem[]> => {
   try {
-    const response = await apiClient.get<GetProfessionalBookingsResponse>(
-      '/professional_booking'
+    const api_token = getApiToken();
+    
+    if (!api_token) {
+      console.warn('No API token available for fetching professional bookings');
+      return [];
+    }
+    
+    console.log('POST /professional_booking/professional_wise_get - Requesting...');
+    
+    const response = await apiClient.post<GetProfessionalBookingsResponse>(
+      '/professional_booking/professional_wise_get',
+      { api_token }
     );
     
-    console.log('GET /professional_booking - Response:', response.data);
+    console.log('POST /professional_booking/professional_wise_get - Response:', response.data);
     
     // Handle the response structure: { status: 'success', data: [...] }
     if (response.data.status === 'success' && Array.isArray(response.data.data)) {
@@ -370,6 +381,7 @@ export const updateProfessionalBooking = async (
 
 // TypeScript types for Search Professional Bookings request
 export interface SearchProfessionalBookingsRequest {
+  api_token?: string;
   search?: string;
   status?: string;
 }
@@ -391,12 +403,24 @@ export const searchProfessionalBookings = async (
   data: SearchProfessionalBookingsRequest
 ): Promise<ProfessionalBookingItem[]> => {
   try {
+    const api_token = getApiToken();
+    
+    if (!api_token) {
+      console.warn('No API token available for searching bookings');
+      return [];
+    }
+    
+    const requestData = {
+      api_token,
+      ...data
+    };
+    
     const response = await apiClient.post<SearchProfessionalBookingsResponse>(
       '/professional_booking/search',
-      data
+      requestData
     );
     
-    console.log('POST /professional_booking/search - Request:', data);
+    console.log('POST /professional_booking/search - Request:', requestData);
     console.log('POST /professional_booking/search - Response:', response.data);
     
     // Handle the response structure: { status: 'success', data: [...] }
@@ -460,16 +484,25 @@ export const getBookingSummary = async (
   api_token: string
 ): Promise<BookingSummaryResponse> => {
   try {
+    console.log('POST /professional_booking/summary - Requesting with token:', api_token.substring(0, 20) + '...');
+    
     const response = await apiClient.post<BookingSummaryResponse>(
       '/professional_booking/summary',
       { api_token }
     );
     
     console.log('POST /professional_booking/summary - Response:', response.data);
+    console.log('POST /professional_booking/summary - Status:', response.status);
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching booking summary:', error);
     if (axios.isAxiosError(error)) {
+      console.error('Axios error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
       if (error.response) {
         throw {
           success: false,

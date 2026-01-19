@@ -434,6 +434,69 @@ export const updateUser = async (
   }
 };
 
+// TypeScript types for change password request
+export interface ChangePasswordRequest {
+  api_token: string;
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}
+
+// TypeScript types for change password response
+export interface ChangePasswordResponse {
+  status: boolean;
+  message: string;
+  error?: string;
+}
+
+/**
+ * Change user password
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user/change_password
+ * Method: POST
+ * @param data - API token, current password, new password, and confirmation
+ * @returns Promise with the API response
+ */
+export const changePassword = async (
+  data: ChangePasswordRequest
+): Promise<ChangePasswordResponse> => {
+  try {
+    const response = await apiClient.post<ChangePasswordResponse>(
+      '/user/change_password',
+      {
+        api_token: data.api_token,
+        current_password: data.current_password,
+        new_password: data.new_password,
+        new_password_confirmation: data.new_password_confirmation,
+      }
+    );
+    console.log('POST /user/change_password - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error changing password:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to change password',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
 // TypeScript types for upload profile image request
 export interface UploadProfileImageRequest {
   api_token: string;

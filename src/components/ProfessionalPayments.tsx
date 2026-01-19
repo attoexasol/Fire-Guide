@@ -136,8 +136,22 @@ export function ProfessionalPayments() {
       }
 
       const earnings = await getMonthlyEarnings(apiToken);
-      // API returns array directly, map it to the format expected by the UI
-      setMonthlyEarnings(earnings);
+      console.log("Raw monthly earnings from API:", earnings);
+      
+      // Map API response to expected format with safe defaults
+      const mappedEarnings = earnings.map((item: any) => ({
+        month: item.month || item.name || 'Unknown',
+        earnings: typeof item.earnings === 'number' ? item.earnings : 
+                  typeof item.amount === 'number' ? item.amount :
+                  typeof item.total === 'number' ? item.total :
+                  parseFloat(item.earnings) || parseFloat(item.amount) || parseFloat(item.total) || 0,
+        jobs: typeof item.jobs === 'number' ? item.jobs :
+              typeof item.count === 'number' ? item.count :
+              parseInt(item.jobs) || parseInt(item.count) || 0
+      }));
+      
+      console.log("Mapped monthly earnings:", mappedEarnings);
+      setMonthlyEarnings(mappedEarnings);
     } catch (err: any) {
       console.error("Error fetching monthly earnings:", err);
       // Don't show toast for monthly earnings errors, just log them
@@ -271,12 +285,12 @@ export function ProfessionalPayments() {
                     <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 text-sm md:text-base">{month.month} 2025</p>
-                    <p className="text-xs md:text-sm text-gray-500">{month.jobs} completed jobs</p>
+                    <p className="font-medium text-gray-900 text-sm md:text-base">{month.month || 'Unknown'} 2025</p>
+                    <p className="text-xs md:text-sm text-gray-500">{month.jobs || 0} completed jobs</p>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-2">
-                  <p className="text-xl md:text-2xl font-semibold text-gray-900">£{month.earnings.toLocaleString()}</p>
+                  <p className="text-xl md:text-2xl font-semibold text-gray-900">£{(month.earnings ?? 0).toLocaleString()}</p>
                   <p className="text-xs md:text-sm text-gray-500 whitespace-nowrap">after commission</p>
                 </div>
               </div>

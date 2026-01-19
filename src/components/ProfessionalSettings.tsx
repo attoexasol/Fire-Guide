@@ -9,8 +9,9 @@ import { Switch } from "./ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { toast } from "sonner";
 import { getPayoutDetails, createOrUpdatePayoutDetails } from "../api/paymentService";
-import { getPrivacySettings, createOrUpdatePrivacySettings, getNotificationSettings, createOrUpdateNotificationSettings, updateProfessionalUser, fetchProfessionals } from "../api/professionalsService";
+import { getPrivacySettings, createOrUpdatePrivacySettings, getNotificationSettings, createOrUpdateNotificationSettings, updateProfessionalUser, getProfessionalUser } from "../api/professionalsService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
+import { changePassword } from "../api/authService";
 
 export function ProfessionalSettings() {
   // Account Settings
@@ -23,6 +24,8 @@ export function ProfessionalSettings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isCurrentPasswordFocused, setIsCurrentPasswordFocused] = useState(false);
 
   // Notification Preferences
   const [emailNotifications, setEmailNotifications] = useState(false);
@@ -51,7 +54,6 @@ export function ProfessionalSettings() {
     try {
       setAccountLoading(true);
       const apiToken = getApiToken();
-      const professionalId = getProfessionalId();
       
       if (!apiToken) {
         console.warn("API token not found. Cannot fetch account settings.");
@@ -59,28 +61,19 @@ export function ProfessionalSettings() {
         return;
       }
 
-      // Fetch professional data to get account information
-      if (professionalId) {
-        const professionals = await fetchProfessionals(1);
-        const currentProfessional = professionals.find(prof => prof.id === professionalId);
-        
-        if (currentProfessional) {
-          // Map professional data to account settings
-          // Note: API returns 'name' but account settings uses 'full_name'
-          // We'll use 'name' for full_name, and 'number' for phone
-          setFullName(currentProfessional.name || "");
-          setEmail(currentProfessional.email || "");
-          setPhone(currentProfessional.number || "");
-          setAddress(currentProfessional.business_location || "");
-        } else {
-          // No professional data found - keep fields empty
-          setFullName("");
-          setEmail("");
-          setPhone("");
-          setAddress("");
-        }
+      // Fetch professional user account data from the correct endpoint
+      const accountData = await getProfessionalUser({
+        api_token: apiToken
+      });
+      
+      if (accountData) {
+        // Map the API response directly to state
+        setFullName(accountData.full_name || "");
+        setEmail(accountData.email || "");
+        setPhone(accountData.phone || "");
+        setAddress(accountData.business_location || "");
       } else {
-        // No professional_id - keep fields empty
+        // No data found - keep fields empty
         setFullName("");
         setEmail("");
         setPhone("");
@@ -102,6 +95,20 @@ export function ProfessionalSettings() {
   // Fetch account settings from API on component mount
   useEffect(() => {
     fetchAccountSettings();
+    // Ensure password fields are empty on mount and reset focus state
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setIsCurrentPasswordFocused(false);
+    
+    // Clear any autofilled values after a short delay (browsers sometimes autofill after mount)
+    const clearAutofillTimer = setTimeout(() => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    }, 100);
+    
+    return () => clearTimeout(clearAutofillTimer);
   }, []);
 
   const handleSaveAccount = async () => {
@@ -152,19 +159,61 @@ export function ProfessionalSettings() {
     }
   };
 
-  const handleChangePassword = () => {
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match!");
-      return;
+  const handleChangePassword = async () => {
+    try {
+      // Validate passwords match
+      if (newPassword !== confirmPassword) {
+        toast.error("New passwords do not match!");
+        return;
+      }
+      
+      // Validate password length
+      if (newPassword.length < 8) {
+        toast.error("Password must be at least 8 characters long!");
+        return;
+      }
+      
+      // Validate current password is provided
+      if (!currentPassword.trim()) {
+        toast.error("Current password is required!");
+        return;
+      }
+
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        toast.error("Authentication token not found. Please log in again.");
+        return;
+      }
+
+      setIsChangingPassword(true);
+      
+      console.log("Changing password...");
+      const response = await changePassword({
+        api_token: apiToken,
+        current_password: currentPassword.trim(),
+        new_password: newPassword.trim(),
+        new_password_confirmation: confirmPassword.trim(),
+      });
+      
+      console.log("Change password response:", response);
+      
+      if (response.status === true) {
+        toast.success(response.message || "Password changed successfully!");
+        // Clear password fields on success and reset focus state
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setIsCurrentPasswordFocused(false);
+      } else {
+        toast.error(response.message || "Failed to change password");
+      }
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      toast.error(error.message || "Failed to change password");
+    } finally {
+      setIsChangingPassword(false);
     }
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long!");
-      return;
-    }
-    toast.success("Password changed successfully!");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
   };
 
   // Function to fetch notification settings (can be called from multiple places)
@@ -527,13 +576,31 @@ export function ProfessionalSettings() {
             <Label htmlFor="currentPassword">Current Password</Label>
             <div className="relative mt-2">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              {/* Hidden dummy field to prevent browser autofill */}
+              <input
+                type="password"
+                style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none' }}
+                tabIndex={-1}
+                autoComplete="new-password"
+                readOnly
+              />
               <Input
                 id="currentPassword"
+                name="current-password-field"
                 type={showPassword ? "text" : "password"}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                onFocus={() => {
+                  setIsCurrentPasswordFocused(true);
+                  // Clear any autofilled value on focus
+                  if (currentPassword && !isCurrentPasswordFocused) {
+                    setCurrentPassword("");
+                  }
+                }}
                 className="pl-10 pr-10"
                 placeholder="Enter current password"
+                autoComplete="new-password"
+                readOnly={!isCurrentPasswordFocused}
               />
               <button
                 type="button"
@@ -580,9 +647,13 @@ export function ProfessionalSettings() {
             </div>
           </div>
 
-          <Button onClick={handleChangePassword} className="bg-red-600 hover:bg-red-700">
+          <Button 
+            onClick={handleChangePassword} 
+            className="bg-red-600 hover:bg-red-700"
+            disabled={isChangingPassword}
+          >
             <Save className="w-4 h-4 mr-2" />
-            Change Password
+            {isChangingPassword ? "Changing Password..." : "Change Password"}
           </Button>
         </CardContent>
       </Card>

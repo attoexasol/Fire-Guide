@@ -130,27 +130,40 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     try {
       setIsLoadingStats(true);
       const apiToken = getApiToken();
+      
       if (!apiToken) {
         console.warn("No API token available for fetching summary");
+        toast.error("Please log in to view booking summary");
         return;
       }
 
+      console.log("Fetching booking summary with token:", apiToken.substring(0, 20) + "...");
+      
+      // Call the /professional_booking/summary API to get booking counts
       const summaryResponse = await getBookingSummary(apiToken);
-      if (summaryResponse.status && summaryResponse.data) {
-        setStats({
+      console.log("Booking summary response:", summaryResponse);
+      
+      if (summaryResponse.status === true && summaryResponse.data) {
+        const newStats = {
           upcoming: summaryResponse.data.upcoming || 0,
           pending: summaryResponse.data.pending || 0,
           completed: summaryResponse.data.completed || 0,
-        });
+        };
+        console.log("Setting stats:", newStats);
+        setStats(newStats);
+      } else {
+        console.warn("Invalid response format:", summaryResponse);
       }
     } catch (err: any) {
       console.error("Error fetching booking summary:", err);
       // On error, fall back to calculating from allBookingsData
-      setStats({
+      const fallbackStats = {
         upcoming: allBookingsData.filter(b => b.status === "confirmed").length,
         pending: allBookingsData.filter(b => b.status === "pending").length,
         completed: allBookingsData.filter(b => b.status === "completed").length,
-      });
+      };
+      console.log("Using fallback stats:", fallbackStats);
+      setStats(fallbackStats);
     } finally {
       setIsLoadingStats(false);
     }
