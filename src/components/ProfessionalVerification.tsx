@@ -271,23 +271,26 @@ export function ProfessionalVerification() {
         : null,
       icon: Award,
       documents: qualificationsEvidence.map((item) => {
+        // Use evidence if available, otherwise fall back to file
+        const evidenceOrFile = item.evidence || item.file || '';
+        
         // Extract filename from URL or use evidence as filename
-        let fileName = item.evidence;
-        let fileUrl = item.evidence;
+        let fileName = evidenceOrFile;
+        let fileUrl = evidenceOrFile;
         
         // If it's already a full URL, use it directly
         // Otherwise, construct the full URL from the base URL
-        if (!item.evidence.includes('http://') && !item.evidence.includes('https://')) {
+        if (evidenceOrFile && !evidenceOrFile.includes('http://') && !evidenceOrFile.includes('https://')) {
           // It's a filename, construct the full URL
           const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
           // Remove /api from the end if present
           const apiBaseUrl = baseUrl.replace(/\/api$/, '');
-          fileUrl = `${apiBaseUrl}/certificates/${item.evidence}`;
+          fileUrl = `${apiBaseUrl}/certificates/${evidenceOrFile}`;
         }
         
-        if (item.evidence.includes('/')) {
+        if (evidenceOrFile && evidenceOrFile.includes('/')) {
           // Extract filename from URL
-          const urlParts = item.evidence.split('/');
+          const urlParts = evidenceOrFile.split('/');
           fileName = urlParts[urlParts.length - 1];
         }
         

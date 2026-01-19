@@ -502,4 +502,3 @@ export const uploadProfileImage = async (
     };
   }
 };
-

@@ -294,3 +294,156 @@ export const getMonthlyEarnings = async (
     };
   }
 };
+
+// TypeScript types for Payout Details
+export interface PayoutDetails {
+  id: number;
+  account_holder_name: string;
+  sort_code: string;
+  account_number: string;
+  note?: string | null;
+  professional_id: number;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GetPayoutDetailsRequest {
+  api_token: string;
+}
+
+export interface GetPayoutDetailsResponse {
+  status: boolean;
+  message: string;
+  data: PayoutDetails;
+}
+
+/**
+ * Get payout details for the authenticated professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/payout_details/get
+ * Method: POST
+ * @param api_token - The API token for authentication
+ * @returns Promise with the API response containing payout details
+ */
+export const getPayoutDetails = async (
+  api_token: string
+): Promise<PayoutDetails | null> => {
+  try {
+    const response = await apiClient.post<GetPayoutDetailsResponse>(
+      '/payout_details/get',
+      { api_token }
+    );
+    
+    console.log('POST /payout_details/get - Response:', response.data);
+    
+    // Handle the response structure: { status: true, data: {...} }
+    if (response.data.status === true && response.data.data) {
+      console.log('Payout details fetched successfully');
+      return response.data.data;
+    }
+    
+    // Fallback: return null if no data
+    console.warn('No payout details found in API response');
+    return null;
+  } catch (error) {
+    console.error('Error fetching payout details:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch payout details',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Create/Update Payout Details
+export interface CreatePayoutDetailsRequest {
+  api_token: string;
+  account_holder_name: string;
+  sort_code: string;
+  account_number: string;
+  note?: string;
+}
+
+export interface CreatePayoutDetailsResponse {
+  status: boolean;
+  message: string;
+  data: PayoutDetails;
+}
+
+/**
+ * Create or update payout details for the authenticated professional
+ * BaseURL: https://fireguide.attoexasolutions.com/api/payout_details/create
+ * Method: POST
+ * @param data - Payout details data
+ * @returns Promise with the API response containing payout details
+ */
+export const createOrUpdatePayoutDetails = async (
+  data: CreatePayoutDetailsRequest
+): Promise<PayoutDetails> => {
+  try {
+    const response = await apiClient.post<CreatePayoutDetailsResponse>(
+      '/payout_details/create',
+      {
+        api_token: data.api_token,
+        account_holder_name: data.account_holder_name,
+        sort_code: data.sort_code,
+        account_number: data.account_number,
+        note: data.note || '',
+      }
+    );
+    
+    console.log('POST /payout_details/create - Response:', response.data);
+    
+    // Handle the response structure: { status: true, data: {...} }
+    if (response.data.status === true && response.data.data) {
+      console.log('Payout details created/updated successfully');
+      return response.data.data;
+    }
+    
+    throw {
+      success: false,
+      message: response.data.message || 'Failed to create/update payout details',
+      error: 'Invalid response structure',
+    };
+  } catch (error) {
+    console.error('Error creating/updating payout details:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create/update payout details',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

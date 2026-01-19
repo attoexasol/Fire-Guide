@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Save, User, Bell, Lock, CreditCard, Mail, Phone, MapPin, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -8,39 +8,148 @@ import { Separator } from "./ui/separator";
 import { Switch } from "./ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { toast } from "sonner";
+import { getPayoutDetails, createOrUpdatePayoutDetails } from "../api/paymentService";
+import { getPrivacySettings, createOrUpdatePrivacySettings, getNotificationSettings, createOrUpdateNotificationSettings, updateProfessionalUser, fetchProfessionals } from "../api/professionalsService";
+import { getApiToken, getProfessionalId } from "../lib/auth";
 
 export function ProfessionalSettings() {
   // Account Settings
-  const [fullName, setFullName] = useState("John Smith");
-  const [email, setEmail] = useState("john.smith@example.com");
-  const [phone, setPhone] = useState("+44 7700 900123");
-  const [address, setAddress] = useState("123 Fire Safety Street, London, SW1A 1AA");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [accountLoading, setAccountLoading] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   // Notification Preferences
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [bookingAlerts, setBookingAlerts] = useState(true);
-  const [paymentAlerts, setPaymentAlerts] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [smsNotifications, setSmsNotifications] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [bookingAlerts, setBookingAlerts] = useState(false);
+  const [paymentAlerts, setPaymentAlerts] = useState(false);
   const [marketingEmails, setMarketingEmails] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(true);
 
   // Privacy Settings
   const [profileVisibility, setProfileVisibility] = useState("public");
-  const [showPhoneNumber, setShowPhoneNumber] = useState(true);
+  const [showPhoneNumber, setShowPhoneNumber] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
-  const [allowReviews, setAllowReviews] = useState(true);
+  const [allowReviews, setAllowReviews] = useState(false);
+  const [privacyLoading, setPrivacyLoading] = useState(true);
 
   // Payout Settings
-  const [accountHolderName, setAccountHolderName] = useState("John Smith");
-  const [sortCode, setSortCode] = useState("12-34-56");
-  const [accountNumber, setAccountNumber] = useState("12345678");
+  const [accountHolderName, setAccountHolderName] = useState("");
+  const [sortCode, setSortCode] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [payoutLoading, setPayoutLoading] = useState(true);
 
-  const handleSaveAccount = () => {
-    toast.success("Account settings saved successfully!");
+  // Function to fetch account settings (can be called from multiple places)
+  const fetchAccountSettings = async () => {
+    try {
+      setAccountLoading(true);
+      const apiToken = getApiToken();
+      const professionalId = getProfessionalId();
+      
+      if (!apiToken) {
+        console.warn("API token not found. Cannot fetch account settings.");
+        setAccountLoading(false);
+        return;
+      }
+
+      // Fetch professional data to get account information
+      if (professionalId) {
+        const professionals = await fetchProfessionals(1);
+        const currentProfessional = professionals.find(prof => prof.id === professionalId);
+        
+        if (currentProfessional) {
+          // Map professional data to account settings
+          // Note: API returns 'name' but account settings uses 'full_name'
+          // We'll use 'name' for full_name, and 'number' for phone
+          setFullName(currentProfessional.name || "");
+          setEmail(currentProfessional.email || "");
+          setPhone(currentProfessional.number || "");
+          setAddress(currentProfessional.business_location || "");
+        } else {
+          // No professional data found - keep fields empty
+          setFullName("");
+          setEmail("");
+          setPhone("");
+          setAddress("");
+        }
+      } else {
+        // No professional_id - keep fields empty
+        setFullName("");
+        setEmail("");
+        setPhone("");
+        setAddress("");
+      }
+    } catch (error: any) {
+      console.error("Error fetching account settings:", error);
+      // Don't show toast error, just log it - user might not have professional data set up yet
+      // Keep fields empty so user can enter data
+      setFullName("");
+      setEmail("");
+      setPhone("");
+      setAddress("");
+    } finally {
+      setAccountLoading(false);
+    }
+  };
+
+  // Fetch account settings from API on component mount
+  useEffect(() => {
+    fetchAccountSettings();
+  }, []);
+
+  const handleSaveAccount = async () => {
+    try {
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        toast.error("Authentication token not found. Please log in again.");
+        return;
+      }
+
+      // Validate required fields
+      if (!fullName.trim()) {
+        toast.error("Full name is required");
+        return;
+      }
+      if (!email.trim()) {
+        toast.error("Email address is required");
+        return;
+      }
+      if (!phone.trim()) {
+        toast.error("Phone number is required");
+        return;
+      }
+      if (!address.trim()) {
+        toast.error("Business address is required");
+        return;
+      }
+
+      console.log("Saving account settings...");
+      const response = await updateProfessionalUser({
+        api_token: apiToken,
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        business_location: address.trim(),
+      });
+      
+      console.log("Save account settings response:", response);
+      
+      // Refresh account settings to get updated data
+      await fetchAccountSettings();
+      
+      toast.success("Account settings saved successfully!");
+    } catch (error: any) {
+      console.error("Error saving account settings:", error);
+      toast.error(error.message || "Failed to save account settings");
+    }
   };
 
   const handleChangePassword = () => {
@@ -58,16 +167,277 @@ export function ProfessionalSettings() {
     setConfirmPassword("");
   };
 
-  const handleSaveNotifications = () => {
-    toast.success("Notification preferences saved successfully!");
+  // Function to fetch notification settings (can be called from multiple places)
+  const fetchNotificationSettings = async () => {
+    try {
+      setNotificationLoading(true);
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        console.warn("API token not found. Cannot fetch notification settings.");
+        setNotificationLoading(false);
+        return;
+      }
+
+      const notificationData = await getNotificationSettings(apiToken);
+      
+      if (notificationData) {
+        // Map API values: handle both number (1/0) and boolean formats
+        setEmailNotifications(
+          typeof notificationData.is_email_notifications === 'boolean' 
+            ? notificationData.is_email_notifications 
+            : notificationData.is_email_notifications === 1
+        );
+        setSmsNotifications(
+          typeof notificationData.is_sms_notifications === 'boolean' 
+            ? notificationData.is_sms_notifications 
+            : notificationData.is_sms_notifications === 1
+        );
+        setPushNotifications(
+          typeof notificationData.is_push_notifications === 'boolean' 
+            ? notificationData.is_push_notifications 
+            : notificationData.is_push_notifications === 1
+        );
+        setBookingAlerts(
+          typeof notificationData.is_booking_alert === 'boolean' 
+            ? notificationData.is_booking_alert 
+            : notificationData.is_booking_alert === 1
+        );
+        setPaymentAlerts(
+          typeof notificationData.is_payment_alert === 'boolean' 
+            ? notificationData.is_payment_alert 
+            : notificationData.is_payment_alert === 1
+        );
+        setMarketingEmails(
+          typeof notificationData.is_marketing_emails === 'boolean' 
+            ? notificationData.is_marketing_emails 
+            : notificationData.is_marketing_emails === 1
+        );
+      } else {
+        // No data exists - keep default values (all OFF)
+        setEmailNotifications(false);
+        setSmsNotifications(false);
+        setPushNotifications(false);
+        setBookingAlerts(false);
+        setPaymentAlerts(false);
+        setMarketingEmails(false);
+      }
+    } catch (error: any) {
+      console.error("Error fetching notification settings:", error);
+      // Don't show toast error, just log it - user might not have notification settings set up yet
+      // Keep default values so user can create new notification settings
+      setEmailNotifications(false);
+      setSmsNotifications(false);
+      setPushNotifications(false);
+      setBookingAlerts(false);
+      setPaymentAlerts(false);
+      setMarketingEmails(false);
+    } finally {
+      setNotificationLoading(false);
+    }
   };
 
-  const handleSavePrivacy = () => {
-    toast.success("Privacy settings saved successfully!");
+  // Fetch notification settings from API on component mount
+  useEffect(() => {
+    fetchNotificationSettings();
+  }, []);
+
+  const handleSaveNotifications = async () => {
+    try {
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        toast.error("Authentication token not found. Please log in again.");
+        return;
+      }
+
+      console.log("Saving notification settings...");
+      // Send boolean values directly (API accepts boolean, not 1/0)
+      const response = await createOrUpdateNotificationSettings({
+        api_token: apiToken,
+        is_email_notifications: emailNotifications,
+        is_sms_notifications: smsNotifications,
+        is_push_notifications: pushNotifications,
+        is_booking_alert: bookingAlerts,
+        is_payment_alert: paymentAlerts,
+        is_marketing_emails: marketingEmails,
+      });
+      
+      console.log("Save notification settings response:", response);
+      
+      // Refresh notification settings to get updated data
+      await fetchNotificationSettings();
+      
+      toast.success("Notification preferences saved successfully!");
+    } catch (error: any) {
+      console.error("Error saving notification settings:", error);
+      toast.error(error.message || "Failed to save notification preferences");
+    }
   };
 
-  const handleSavePayout = () => {
-    toast.success("Payout settings saved successfully!");
+  // Function to fetch privacy settings (can be called from multiple places)
+  const fetchPrivacySettings = async () => {
+    try {
+      setPrivacyLoading(true);
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        console.warn("API token not found. Cannot fetch privacy settings.");
+        setPrivacyLoading(false);
+        return;
+      }
+
+      const privacyData = await getPrivacySettings(apiToken);
+      
+      if (privacyData) {
+        setProfileVisibility(privacyData.profile_visibility || "public");
+        // Map API values: handle both boolean and number (1/0) formats
+        setShowPhoneNumber(
+          typeof privacyData.is_show_phone === 'boolean' 
+            ? privacyData.is_show_phone 
+            : privacyData.is_show_phone === 1
+        );
+        setShowEmail(
+          typeof privacyData.is_show_email === 'boolean' 
+            ? privacyData.is_show_email 
+            : privacyData.is_show_email === 1
+        );
+        setAllowReviews(
+          typeof privacyData.is_allow_customer_review === 'boolean' 
+            ? privacyData.is_allow_customer_review 
+            : privacyData.is_allow_customer_review === 1
+        );
+      } else {
+        // No data exists - keep default values
+        setProfileVisibility("public");
+        setShowPhoneNumber(false);
+        setShowEmail(false);
+        setAllowReviews(false);
+      }
+    } catch (error: any) {
+      console.error("Error fetching privacy settings:", error);
+      // Don't show toast error, just log it - user might not have privacy settings set up yet
+      // Keep default values so user can create new privacy settings
+      setProfileVisibility("public");
+      setShowPhoneNumber(false);
+      setShowEmail(false);
+      setAllowReviews(false);
+    } finally {
+      setPrivacyLoading(false);
+    }
+  };
+
+  // Fetch privacy settings from API on component mount
+  useEffect(() => {
+    fetchPrivacySettings();
+  }, []);
+
+  const handleSavePrivacy = async () => {
+    try {
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        toast.error("Authentication token not found. Please log in again.");
+        return;
+      }
+
+      console.log("Saving privacy settings...");
+      // Send boolean values directly (API accepts boolean, not 1/0)
+      const response = await createOrUpdatePrivacySettings({
+        api_token: apiToken,
+        profile_visibility: profileVisibility,
+        is_show_phone: showPhoneNumber,
+        is_show_email: showEmail,
+        is_allow_customer_review: allowReviews,
+      });
+      
+      console.log("Save privacy settings response:", response);
+      
+      // Refresh privacy settings to get updated data
+      await fetchPrivacySettings();
+      
+      toast.success("Privacy settings saved successfully!");
+    } catch (error: any) {
+      console.error("Error saving privacy settings:", error);
+      toast.error(error.message || "Failed to save privacy settings");
+    }
+  };
+
+  // Function to fetch payout details (can be called from multiple places)
+  const fetchPayoutDetails = async () => {
+    try {
+      setPayoutLoading(true);
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        console.warn("API token not found. Cannot fetch payout details.");
+        setPayoutLoading(false);
+        return;
+      }
+
+      const payoutData = await getPayoutDetails(apiToken);
+      
+      if (payoutData) {
+        setAccountHolderName(payoutData.account_holder_name || "");
+        setSortCode(payoutData.sort_code || "");
+        setAccountNumber(payoutData.account_number || "");
+      } else {
+        // No data exists - keep form fields empty for user to enter
+        setAccountHolderName("");
+        setSortCode("");
+        setAccountNumber("");
+      }
+    } catch (error: any) {
+      console.error("Error fetching payout details:", error);
+      // Don't show toast error, just log it - user might not have payout details set up yet
+      // Keep form fields empty so user can create new payout details
+      setAccountHolderName("");
+      setSortCode("");
+      setAccountNumber("");
+    } finally {
+      setPayoutLoading(false);
+    }
+  };
+
+  // Fetch payout details from API on component mount
+  useEffect(() => {
+    fetchPayoutDetails();
+  }, []);
+
+  const handleSavePayout = async () => {
+    try {
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        toast.error("Authentication token not found. Please log in again.");
+        return;
+      }
+
+      // Validate required fields
+      if (!accountHolderName || !sortCode || !accountNumber) {
+        toast.error("Please fill in all required fields.");
+        return;
+      }
+
+      console.log("Saving payout details...");
+      const response = await createOrUpdatePayoutDetails({
+        api_token: apiToken,
+        account_holder_name: accountHolderName,
+        sort_code: sortCode,
+        account_number: accountNumber,
+        note: "Primary payout account",
+      });
+      
+      console.log("Save payout details response:", response);
+      
+      // Refresh payout details to get updated data
+      await fetchPayoutDetails();
+      
+      toast.success("Payout settings saved successfully!");
+    } catch (error: any) {
+      console.error("Error saving payout details:", error);
+      toast.error(error.message || "Failed to save payout settings");
+    }
   };
 
   return (
