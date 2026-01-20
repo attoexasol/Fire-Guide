@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Search, Calendar, MapPin, Clock, User, ChevronRight, Filter, X, CheckCircle, AlertCircle, Phone, Mail, Home, FileText, Navigation, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Calendar, MapPin, Clock, User, ChevronRight, Filter, X, CheckCircle, AlertCircle, Phone, Mail, Home, FileText, Navigation, Loader2, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -100,6 +101,7 @@ const mapApiResponseToBooking = (apiBooking: ProfessionalBookingItem): Booking =
 };
 
 export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProps) {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -623,17 +625,34 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                       <Calendar className="w-4 h-4 mr-2" />
                       Reschedule
                     </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        // Get raw API booking data to access user_id
+                        const apiBooking = apiBookingsMap.get(booking.id);
+                        navigate("/professional/reports", { 
+                          state: { 
+                            booking: {
+                              id: booking.id,
+                              user_id: apiBooking?.user_id || null,
+                              reference: booking.reference,
+                              service: booking.service,
+                              customer: booking.customer,
+                              customerEmail: booking.customerEmail,
+                              customerPhone: booking.customerPhone,
+                              date: booking.date,
+                              time: booking.time,
+                              location: booking.location,
+                              status: booking.status
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Report
+                    </Button>
                   </>
-                )}
-
-                {booking.status === "completed" && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => handleViewReport(booking)}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    View Report
-                  </Button>
                 )}
 
                 {booking.status === "pending" && (

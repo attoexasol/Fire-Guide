@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -14,36 +15,90 @@ import {
   Calendar, 
   User, 
   MapPin, 
-  AlertCircle 
+  AlertCircle,
+  Loader2
 } from "lucide-react";
+import { uploadReport } from "../api/professionalsService";
+import { getApiToken } from "../lib/auth";
+import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+
+interface BookingData {
+  id: number;
+  user_id: number | null;
+  reference: string;
+  service: string;
+  customer: string;
+  customerEmail: string;
+  customerPhone: string;
+  date: string;
+  time: string;
+  location: string;
+  status: string;
+}
+
+interface LocationState {
+  booking?: BookingData;
+}
 
 interface ReportUploadProps {
   onBack: () => void;
 }
 
+// Helper function to parse location string
+const parseLocation = (location: string) => {
+  const parts = location.split(', ').filter(Boolean);
+  if (parts.length >= 3) {
+    return {
+      address: parts[0],
+      city: parts[1],
+      postcode: parts[2]
+    };
+  } else if (parts.length === 2) {
+    return {
+      address: parts[0],
+      city: parts[1],
+      postcode: ""
+    };
+  }
+  return {
+    address: location || "Not specified",
+    city: "",
+    postcode: ""
+  };
+};
+
 export function ReportUpload({ onBack }: ReportUploadProps) {
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+  const bookingData = state?.booking;
+
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [notes, setNotes] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Parse location into address parts
+  const propertyInfo = parseLocation(bookingData?.location || "");
+
+  // Use dynamic booking data or fallback to defaults
   const job = {
-    reference: "FG-2025-00847",
-    service: "Fire Risk Assessment",
-    date: "Thursday, 21 November 2025",
-    time: "10:00 AM",
+    reference: bookingData?.reference || "FG-2025-00000",
+    service: bookingData?.service || "Fire Risk Assessment",
+    date: bookingData?.date || "Not scheduled",
+    time: bookingData?.time || "",
     customer: {
-      name: "John Smith",
-      email: "john.smith@example.com",
-      phone: "07123 456789"
+      name: bookingData?.customer || "Unknown Customer",
+      email: bookingData?.customerEmail || "Not provided",
+      phone: bookingData?.customerPhone || "Not provided"
     },
     property: {
-      address: "123 High Street",
-      city: "London",
-      postcode: "SW1A 1AA"
+      address: propertyInfo.address,
+      city: propertyInfo.city,
+      postcode: propertyInfo.postcode
     },
-    status: "Completed"
+    status: bookingData?.status ? bookingData.status.charAt(0).toUpperCase() + bookingData.status.slice(1) : "Pending"
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -89,9 +144,62 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  const handleSubmit = () => {
-    if (uploadedFiles.length > 0) {
-      setIsSubmitted(true);
+  // Helper function to convert file to Base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result); // Returns full data URL with prefix
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (uploadedFiles.length === 0) {
+      toast.error("Please upload at least one file");
+      return;
+    }
+
+    if (!bookingData?.id) {
+      toast.error("Booking information is missing");
+      return;
+    }
+
+    const apiToken = getApiToken();
+    if (!apiToken) {
+      toast.error("Please log in to submit report");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      // Convert the first file to Base64
+      const base64File = await fileToBase64(uploadedFiles[0]);
+
+      // Call the API
+      const response = await uploadReport({
+        api_token: apiToken,
+        user_id: bookingData.user_id,
+        booking_id: bookingData.id,
+        note: notes || "",
+        report_file: base64File
+      });
+
+      if (response.status === "success") {
+        toast.success(response.message || "Report uploaded successfully!");
+        setIsSubmitted(true);
+      } else {
+        toast.error(response.message || "Failed to upload report");
+      }
+    } catch (err: any) {
+      console.error("Error uploading report:", err);
+      toast.error(err?.message || "Failed to upload report. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -415,17 +523,26 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
 
               {/* Submit Button */}
               <div className="flex justify-end gap-3">
-                <Button variant="outline" size="lg">
+                <Button variant="outline" size="lg" disabled={isSubmitting}>
                   Save as Draft
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={uploadedFiles.length === 0}
+                  disabled={uploadedFiles.length === 0 || isSubmitting}
                   className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
-                  <Upload className="w-5 h-5 mr-2" />
-                  Submit Report
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 mr-2" />
+                      Submit Report
+                    </>
+                  )}
                 </Button>
               </div>
 

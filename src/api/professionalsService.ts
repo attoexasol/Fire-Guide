@@ -1627,3 +1627,81 @@ export const getDashboardSummary = async (
     };
   }
 };
+
+// TypeScript types for Report Upload
+export interface UploadReportRequest {
+  api_token: string;
+  user_id: number | null;
+  booking_id: number;
+  note: string;
+  report_file: string; // Base64 encoded file
+}
+
+export interface UploadReportResponse {
+  status: string;
+  message: string;
+  data?: {
+    report_image: string;
+    note: string;
+    user_id: number;
+    created_by: number;
+    professional_id: number;
+    booking_id: number;
+    updated_at: string;
+    created_at: string;
+    id: number;
+  };
+}
+
+/**
+ * Upload a report for a booking
+ * BaseURL: https://fireguide.attoexasolutions.com/api/reports/store
+ * Method: POST
+ * @param data - Report upload data including Base64 file
+ * @returns Promise with the API response
+ */
+export const uploadReport = async (
+  data: UploadReportRequest
+): Promise<UploadReportResponse> => {
+  try {
+    console.log('POST /reports/store - Uploading report...');
+    
+    const response = await apiClient.post<UploadReportResponse>(
+      '/reports/store',
+      {
+        api_token: data.api_token,
+        user_id: data.user_id,
+        booking_id: data.booking_id,
+        note: data.note,
+        report_file: data.report_file
+      }
+    );
+    
+    console.log('POST /reports/store - Response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error uploading report:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to upload report',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

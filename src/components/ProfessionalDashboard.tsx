@@ -430,7 +430,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
               return () => handleViewChange("bookings");
             } else if (stat.title === "Total Earnings") {
               return () => handleViewChange("payments");
-            } else if (stat.title === "All Reports") {
+            } else if (stat.title === "Alls Reports") {
               return onNavigateToReports;
             }
             return undefined;

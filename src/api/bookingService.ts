@@ -170,6 +170,7 @@ export interface ProfessionalBookingItem {
   ref_code: string | null;
   additional_notes: string;
   status: string;
+  user_id: number | null;
   created_at: string;
   updated_at: string;
   selected_service: {
