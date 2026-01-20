@@ -78,7 +78,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
 export function DialogTrigger({ children, className = "", onClick }: DialogTriggerProps) {
   return (
-    <div className={className} onClick={onClick}>
+    <div className={`cursor-pointer ${className}`} onClick={onClick}>
       {children}
     </div>
   );

@@ -23,7 +23,7 @@ import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { getProfessionalBookings, ProfessionalBookingItem } from "../api/bookingService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
-import { getProfileCompletionPercentage, ProfileCompletionDetails } from "../api/professionalsService";
+import { getProfileCompletionPercentage, ProfileCompletionDetails, getDashboardSummary, DashboardSummaryData } from "../api/professionalsService";
 import { getPaymentInvoices, PaymentInvoiceItem } from "../api/paymentService";
 import { ProfessionalBookings } from "./ProfessionalBookings";
 import { ProfessionalPayments } from "./ProfessionalPayments";
@@ -82,11 +82,39 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     { id: "settings" as ProfessionalView, label: "Settings", icon: Settings },
   ];
 
+  // Dashboard summary state
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryData | null>(null);
+  const [isLoadingDashboardSummary, setIsLoadingDashboardSummary] = useState(false);
+
+  // Fetch dashboard summary from API
+  const fetchDashboardSummary = async () => {
+    try {
+      setIsLoadingDashboardSummary(true);
+      const apiToken = getApiToken();
+      if (!apiToken) {
+        console.warn("No API token available for fetching dashboard summary");
+        return;
+      }
+
+      const response = await getDashboardSummary(apiToken);
+      if (response.status === "success" && response.data) {
+        setDashboardSummary(response.data);
+      }
+    } catch (err: any) {
+      console.error("Error fetching dashboard summary:", err);
+    } finally {
+      setIsLoadingDashboardSummary(false);
+    }
+  };
+
+  // Generate stats from API data
   const stats = [
     {
       title: "Upcoming Jobs",
-      value: "8",
-      change: "+2 this week",
+      value: dashboardSummary?.upcoming_jobs?.count?.toString() || "0",
+      change: dashboardSummary?.upcoming_jobs?.this_week 
+        ? `+${dashboardSummary.upcoming_jobs.this_week} this week` 
+        : "+0 this week",
       icon: Briefcase,
       color: "blue",
       bgColor: "bg-blue-100",
@@ -95,8 +123,12 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     },
     {
       title: "Total Earnings",
-      value: "£4,250",
-      change: "+£850 this month",
+      value: dashboardSummary?.earnings?.total 
+        ? `£${parseFloat(dashboardSummary.earnings.total).toLocaleString()}` 
+        : "£0",
+      change: dashboardSummary?.earnings?.this_month 
+        ? `+£${parseFloat(dashboardSummary.earnings.this_month).toLocaleString()} this month` 
+        : "+£0 this month",
       icon: TrendingUp,
       color: "green",
       bgColor: "bg-green-100",
@@ -104,9 +136,8 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
       iconBg: "bg-green-600"
     },
     {
-      title: "Pending Reports",
-      value: "3",
-      change: "2 due this week",
+      title: "All Reports",
+      value: dashboardSummary?.reports?.pending?.toString() || "0",
       icon: FileText,
       color: "orange",
       bgColor: "bg-orange-100",
@@ -346,6 +377,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
   // Fetch upcoming jobs on component mount
   useEffect(() => {
     if (activeMenu === "dashboard") {
+      fetchDashboardSummary();
       fetchUpcomingJobs();
       fetchProfileCompletion();
       fetchRecentPayments();
@@ -398,7 +430,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
               return () => handleViewChange("bookings");
             } else if (stat.title === "Total Earnings") {
               return () => handleViewChange("payments");
-            } else if (stat.title === "Pending Reports") {
+            } else if (stat.title === "All Reports") {
               return onNavigateToReports;
             }
             return undefined;

@@ -193,7 +193,7 @@ export const updateProfessionalUser = async (
       success: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    };1
   }
 };
 
@@ -1542,6 +1542,73 @@ export const getMonthlyAvailabilitySummary = async (
         throw {
           success: false,
           message: error.response.data?.message || 'Failed to fetch monthly availability summary',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Dashboard Summary
+export interface DashboardSummaryData {
+  upcoming_jobs: {
+    count: number;
+    this_week: number;
+  };
+  earnings: {
+    total: string;
+    this_month: string;
+  };
+  reports: {
+    pending: number;
+  };
+}
+
+export interface DashboardSummaryResponse {
+  status: string;
+  data: DashboardSummaryData;
+}
+
+/**
+ * Get professional dashboard summary
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional_dashboard/summary
+ * Method: POST
+ * @param api_token - The API token for authentication
+ * @returns Promise with the API response containing dashboard summary data
+ */
+export const getDashboardSummary = async (
+  api_token: string
+): Promise<DashboardSummaryResponse> => {
+  try {
+    console.log('POST /professional_dashboard/summary - Requesting...');
+    
+    const response = await apiClient.post<DashboardSummaryResponse>(
+      '/professional_dashboard/summary',
+      { api_token }
+    );
+    
+    console.log('POST /professional_dashboard/summary - Response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching dashboard summary:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch dashboard summary',
           error: error.response.data?.error || error.message,
           status: error.response.status,
         };
