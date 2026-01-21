@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // TypeScript types for Payment Invoice Store request
 export interface PaymentInvoiceStoreRequest {
@@ -26,6 +27,18 @@ const apiClient = axios.create({
   },
   timeout: 30000, // 30 seconds timeout for payment submission
 });
+
+// Add response interceptor to handle token expiration
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Store payment invoice

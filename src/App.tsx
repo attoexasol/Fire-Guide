@@ -5,6 +5,7 @@ import { Toaster } from "./components/ui/sonner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ScrollToTop } from "./components/ScrollToTop";
 
+
 export interface Booking {
   id: string;
   service: string;

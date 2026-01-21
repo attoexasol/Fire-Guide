@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
-import { getApiToken } from '../lib/auth';
+import { getApiToken, handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // TypeScript types for Professional Booking Store request
 export interface ProfessionalBookingStoreRequest {
@@ -34,6 +34,18 @@ const apiClient = axios.create({
   },
   timeout: 30000, // 30 seconds timeout for booking submission
 });
+
+// Add response interceptor to handle token expiration
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Store professional booking

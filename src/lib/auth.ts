@@ -288,3 +288,35 @@ export const isAuthenticated = (): boolean => {
   return getAuthToken() !== null;
 };
 
+/**
+ * Handle token expiration - clears auth data and redirects to home
+ * Call this when API returns 401 or token expired error
+ */
+export const handleTokenExpired = (): void => {
+  console.log('Token expired, clearing auth and redirecting to home...');
+  removeAuthToken();
+  // Redirect to home page
+  window.location.href = '/';
+};
+
+/**
+ * Check if an API error indicates token expiration
+ * @param error - The error object from API call
+ * @returns true if the error indicates token expiration
+ */
+export const isTokenExpiredError = (error: any): boolean => {
+  if (error?.status === 401) return true;
+  if (error?.response?.status === 401) return true;
+  
+  // Check for common token expired messages
+  const message = (error?.message || error?.response?.data?.message || '').toLowerCase();
+  if (message.includes('token') && (message.includes('expired') || message.includes('invalid'))) {
+    return true;
+  }
+  if (message.includes('unauthenticated') || message.includes('unauthorized')) {
+    return true;
+  }
+  
+  return false;
+};
+

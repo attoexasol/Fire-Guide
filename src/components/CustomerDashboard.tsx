@@ -41,7 +41,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
-import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest } from "../api/authService";
+import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData } from "../api/authService";
 import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
 import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
 import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
@@ -306,12 +306,45 @@ export function CustomerDashboard({
     });
   }, [customerName]);
 
-  // Calculate stats from real data
-  const upcomingBookings = bookings.filter(b => b.status === "upcoming").length;
-  const completedBookings = bookings.filter(b => b.status === "completed").length;
-  const totalSpent = payments
-    .filter(p => p.status === "paid")
-    .reduce((sum, p) => sum + parseFloat(p.amount.replace("£", "").replace(",", "")), 0);
+  // Dashboard summary state for API data
+  const [dashboardSummary, setDashboardSummary] = useState<CustomerDashboardSummaryData | null>(null);
+  const [isLoadingDashboardSummary, setIsLoadingDashboardSummary] = useState(true); // Start with loading true
+
+  // Fetch dashboard summary from API
+  useEffect(() => {
+    const fetchDashboardSummary = async () => {
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for dashboard summary');
+        setIsLoadingDashboardSummary(false);
+        return;
+      }
+
+      setIsLoadingDashboardSummary(true);
+      try {
+        const response = await getCustomerDashboardSummary(token);
+        if (response.status === 'success' && response.data) {
+          setDashboardSummary(response.data);
+        } else {
+          console.error('Failed to fetch dashboard summary:', response.message || response.error);
+        }
+      } catch (error: any) {
+        console.error('Error fetching dashboard summary:', error);
+      } finally {
+        setIsLoadingDashboardSummary(false);
+      }
+    };
+
+    // Fetch on mount and when view changes to overview
+    if (currentView === 'overview') {
+      fetchDashboardSummary();
+    }
+  }, [currentView]);
+
+  // Use API data for stats - show 0 while loading, then API data
+  const upcomingBookings = isLoadingDashboardSummary ? 0 : (dashboardSummary?.jobs?.upcoming ?? 0);
+  const completedBookings = isLoadingDashboardSummary ? 0 : (dashboardSummary?.jobs?.completed ?? 0);
+  const totalSpent = isLoadingDashboardSummary ? 0 : (dashboardSummary?.spending?.total_spent ? parseFloat(dashboardSummary.spending.total_spent) : 0);
 
   // Profile image upload handlers
   const handleImageClick = () => {
@@ -933,7 +966,13 @@ export function CustomerDashboard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Active Bookings</p>
-                <p className="text-3xl text-[#0A1A2F]">{upcomingBookings}</p>
+                {isLoadingDashboardSummary ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                  </div>
+                ) : (
+                  <p className="text-3xl text-[#0A1A2F]">{upcomingBookings}</p>
+                )}
                 <p className="text-sm text-blue-600 mt-2 flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   Upcoming services
@@ -954,7 +993,13 @@ export function CustomerDashboard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Completed</p>
-                <p className="text-3xl text-[#0A1A2F]">{completedBookings}</p>
+                {isLoadingDashboardSummary ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-6 h-6 text-green-600 animate-spin" />
+                  </div>
+                ) : (
+                  <p className="text-3xl text-[#0A1A2F]">{completedBookings}</p>
+                )}
                 <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
                   <CheckCircle className="w-4 h-4" />
                   Services completed
@@ -975,7 +1020,13 @@ export function CustomerDashboard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Spent</p>
-                <p className="text-3xl text-[#0A1A2F]">£{totalSpent.toFixed(2)}</p>
+                {isLoadingDashboardSummary ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                  </div>
+                ) : (
+                  <p className="text-3xl text-[#0A1A2F]">£{totalSpent.toFixed(2)}</p>
+                )}
                 <p className="text-sm text-purple-600 mt-2 flex items-center gap-1">
                   <TrendingUp className="w-4 h-4" />
                   All time

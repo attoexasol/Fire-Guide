@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 /**
  * API ENDPOINT PATTERNS - IMPORTANT REFERENCE
@@ -46,6 +47,18 @@ const apiClient = axios.create({
   },
   timeout: 10000, // 10 seconds timeout
 });
+
+// Add response interceptor to handle token expiration
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // TypeScript types for Professional User Account Settings
 export interface ProfessionalUserAccountData {

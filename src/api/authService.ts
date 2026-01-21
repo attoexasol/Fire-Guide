@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // TypeScript types for registration request
 export interface RegisterUserRequest {
@@ -34,6 +35,18 @@ const apiClient = axios.create({
   baseURL: 'https://fireguide.attoexasolutions.com/api',
   timeout: 10000, // 10 seconds timeout
 });
+
+// Add response interceptor to handle token expiration
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Register a new user
@@ -560,6 +573,74 @@ export const uploadProfileImage = async (
     // Handle other errors
     throw {
       status: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Customer Dashboard Overview Summary
+export interface CustomerDashboardSummaryData {
+  month: string;
+  jobs: {
+    upcoming: number;
+    completed: number;
+  };
+  spending: {
+    total_spent: string;
+  };
+}
+
+export interface CustomerDashboardSummaryResponse {
+  status: string;
+  data?: CustomerDashboardSummaryData;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Get customer dashboard overview summary
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/overview_summary
+ * Method: POST
+ * @param apiToken - The API token for authentication
+ * @returns Promise with the dashboard summary data
+ */
+export const getCustomerDashboardSummary = async (
+  apiToken: string
+): Promise<CustomerDashboardSummaryResponse> => {
+  try {
+    console.log('POST /user_dashboard/overview_summary - Fetching customer dashboard summary...');
+    
+    const response = await apiClient.post<CustomerDashboardSummaryResponse>(
+      '/user_dashboard/overview_summary',
+      {
+        api_token: apiToken
+      }
+    );
+    
+    console.log('POST /user_dashboard/overview_summary - Response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching customer dashboard summary:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to fetch dashboard summary',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
