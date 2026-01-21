@@ -29,10 +29,18 @@ const apiClient = axios.create({
 });
 
 // Add response interceptor to handle token expiration
+// Exclude login/register endpoints - 401 on these means wrong credentials, not token expiration
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (isTokenExpiredError(error)) {
+    const requestUrl = error?.config?.url || '';
+    const isAuthEndpoint = requestUrl.includes('/login') || 
+                          requestUrl.includes('/register') || 
+                          requestUrl.includes('/send_otp') ||
+                          requestUrl.includes('/verify_otp') ||
+                          requestUrl.includes('/reset_password');
+    
+    if (!isAuthEndpoint && isTokenExpiredError(error)) {
       handleTokenExpired();
       return Promise.reject(error);
     }

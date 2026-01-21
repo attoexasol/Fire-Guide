@@ -94,7 +94,7 @@ export function DialogContent({ children, className = "", style }: DialogContent
   const mergedStyle = style || {};
   
   return (
-    <div className={`bg-white rounded-xl shadow-2xl ${defaultMaxWidth} ${defaultWidth} mx-4 ${className}`} style={mergedStyle}>
+    <div className={`bg-white rounded-xl shadow-2xl px-6 pb-6 ${defaultMaxWidth} ${defaultWidth} mx-4 ${className}`} style={mergedStyle}>
       {children}
     </div>
   );

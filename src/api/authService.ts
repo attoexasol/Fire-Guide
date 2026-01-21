@@ -37,10 +37,20 @@ const apiClient = axios.create({
 });
 
 // Add response interceptor to handle token expiration
+// Exclude login/register endpoints - 401 on these means wrong credentials, not token expiration
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (isTokenExpiredError(error)) {
+    // Get the request URL to check if it's a login/register endpoint
+    const requestUrl = error?.config?.url || '';
+    const isAuthEndpoint = requestUrl.includes('/login') || 
+                          requestUrl.includes('/register') || 
+                          requestUrl.includes('/send_otp') ||
+                          requestUrl.includes('/verify_otp') ||
+                          requestUrl.includes('/reset_password');
+    
+    // Only trigger token expiration redirect for non-auth endpoints
+    if (!isAuthEndpoint && isTokenExpiredError(error)) {
       handleTokenExpired();
       return Promise.reject(error);
     }
@@ -628,6 +638,320 @@ export const getCustomerDashboardSummary = async (
         throw {
           status: 'error',
           message: error.response.data?.message || 'Failed to fetch dashboard summary',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Customer Upcoming Bookings
+export interface CustomerUpcomingBookingItem {
+  id: number;
+  selected_date: string;
+  selected_time: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  price: string;
+  property_address: string;
+  longitude: string;
+  latitude: string;
+  city: string;
+  reason: string | null;
+  post_code: string;
+  ref_code: string;
+  additional_notes: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  professional: {
+    id: number;
+    full_name?: string;
+    name?: string;
+  };
+  service?: {
+    id: number;
+    service_name: string;
+    price: string;
+  } | null;
+  user: {
+    id: number;
+    full_name?: string | null;
+    name?: string | null;
+  };
+  created_by: {
+    id: number;
+    full_name?: string | null;
+    name?: string | null;
+  };
+  updated_by: {
+    id: number;
+    full_name?: string | null;
+    name?: string | null;
+  } | null;
+}
+
+export interface CustomerUpcomingBookingsResponse {
+  status: string;
+  data?: {
+    total: number;
+    bookings: CustomerUpcomingBookingItem[];
+  };
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Get customer upcoming bookings
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/upcomming_booking
+ * Method: POST
+ * @param apiToken - The API token for authentication
+ * @returns Promise with the upcoming bookings data
+ */
+export const getCustomerUpcomingBookings = async (
+  apiToken: string
+): Promise<CustomerUpcomingBookingsResponse> => {
+  try {
+    console.log('POST /user_dashboard/upcomming_booking - Fetching customer upcoming bookings...');
+    
+    const response = await apiClient.post<CustomerUpcomingBookingsResponse>(
+      '/user_dashboard/upcomming_booking',
+      {
+        api_token: apiToken
+      }
+    );
+    
+    console.log('POST /user_dashboard/upcomming_booking - Response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching customer upcoming bookings:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to fetch upcoming bookings',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for Customer All Bookings
+export interface CustomerAllBookingItem {
+  id: number;
+  selected_date: string;
+  selected_time: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  price: string;
+  property_address: string;
+  longitude: string;
+  latitude: string;
+  city: string;
+  reason: string | null;
+  post_code: string;
+  ref_code: string;
+  additional_notes: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  professional: {
+    id: number;
+    full_name?: string;
+    name?: string;
+  };
+  service?: {
+    id: number;
+    service_name: string;
+    price: string;
+  } | null;
+  user: {
+    id: number;
+    full_name?: string | null;
+    name?: string | null;
+  };
+  created_by: {
+    id: number;
+    full_name?: string | null;
+    name?: string | null;
+  };
+  updated_by: {
+    id: number;
+    full_name?: string | null;
+    name?: string | null;
+  } | null;
+}
+
+export interface CustomerAllBookingsResponse {
+  status: string;
+  data?: {
+    total: number;
+    bookings: CustomerAllBookingItem[];
+  };
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Get all customer bookings
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/all_booking
+ * Method: POST
+ * @param apiToken - The API token for authentication
+ * @returns Promise with all bookings data
+ */
+export const getCustomerAllBookings = async (
+  apiToken: string
+): Promise<CustomerAllBookingsResponse> => {
+  try {
+    console.log('POST /user_dashboard/all_booking - Fetching all customer bookings...');
+    
+    const response = await apiClient.post<CustomerAllBookingsResponse>(
+      '/user_dashboard/all_booking',
+      {
+        api_token: apiToken
+      }
+    );
+    
+    console.log('POST /user_dashboard/all_booking - Response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching customer all bookings:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to fetch bookings',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Cancel booking response interface
+export interface CancelBookingResponse {
+  status: string;
+  message?: string;
+  error?: string;
+}
+
+// Cancel a customer booking
+export const cancelCustomerBooking = async (
+  apiToken: string,
+  bookingId: number
+): Promise<CancelBookingResponse> => {
+  try {
+    const response = await apiClient.post<CancelBookingResponse>('/user_dashboard/cancel_booking', {
+      api_token: apiToken,
+      booking_id: bookingId,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error cancelling booking:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to cancel booking',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Reschedule booking response interface
+export interface RescheduleBookingResponse {
+  status: string;
+  message?: string;
+  error?: string;
+  data?: {
+    id: number;
+    selected_date: string;
+    selected_time: string;
+    [key: string]: any;
+  };
+}
+
+// Reschedule a customer booking
+export const rescheduleCustomerBooking = async (
+  apiToken: string,
+  bookingId: number,
+  selectedDate: string,
+  selectedTime: string,
+  reason?: string
+): Promise<RescheduleBookingResponse> => {
+  try {
+    const response = await apiClient.post<RescheduleBookingResponse>('/professional_booking/update', {
+      api_token: apiToken,
+      id: bookingId,
+      selected_date: selectedDate,
+      selected_time: selectedTime,
+      reason: reason || 'Rescheduled by customer',
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error rescheduling booking:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to reschedule booking',
           error: error.response.data?.error || error.message,
           statusCode: error.response.status,
         };

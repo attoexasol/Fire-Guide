@@ -41,7 +41,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
-import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData } from "../api/authService";
+import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem } from "../api/authService";
 import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
 import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
 import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
@@ -310,6 +310,10 @@ export function CustomerDashboard({
   const [dashboardSummary, setDashboardSummary] = useState<CustomerDashboardSummaryData | null>(null);
   const [isLoadingDashboardSummary, setIsLoadingDashboardSummary] = useState(true); // Start with loading true
 
+  // Upcoming bookings state for API data
+  const [upcomingBookingsList, setUpcomingBookingsList] = useState<CustomerUpcomingBookingItem[]>([]);
+  const [isLoadingUpcomingBookings, setIsLoadingUpcomingBookings] = useState(true);
+
   // Fetch dashboard summary from API
   useEffect(() => {
     const fetchDashboardSummary = async () => {
@@ -338,6 +342,39 @@ export function CustomerDashboard({
     // Fetch on mount and when view changes to overview
     if (currentView === 'overview') {
       fetchDashboardSummary();
+    }
+  }, [currentView]);
+
+  // Fetch upcoming bookings from API
+  useEffect(() => {
+    const fetchUpcomingBookings = async () => {
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for upcoming bookings');
+        setIsLoadingUpcomingBookings(false);
+        return;
+      }
+
+      setIsLoadingUpcomingBookings(true);
+      try {
+        const response = await getCustomerUpcomingBookings(token);
+        if (response.status === 'success' && response.data?.bookings) {
+          setUpcomingBookingsList(response.data.bookings);
+        } else {
+          console.error('Failed to fetch upcoming bookings:', response.message || response.error);
+          setUpcomingBookingsList([]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching upcoming bookings:', error);
+        setUpcomingBookingsList([]);
+      } finally {
+        setIsLoadingUpcomingBookings(false);
+      }
+    };
+
+    // Fetch on mount and when view changes to overview
+    if (currentView === 'overview') {
+      fetchUpcomingBookings();
     }
   }, [currentView]);
 
@@ -1054,7 +1091,12 @@ export function CustomerDashboard({
                 View All →
               </Button>
             </div>
-            {upcomingBookings === 0 ? (
+            {isLoadingUpcomingBookings ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+                <p className="text-gray-600">Loading bookings...</p>
+              </div>
+            ) : upcomingBookingsList.length === 0 ? (
               <div className="text-center py-8">
                 <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-600 mb-4">No upcoming bookings</p>
@@ -1067,29 +1109,42 @@ export function CustomerDashboard({
               </div>
             ) : (
               <div className="space-y-3">
-                {bookings
-                  .filter(b => b.status === "upcoming")
+                {upcomingBookingsList
                   .slice(0, 3)
-                  .map((booking) => (
-                    <div 
-                      key={booking.id} 
-                      className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                      onClick={() => handleViewChange("bookings")}
-                    >
-                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Shield className="w-5 h-5 text-red-600" />
+                  .map((booking) => {
+                    // Format the date for display
+                    const formattedDate = new Date(booking.selected_date).toLocaleDateString('en-GB', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    });
+                    // Get service name from API, fallback to default
+                    const serviceName = booking.service?.service_name || 'Fire Safety Service';
+                    
+                    // Get professional name - check both full_name and name fields
+                    const professionalName = booking.professional?.full_name || booking.professional?.name || 'Professional';
+                    
+                    return (
+                      <div 
+                        key={booking.id} 
+                        className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        onClick={() => handleViewChange("bookings")}
+                      >
+                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Shield className="w-5 h-5 text-red-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{serviceName}</p>
+                          <p className="text-sm text-gray-600">{professionalName}</p>
+                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formattedDate} at {booking.selected_time}
+                          </p>
+                        </div>
+                        <Badge className="bg-blue-100 text-blue-700">Upcoming</Badge>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{booking.service}</p>
-                        <p className="text-sm text-gray-600">{booking.professional}</p>
-                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {booking.date} at {booking.time}
-                        </p>
-                      </div>
-                      <Badge className="bg-blue-100 text-blue-700">Upcoming</Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             )}
           </CardContent>

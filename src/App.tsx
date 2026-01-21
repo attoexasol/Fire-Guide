@@ -13,6 +13,7 @@ export interface Booking {
   date: string;
   time: string;
   status: "upcoming" | "completed" | "cancelled";
+  displayStatus?: string; // Original status from API for display (e.g., "Confirmed", "Pending")
   location: string;
   price: string;
   professionalEmail: string;
