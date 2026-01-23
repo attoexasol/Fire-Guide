@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -8,7 +8,8 @@ import {
   Calendar,
   CheckCircle,
   Receipt,
-  Filter
+  Filter,
+  Loader2
 } from "lucide-react";
 import {
   Select,
@@ -19,14 +20,107 @@ import {
 } from "./ui/select";
 import { toast } from "sonner";
 import { Payment } from "../App";
+import { getCustomerPayments, CustomerPaymentItem, getPaymentsSummary } from "../api/authService";
+import { getApiToken } from "../lib/auth";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface CustomerPaymentsProps {
   payments: Payment[];
 }
 
-export const CustomerPayments = React.memo(function CustomerPayments({ payments }: CustomerPaymentsProps) {
+// Transform API payment to local Payment format
+const transformApiPayment = (apiPayment: CustomerPaymentItem): Payment => {
+  return {
+    id: apiPayment.booking_id.toString(),
+    date: apiPayment.selected_date,
+    service: apiPayment.service?.service_name || 'Fire Safety Service',
+    amount: `£${parseFloat(apiPayment.payment?.price || '0').toFixed(2)}`,
+    status: apiPayment.payment?.status === 'paid' ? 'paid' : 'pending',
+    invoiceNumber: `INV-${apiPayment.booking_id}`,
+    bookingRef: `FG-${apiPayment.booking_id}`,
+    paymentMethod: 'Visa ending 4242',
+    professional: apiPayment.professional?.name || 'Professional',
+  };
+};
+
+export const CustomerPayments = React.memo(function CustomerPayments({ payments: propPayments }: CustomerPaymentsProps) {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("all");
+  
+  // API data state
+  const [apiPayments, setApiPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [paymentsSummary, setPaymentsSummary] = useState<{ paid_count: number; paid_total: number } | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+
+  // Fetch payments summary from API (for cards)
+  useEffect(() => {
+    const fetchPaymentsSummary = async () => {
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for payments summary');
+        setIsLoadingSummary(false);
+        return;
+      }
+
+      setIsLoadingSummary(true);
+      try {
+        const response = await getPaymentsSummary(token);
+        if (response.status === 'success' && response.data) {
+          console.log('Payments summary from API:', response.data);
+          setPaymentsSummary({
+            paid_count: response.data.paid_count || 0,
+            paid_total: response.data.paid_total || 0
+          });
+        } else {
+          console.error('Failed to fetch payments summary:', response.message || response.error);
+          setPaymentsSummary(null);
+        }
+      } catch (error: any) {
+        console.error('Error fetching payments summary:', error);
+        setPaymentsSummary(null);
+      } finally {
+        setIsLoadingSummary(false);
+      }
+    };
+
+    fetchPaymentsSummary();
+  }, []);
+
+  // Fetch payments from API
+  useEffect(() => {
+    const fetchPayments = async () => {
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for payments');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const response = await getCustomerPayments(token);
+        if (response.status === 'success' && response.data?.items) {
+          const transformedPayments = response.data.items.map(transformApiPayment);
+          setApiPayments(transformedPayments);
+        } else {
+          console.error('Failed to fetch payments:', response.message || response.error);
+          setApiPayments([]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching payments:', error);
+        setApiPayments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, []);
+
+  // Use API payments
+  const payments = apiPayments;
 
   const filteredPayments = useMemo(() => {
     return payments.filter(payment => {
@@ -48,11 +142,24 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
     });
   }, [payments, filterStatus, filterPeriod]);
 
+  // Use API summary data for cards, fallback to calculated values if API data not available
   const totalPaid = useMemo(() => {
+    if (paymentsSummary?.paid_total !== undefined && paymentsSummary.paid_total !== null) {
+      return paymentsSummary.paid_total;
+    }
+    // Fallback to calculated value if API summary not available
     return payments
       .filter(p => p.status === "paid")
       .reduce((sum, p) => sum + parseFloat(p.amount.replace("£", "").replace(",", "")), 0);
-  }, [payments]);
+  }, [paymentsSummary, payments]);
+
+  const totalPaymentsCount = useMemo(() => {
+    if (paymentsSummary?.paid_count !== undefined && paymentsSummary.paid_count !== null) {
+      return paymentsSummary.paid_count;
+    }
+    // Fallback to payments length if API summary not available
+    return payments.length;
+  }, [paymentsSummary, payments]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -69,8 +176,198 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
     toast.success(`Downloading invoice ${invoiceNumber}...`);
   };
 
+  // Generate statement PDF using the payment data shown in cards
   const handleDownloadAll = () => {
-    toast.success("Downloading all invoices as ZIP file...");
+    if (payments.length === 0) {
+      toast.error("No payments found to download.");
+      return;
+    }
+
+    toast.info("Generating statement...");
+    
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // Colors
+      const primaryColor: [number, number, number] = [10, 26, 47]; // #0A1A2F
+      const redColor: [number, number, number] = [220, 38, 38]; // red-600
+      const grayColor: [number, number, number] = [107, 114, 128];
+      const greenColor: [number, number, number] = [22, 163, 74];
+      
+      // Header - Fire Guide Logo
+      doc.setFillColor(220, 38, 38);
+      doc.rect(14, 15, 20, 12, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FG', 20, 23);
+      
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(16);
+      doc.text('Fire Guide', 38, 24);
+      
+      // STATEMENT title
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('STATEMENT', pageWidth - 14, 24, { align: 'right' });
+      
+      // Statement details (right side)
+      const today = new Date();
+      const statementDate = today.toLocaleDateString('en-GB');
+      const statementNumber = `STM-${today.getFullYear()}-${String(payments.length).padStart(4, '0')}`;
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...grayColor);
+      
+      doc.text('Statement Date', pageWidth - 55, 38);
+      doc.text('Statement #', pageWidth - 55, 46);
+      doc.text('Total Entries', pageWidth - 55, 54);
+      
+      doc.setTextColor(...primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text(statementDate, pageWidth - 14, 38, { align: 'right' });
+      doc.text(statementNumber, pageWidth - 14, 46, { align: 'right' });
+      doc.text(String(payments.length), pageWidth - 14, 54, { align: 'right' });
+      
+      // Professional Statement info (left side)
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(11);
+      doc.text('Professional Statement', 14, 42);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...grayColor);
+      doc.text('Fire Guide Professional', 14, 50);
+      doc.text('Payment History Report', 14, 57);
+      doc.text('United Kingdom', 14, 64);
+      
+      // Calculate totals from the payments data
+      const totalAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount.replace('£', '').replace(',', '')), 0);
+      const commission = totalAmount * 0.15;
+      const earnings = totalAmount - commission;
+      
+      // Account Summary box
+      doc.setFillColor(248, 250, 252);
+      doc.rect(pageWidth - 85, 70, 71, 42, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(10);
+      doc.text('Account Summary', pageWidth - 80, 80);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...grayColor);
+      doc.text('Total Amount', pageWidth - 80, 90);
+      doc.text('Commission (15%)', pageWidth - 80, 98);
+      doc.text('Your Earnings', pageWidth - 80, 106);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.text(`£${totalAmount.toFixed(2)}`, pageWidth - 14, 90, { align: 'right' });
+      doc.setTextColor(...redColor);
+      doc.text(`-£${commission.toFixed(2)}`, pageWidth - 14, 98, { align: 'right' });
+      doc.setTextColor(...greenColor);
+      doc.text(`£${earnings.toFixed(2)}`, pageWidth - 14, 106, { align: 'right' });
+      
+      // Payment History title
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(12);
+      doc.text('Payment History', 14, 130);
+      
+      // Payment History table - using the same data shown in cards
+      const tableData = payments.map(payment => {
+        const date = new Date(payment.date);
+        const formattedDate = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const amount = parseFloat(payment.amount.replace('£', '').replace(',', ''));
+        const paymentCommission = amount * 0.15;
+        const paymentEarnings = amount - paymentCommission;
+        
+        return [
+          payment.invoiceNumber,
+          formattedDate,
+          payment.professional,
+          payment.service,
+          payment.amount,
+          `-£${paymentCommission.toFixed(2)}`,
+          `£${paymentEarnings.toFixed(2)}`,
+          payment.status === 'paid' ? 'Paid' : 'Pending'
+        ];
+      });
+      
+      autoTable(doc, {
+        startY: 135,
+        head: [['REFERENCE', 'DATE', 'PROFESSIONAL', 'SERVICE', 'AMOUNT', 'COMMISSION', 'EARNINGS', 'STATUS']],
+        body: tableData,
+        theme: 'plain',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
+          fontStyle: 'bold',
+          fontSize: 7,
+          cellPadding: 2,
+        },
+        bodyStyles: {
+          textColor: [51, 65, 85],
+          fontSize: 7,
+          cellPadding: 2,
+        },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 18, halign: 'right' },
+          5: { cellWidth: 20, halign: 'right', textColor: [220, 38, 38] },
+          6: { cellWidth: 18, halign: 'right', textColor: [22, 163, 74] },
+          7: { cellWidth: 16, halign: 'center' },
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: 'auto',
+      });
+      
+      // Get final Y position after table
+      const finalY = (doc as any).lastAutoTable.finalY + 20;
+      
+      // Total Earnings box
+      doc.setFillColor(248, 250, 252);
+      doc.rect(pageWidth / 2 - 35, finalY, 70, 18, 'F');
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.5);
+      doc.rect(pageWidth / 2 - 35, finalY, 70, 18, 'S');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...redColor);
+      doc.setFontSize(10);
+      doc.text('Total Earnings:', pageWidth / 2 - 30, finalY + 11);
+      doc.text(`£${earnings.toFixed(2)}`, pageWidth / 2 + 30, finalY + 11, { align: 'right' });
+      
+      // Footer
+      const footerY = finalY + 45;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...grayColor);
+      doc.setFontSize(8);
+      doc.text('If you have any questions about this statement, please contact', pageWidth / 2, footerY, { align: 'center' });
+      doc.text('Fire Guide Support | support@fireguide.co.uk', pageWidth / 2, footerY + 6, { align: 'center' });
+      
+      doc.setFont('helvetica', 'bolditalic');
+      doc.setTextColor(...redColor);
+      doc.setFontSize(11);
+      doc.text('Thank You For Your Business!', pageWidth / 2, footerY + 20, { align: 'center' });
+      
+      // Save PDF
+      doc.save(`Payment_Statement_${today.toISOString().split('T')[0]}.pdf`);
+      
+      toast.success("Statement downloaded successfully!");
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast.error("Failed to generate statement. Please try again.");
+    }
   };
 
   return (
@@ -82,7 +379,11 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Spent</p>
-                <p className="text-2xl font-bold text-[#0A1A2F]">£{totalPaid.toFixed(2)}</p>
+                {isLoadingSummary ? (
+                  <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                ) : (
+                  <p className="text-2xl font-bold text-[#0A1A2F]">£{totalPaid.toFixed(2)}</p>
+                )}
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <CreditCard className="w-6 h-6 text-green-600" />
@@ -96,7 +397,11 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Payments</p>
-                <p className="text-2xl font-bold text-[#0A1A2F]">{payments.length}</p>
+                {isLoadingSummary ? (
+                  <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                ) : (
+                  <p className="text-2xl font-bold text-[#0A1A2F]">{totalPaymentsCount}</p>
+                )}
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-blue-600" />
@@ -109,9 +414,9 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
       {/* Filters and Actions */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className="flex flex-wrap gap-3 items-center">
-              <Filter className="w-5 h-5 text-gray-400" />
+          <div className="flex flex-row items-center justify-between gap-4">
+            <div className="flex flex-row items-center gap-3">
+              <Filter className="w-10 h-10 text-gray-400" />
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by status" />
@@ -140,7 +445,6 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
             <Button
               variant="outline"
               onClick={handleDownloadAll}
-              className="w-full md:w-auto"
             >
               <Download className="w-4 h-4 mr-2" />
               Download All Invoices
@@ -150,7 +454,14 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
       </Card>
 
       {/* Payments List */}
-      {filteredPayments.length === 0 ? (
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Loader2 className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
+            <p className="text-gray-600">Loading payments...</p>
+          </CardContent>
+        </Card>
+      ) : filteredPayments.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -169,9 +480,11 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments 
                         <h3 className="text-[#0A1A2F] mb-1">{payment.service}</h3>
                         <p className="text-sm text-gray-600">Invoice: {payment.invoiceNumber}</p>
                       </div>
-                      <Badge className={getStatusColor(payment.status)}>
-                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                      </Badge>
+                      {payment.status === "paid" && (
+                        <Badge className={getStatusColor(payment.status)}>
+                          Paid
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-3 text-sm">

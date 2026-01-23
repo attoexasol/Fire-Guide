@@ -67,6 +67,7 @@ export function ProfessionalProfileContent() {
   // Profile image upload states
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // Preview before upload
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Ref to track if component is mounted (prevents state updates after unmount)
   const reloadProfileImageRef = useRef(true);
@@ -562,6 +563,12 @@ export function ProfessionalProfileContent() {
       return;
     }
 
+    // Create preview URL immediately for better UX
+    const previewUrl = URL.createObjectURL(file);
+    if (reloadProfileImageRef.current) {
+      setImagePreview(previewUrl);
+    }
+
     // Set loading state synchronously (immediate feedback)
     setIsUploadingImage(true);
     
@@ -575,7 +582,13 @@ export function ProfessionalProfileContent() {
 
       // Check if component is still mounted before updating state
       if (!reloadProfileImageRef.current) {
+        URL.revokeObjectURL(previewUrl); // Clean up preview
         return;
+      }
+
+      // Clean up preview URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
       }
 
       if (response.status === true || response.image_url) {
@@ -584,8 +597,9 @@ export function ProfessionalProfileContent() {
         // Wrap state updates in startTransition to prevent suspend during render
         startTransition(() => {
           if (reloadProfileImageRef.current) {
-          setProfileImageUrl(imageUrl);
-          setIsUploadingImage(false);
+            setProfileImageUrl(imageUrl);
+            setImagePreview(null); // Clear preview after successful upload
+            setIsUploadingImage(false);
           }
         });
         
@@ -605,18 +619,19 @@ export function ProfessionalProfileContent() {
           }
           
           // Also store with regular key for backward compatibility (session-based)
-        localStorage.setItem('professional_profile_image', imageUrl);
+          localStorage.setItem('professional_profile_image', imageUrl);
           
-        toast.success(response.message || "Profile image updated successfully!");
+          toast.success(response.message || "Profile image updated successfully!");
         }
       } else {
         startTransition(() => {
           if (reloadProfileImageRef.current) {
-          setIsUploadingImage(false);
+            setImagePreview(null); // Clear preview on error
+            setIsUploadingImage(false);
           }
         });
         if (reloadProfileImageRef.current) {
-        toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
+          toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
         }
       }
     } catch (error: any) {
@@ -627,16 +642,24 @@ export function ProfessionalProfileContent() {
         return;
       }
       
+      // Clean up preview URL on error
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
       const errorMessage = error?.message || error?.error || "An error occurred while uploading the image. Please try again.";
       
       // Wrap state updates in startTransition
       startTransition(() => {
         if (reloadProfileImageRef.current) {
-        setIsUploadingImage(false);
+          setImagePreview(null);
+          setIsUploadingImage(false);
         }
       });
       
-      toast.error(errorMessage);
+      if (reloadProfileImageRef.current) {
+        toast.error(errorMessage);
+      }
     } finally {
       // Reset file input (synchronous, safe)
       if (fileInputRef.current && reloadProfileImageRef.current) {
@@ -1517,9 +1540,9 @@ export function ProfessionalProfileContent() {
                   className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-full mx-auto mb-2 sm:mb-3 flex items-center justify-center overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={handleImageClick}
                 >
-                  {profileImageUrl ? (
+                  {(profileImageUrl || imagePreview) ? (
                     <img 
-                      src={profileImageUrl} 
+                      src={imagePreview || profileImageUrl || ""} 
                       alt="Profile" 
                       className="w-full h-full object-cover"
                     />

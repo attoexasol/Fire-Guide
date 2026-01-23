@@ -41,7 +41,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
-import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem } from "../api/authService";
+import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem, getCustomerData, updateCustomerData, UpdateCustomerDataRequest } from "../api/authService";
 import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
 import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
 import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
@@ -280,7 +280,7 @@ export function CustomerDashboard({
 
   const initialUserData = getUserData();
   const [customerName, setCustomerName] = useState(initialUserData.name);
-  const [customerEmail] = useState(initialUserData.email); // Email typically not editable
+  const [customerEmail, setCustomerEmail] = useState(initialUserData.email); // Email now updates dynamically
   
   // Profile image state
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(() => {
@@ -289,22 +289,79 @@ export function CustomerDashboard({
     return storedImage || null;
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // Preview before upload
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Profile form state - initialize with current user data
-  const [profileForm, setProfileForm] = useState({
-    full_name: initialUserData.name,
-    phone: initialUserData.phone
+  const [profileForm, setProfileForm] = useState(() => {
+    const userData = getUserData();
+    return {
+      full_name: userData?.name || "",
+      email: userData?.email || "",
+      phone: userData?.phone || "",
+      property_type: "Residential", // Default value
+      property_type_id: 18 // Default ID (will be updated from API)
+    };
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isLoadingCustomerData, setIsLoadingCustomerData] = useState(false);
   
-  // Update form when customer name changes (e.g., after successful update)
+  // Fetch customer data from API when profile view is shown
   useEffect(() => {
-    setProfileForm({
-      full_name: customerName,
-      phone: profileForm.phone
-    });
-  }, [customerName]);
+    const fetchCustomerData = async () => {
+      if (currentView !== 'profile') return;
+      
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for customer data');
+        setIsLoadingCustomerData(false);
+        return;
+      }
+
+      setIsLoadingCustomerData(true);
+      try {
+        const response = await getCustomerData(token);
+        if (response.status === true && response.data) {
+          const customerData = response.data;
+          
+          // Update profile form with API data
+          setProfileForm({
+            full_name: customerData.full_name || initialUserData.name,
+            email: customerData.email || initialUserData.email,
+            phone: customerData.phone || initialUserData.phone,
+            property_type: customerData.property_type?.name || "Residential",
+            property_type_id: customerData.property_type?.id || 18
+          });
+          
+          // Update customer name and email if different
+          if (customerData.full_name && customerData.full_name !== customerName) {
+            setCustomerName(customerData.full_name);
+          }
+          
+          if (customerData.email && customerData.email !== customerEmail) {
+            setCustomerEmail(customerData.email);
+          }
+          
+          // Update profile image from API if available
+          if (customerData.image) {
+            setProfileImageUrl(customerData.image);
+            localStorage.setItem('customer_profile_image', customerData.image);
+          }
+          
+          console.log('Customer data loaded from API:', customerData);
+        } else {
+          console.error('Failed to fetch customer data:', response.message || response.error);
+        }
+      } catch (error: any) {
+        console.error('Error fetching customer data:', error);
+      } finally {
+        setIsLoadingCustomerData(false);
+      }
+    };
+
+    fetchCustomerData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
 
   // Dashboard summary state for API data
   const [dashboardSummary, setDashboardSummary] = useState<CustomerDashboardSummaryData | null>(null);
@@ -404,9 +461,15 @@ export function CustomerDashboard({
       return;
     }
 
+    // Create preview URL immediately for better UX
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+
     const token = getApiToken();
     if (!token) {
       toast.error("Please log in to upload profile image.");
+      URL.revokeObjectURL(previewUrl); // Clean up preview
+      setImagePreview(null);
       return;
     }
 
@@ -419,17 +482,29 @@ export function CustomerDashboard({
 
       const response = await uploadProfileImage(uploadData);
 
+      // Clean up preview URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+
       if (response.status === true || response.image_url) {
         const imageUrl = response.image_url || "";
         setProfileImageUrl(imageUrl);
+        setImagePreview(null); // Clear preview after successful upload
         // Store in localStorage to persist across sessions
         localStorage.setItem('customer_profile_image', imageUrl);
         toast.success(response.message || "Profile image updated successfully!");
       } else {
+        setImagePreview(null); // Clear preview on error
         toast.error(response.message || response.error || "Failed to upload profile image. Please try again.");
       }
     } catch (error: any) {
       console.error("Error uploading profile image:", error);
+      // Clean up preview URL on error
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setImagePreview(null);
       const errorMessage = error?.message || error?.error || "An error occurred while uploading the image. Please try again.";
       toast.error(errorMessage);
     } finally {
@@ -443,12 +518,24 @@ export function CustomerDashboard({
 
   // Profile update handler
   const handleSaveProfile = async () => {
-    if (!profileForm.full_name.trim()) {
+    if (!profileForm?.full_name?.trim()) {
       toast.error("Please enter your full name.");
       return;
     }
 
-    if (!profileForm.phone.trim()) {
+    if (!profileForm?.email?.trim()) {
+      toast.error("Please enter your email address.");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileForm.email.trim())) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    if (!profileForm?.phone?.trim()) {
       toast.error("Please enter your phone number.");
       return;
     }
@@ -461,22 +548,43 @@ export function CustomerDashboard({
 
     setIsUpdatingProfile(true);
     try {
-      const updateData: UpdateUserRequest = {
+      // Map property type name to ID (you may need to adjust these mappings based on your API)
+      const propertyTypeMap: Record<string, number> = {
+        "Residential": 18,
+        "Commercial": 19,
+        "Industrial": 20
+      };
+      
+      const propertyTypeId = profileForm.property_type_id || propertyTypeMap[profileForm.property_type || "Residential"] || 18;
+
+      const updateData: UpdateCustomerDataRequest = {
         api_token: token,
         full_name: profileForm.full_name.trim(),
-        phone: profileForm.phone.trim()
+        email: profileForm.email.trim(),
+        phone: profileForm.phone.trim(),
+        property_type_id: propertyTypeId
       };
 
-      const response = await updateUser(updateData);
+      const response = await updateCustomerData(updateData);
 
-      if (response.status === "success" || response.success === true || response.message) {
+      if (response.status === true) {
         // Update local state
         setCustomerName(profileForm.full_name.trim());
+        setCustomerEmail(profileForm.email.trim());
         // Update localStorage if needed
         const userInfo = getUserInfo();
         if (userInfo) {
           setUserInfo(profileForm.full_name.trim(), userInfo.role);
         }
+        
+        // Update property_type_id from response
+        if (response.data?.property_type_id) {
+          setProfileForm(prev => ({
+            ...prev,
+            property_type_id: response.data.property_type_id
+          }));
+        }
+        
         toast.success(response.message || "Profile updated successfully!");
       } else {
         toast.error(response.message || response.error || "Failed to update profile. Please try again.");
@@ -1210,9 +1318,9 @@ export function CustomerDashboard({
         <CardContent className="p-6">
           <div className="flex items-center gap-6 mb-6">
             <div className="relative">
-              {profileImageUrl ? (
+              {(profileImageUrl || imagePreview) ? (
                 <img
-                  src={profileImageUrl}
+                  src={imagePreview || profileImageUrl || ""}
                   alt="Profile"
                   className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
                 />
@@ -1228,8 +1336,8 @@ export function CustomerDashboard({
               )}
             </div>
             <div>
-              <h2 className="text-2xl text-[#0A1A2F] mb-1">{customerName}</h2>
-              <p className="text-gray-600">{customerEmail}</p>
+              <h2 className="text-2xl text-[#0A1A2F] mb-1">{profileForm?.full_name || customerName}</h2>
+              <p className="text-gray-600">{profileForm?.email || customerEmail}</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1264,7 +1372,7 @@ export function CustomerDashboard({
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Full Name</label>
                 <input 
                   type="text" 
-                  value={profileForm.full_name}
+                  value={profileForm?.full_name || ""}
                   onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="Enter your full name"
@@ -1275,18 +1383,18 @@ export function CustomerDashboard({
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Email Address</label>
                 <input 
                   type="email" 
-                  value={customerEmail}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                  disabled
-                  readOnly
+                  value={profileForm?.email || ""}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter your email address"
+                  disabled={isUpdatingProfile}
                 />
-                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Phone Number</label>
                 <input 
                   type="tel" 
-                  value={profileForm.phone}
+                  value={profileForm?.phone || ""}
                   onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="Enter your phone number"
@@ -1295,10 +1403,15 @@ export function CustomerDashboard({
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Property Type</label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" disabled={isUpdatingProfile}>
-                  <option>Residential</option>
-                  <option>Commercial</option>
-                  <option>Industrial</option>
+                <select 
+                  value={profileForm?.property_type || "Residential"}
+                  onChange={(e) => setProfileForm({ ...profileForm, property_type: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" 
+                  disabled={isUpdatingProfile}
+                >
+                  <option value="Residential">Residential</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Industrial">Industrial</option>
                 </select>
               </div>
             </div>
@@ -1321,12 +1434,44 @@ export function CustomerDashboard({
               <Button 
                 variant="outline"
                 onClick={() => {
-                  // Reset form to current saved values
-                  const userData = getUserData();
-                  setProfileForm({
-                    full_name: customerName,
-                    phone: userData.phone
-                  });
+                  // Reset form to current saved values from API
+                  const token = getApiToken();
+                  if (token) {
+                    // Re-fetch customer data to reset form
+                    getCustomerData(token).then(response => {
+                      if (response.status === true && response.data) {
+                        const customerData = response.data;
+                        setProfileForm({
+                          full_name: customerData.full_name || initialUserData.name,
+                          email: customerData.email || initialUserData.email,
+                          phone: customerData.phone || initialUserData.phone,
+                          property_type: customerData.property_type?.name || "Residential",
+                          property_type_id: customerData.property_type?.id || 18
+                        });
+                      }
+                    }).catch(error => {
+                      console.error('Error resetting form:', error);
+                      // Fallback to initial values
+                      const userData = getUserData();
+                      setProfileForm({
+                        full_name: customerName,
+                        email: customerEmail,
+                        phone: userData.phone,
+                        property_type: "Residential",
+                        property_type_id: 18
+                      });
+                    });
+                  } else {
+                    // Fallback to initial values
+                    const userData = getUserData();
+                    setProfileForm({
+                      full_name: customerName,
+                      email: customerEmail,
+                      phone: userData.phone,
+                      property_type: "Residential",
+                      property_type_id: 18
+                    });
+                  }
                 }}
                 disabled={isUpdatingProfile}
               >

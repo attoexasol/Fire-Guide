@@ -62,6 +62,6 @@ export default defineConfig({
     open: true,
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', 'jszip'],
   },
 });

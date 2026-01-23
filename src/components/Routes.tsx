@@ -24,6 +24,7 @@ const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const CustomerAuthPage = lazy(() => import("./pages/CustomerAuthPage"));
 const CustomerDashboardPage = lazy(() => import("./pages/CustomerDashboardPage"));
+const PaymentHistoryPage = lazy(() => import("./pages/PaymentHistoryPage"));
 const AboutContactPage = lazy(() => import("./pages/AboutContactPage"));
 const ReportUploadPage = lazy(() => import("./pages/ReportUploadPage"));
 const TestPage = lazy(() => import("./TestPage"));
@@ -183,6 +184,14 @@ export default function Routes() {
       
       {/* Customer Routes */}
       <Route path="/customer/auth" element={<Suspense fallback={<PageLoader />}><CustomerAuthPage /></Suspense>} />
+      <Route 
+        path="/customer/payment-history" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <PaymentHistoryPage />
+          </ProtectedRoute>
+        } 
+      />
       <Route 
         path="/customer/dashboard/certification/add" 
         element={

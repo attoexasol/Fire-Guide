@@ -536,39 +536,44 @@ export interface UploadProfileImageResponse {
 
 /**
  * Upload profile image
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user/upload_profile_image
+ * Method: POST
+ * Body: form-data with 'file' (File) and 'api_token' (Text)
  * @param data - API token and image file
- * @returns Promise with the API response
+ * @returns Promise with the API response containing status, message, and image_url
  */
 export const uploadProfileImage = async (
   data: UploadProfileImageRequest
 ): Promise<UploadProfileImageResponse> => {
   try {
+    console.log('POST /user/upload_profile_image - Uploading profile image...');
+    
     // Create FormData for multipart/form-data request
     const formData = new FormData();
     formData.append('file', data.file);
     formData.append('api_token', data.api_token);
 
     // Send POST request with FormData
-    // axios will automatically set Content-Type to multipart/form-data
+    // Note: Do NOT manually set Content-Type header - axios will automatically set it
+    // with the correct boundary parameter for multipart/form-data
     const response = await apiClient.post<UploadProfileImageResponse>(
       '/user/upload_profile_image',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      formData
     );
+    
+    console.log('POST /user/upload_profile_image - Response:', response.data);
     return response.data;
   } catch (error) {
+    console.error('Error uploading profile image:', error);
     if (axios.isAxiosError(error)) {
       // Handle axios errors
       if (error.response) {
         // Server responded with error status
+        const errorData = error.response.data as any;
         throw {
           status: false,
-          message: error.response.data?.message || 'Failed to upload profile image',
-          error: error.response.data?.error || error.message,
+          message: errorData?.message || 'Failed to upload profile image',
+          error: errorData?.error || error.message,
           statusCode: error.response.status,
         };
       } else if (error.request) {
@@ -965,6 +970,319 @@ export const rescheduleCustomerBooking = async (
     }
     throw {
       status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Customer payment item interface
+export interface CustomerPaymentItem {
+  booking_id: number;
+  selected_date: string;
+  selected_time: string;
+  professional: {
+    id: number;
+    name: string;
+  };
+  service: {
+    id: number;
+    service_name: string;
+    price: string;
+  };
+  payment: {
+    status: string;
+    price: string;
+  };
+}
+
+// Customer payments response interface
+export interface CustomerPaymentsResponse {
+  status: string;
+  data?: {
+    total: number;
+    items: CustomerPaymentItem[];
+  };
+  message?: string;
+  error?: string;
+}
+
+// Customer invoice item interface
+export interface CustomerInvoiceItem {
+  id: number;
+  booking_id: number;
+  invoice_number: string;
+  total_amount: string;
+  created_at: string;
+  booking: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
+}
+
+// Customer invoices response interface
+export interface CustomerInvoicesResponse {
+  success: boolean;
+  total_invoices: number;
+  data: CustomerInvoiceItem[];
+  message?: string;
+  error?: string;
+}
+
+// Get all customer invoices
+export const getCustomerInvoices = async (apiToken: string): Promise<CustomerInvoicesResponse> => {
+  try {
+    const response = await apiClient.post<CustomerInvoicesResponse>(
+      '/invoice/user_all_get',
+      { api_token: apiToken }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching customer invoices:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          total_invoices: 0,
+          data: [],
+          message: error.response.data?.message || 'Failed to fetch invoices',
+          error: error.response.data?.error || error.message,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          total_invoices: 0,
+          data: [],
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      total_invoices: 0,
+      data: [],
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Get customer payments
+export const getCustomerPayments = async (apiToken: string): Promise<CustomerPaymentsResponse> => {
+  try {
+    const response = await apiClient.post<CustomerPaymentsResponse>(
+      '/user_dashboard/get_payments',
+      { api_token: apiToken }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching customer payments:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to fetch payments',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Payments Summary Response Interface
+export interface PaymentsSummaryResponse {
+  status: string;
+  data: {
+    paid_count: number;
+    paid_total: number;
+  };
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Get payments summary for customer dashboard
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/payments_summary
+ * Method: POST
+ * @param apiToken - The API token for authentication
+ * @returns Promise with the API response containing payments summary
+ */
+export const getPaymentsSummary = async (apiToken: string): Promise<PaymentsSummaryResponse> => {
+  try {
+    console.log('POST /user_dashboard/payments_summary - Fetching payments summary...');
+    
+    const response = await apiClient.post<PaymentsSummaryResponse>(
+      '/user_dashboard/payments_summary',
+      { api_token: apiToken }
+    );
+    
+    console.log('POST /user_dashboard/payments_summary - Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching payments summary:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to fetch payments summary',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Customer Data Response Interface
+export interface CustomerDataResponse {
+  status: boolean;
+  data: {
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+    image: string | null;
+    property_type: {
+      id: number;
+      name: string | null;
+    };
+  };
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Get customer data for profile
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/get_customer_data
+ * Method: POST
+ * @param apiToken - The API token for authentication
+ * @returns Promise with the API response containing customer data
+ */
+export const getCustomerData = async (apiToken: string): Promise<CustomerDataResponse> => {
+  try {
+    console.log('POST /user_dashboard/get_customer_data - Fetching customer data...');
+    
+    const response = await apiClient.post<CustomerDataResponse>(
+      '/user_dashboard/get_customer_data',
+      { api_token: apiToken }
+    );
+    
+    console.log('POST /user_dashboard/get_customer_data - Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching customer data:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: false,
+          message: error.response.data?.message || 'Failed to fetch customer data',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Update Customer Data Request Interface
+export interface UpdateCustomerDataRequest {
+  api_token: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  property_type_id: number;
+}
+
+// Update Customer Data Response Interface
+export interface UpdateCustomerDataResponse {
+  status: boolean;
+  message: string;
+  data: {
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+    property_type_id: number;
+  };
+  error?: string;
+}
+
+/**
+ * Update customer data
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/update_customer_data
+ * Method: POST
+ * @param data - API token and customer data to update
+ * @returns Promise with the API response containing updated customer data
+ */
+export const updateCustomerData = async (data: UpdateCustomerDataRequest): Promise<UpdateCustomerDataResponse> => {
+  try {
+    console.log('POST /user_dashboard/update_customer_data - Updating customer data...');
+    
+    const response = await apiClient.post<UpdateCustomerDataResponse>(
+      '/user_dashboard/update_customer_data',
+      data
+    );
+    
+    console.log('POST /user_dashboard/update_customer_data - Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating customer data:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: false,
+          message: error.response.data?.message || 'Failed to update customer data',
+          error: error.response.data?.error || error.message,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          status: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
