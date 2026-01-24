@@ -1334,6 +1334,8 @@ export interface MonthlyAvailabilityData {
 
 export interface GetMonthlyAvailabilityRequest {
   api_token: string;
+  month?: number; // Optional: 1-12 (January = 1, December = 12)
+  year?: number; // Optional: e.g., 2026
 }
 
 export interface GetMonthlyAvailabilityResponse {
@@ -1353,6 +1355,8 @@ export interface MonthlyAvailabilitySummaryData {
 
 export interface GetMonthlyAvailabilitySummaryRequest {
   api_token: string;
+  month?: number; // Optional: 1-12 (January = 1, December = 12)
+  year?: number; // Optional: e.g., 2026
 }
 
 export interface GetMonthlyAvailabilitySummaryResponse {
@@ -1515,9 +1519,19 @@ export const getMonthlyAvailability = async (
   data: GetMonthlyAvailabilityRequest
 ): Promise<GetMonthlyAvailabilityResponse> => {
   try {
+    const requestBody: any = { api_token: data.api_token };
+    
+    // Add month and year if provided
+    if (data.month !== undefined) {
+      requestBody.month = data.month;
+    }
+    if (data.year !== undefined) {
+      requestBody.year = data.year;
+    }
+    
     const response = await apiClient.post<GetMonthlyAvailabilityResponse>(
       '/professional/monthly_availability',
-      { api_token: data.api_token }
+      requestBody
     );
     return response.data;
   } catch (error) {
@@ -1550,9 +1564,19 @@ export const getMonthlyAvailabilitySummary = async (
   data: GetMonthlyAvailabilitySummaryRequest
 ): Promise<GetMonthlyAvailabilitySummaryResponse> => {
   try {
+    const requestBody: any = { api_token: data.api_token };
+    
+    // Add month and year if provided
+    if (data.month !== undefined) {
+      requestBody.month = data.month;
+    }
+    if (data.year !== undefined) {
+      requestBody.year = data.year;
+    }
+    
     const response = await apiClient.post<GetMonthlyAvailabilitySummaryResponse>(
       '/professional/monthly_availability/summary',
-      { api_token: data.api_token }
+      requestBody
     );
     console.log('POST /professional/monthly_availability/summary - Response:', response.data);
     return response.data;

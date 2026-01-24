@@ -173,7 +173,209 @@ export const CustomerPayments = React.memo(function CustomerPayments({ payments:
   };
 
   const handleDownloadInvoice = (invoiceNumber: string) => {
-    toast.success(`Downloading invoice ${invoiceNumber}...`);
+    // Find the payment by invoice number
+    const payment = payments.find(p => p.invoiceNumber === invoiceNumber);
+    
+    if (!payment) {
+      toast.error(`Invoice ${invoiceNumber} not found.`);
+      return;
+    }
+
+    toast.info(`Generating invoice ${invoiceNumber}...`);
+    
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // Colors
+      const primaryColor: [number, number, number] = [10, 26, 47]; // #0A1A2F
+      const redColor: [number, number, number] = [220, 38, 38]; // red-600
+      const grayColor: [number, number, number] = [107, 114, 128];
+      const headerBg: [number, number, number] = [0, 51, 102]; // #003366
+      
+      // Header - Fire Guide Logo
+      doc.setFillColor(220, 38, 38);
+      doc.rect(14, 15, 20, 12, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FG', 20, 23);
+      
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(16);
+      doc.text('Fire Guide', 38, 24);
+      
+      // INVOICE title
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE', pageWidth - 14, 24, { align: 'right' });
+      
+      // Invoice details (right side)
+      const invoiceDate = new Date(payment.date).toLocaleDateString('en-GB');
+      // Format date for table (more compact: "26 Jan 2026" on single line)
+      const formattedDate = new Date(payment.date).toLocaleDateString('en-GB', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...grayColor);
+      
+      doc.text('Invoice Date', pageWidth - 55, 38);
+      doc.text('Invoice #', pageWidth - 55, 46);
+      doc.text('Status', pageWidth - 55, 54);
+      
+      doc.setTextColor(...primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text(invoiceDate, pageWidth - 14, 38, { align: 'right' });
+      doc.text(payment.invoiceNumber, pageWidth - 14, 46, { align: 'right' });
+      doc.text(payment.status === 'paid' ? 'Paid' : 'Pending', pageWidth - 14, 54, { align: 'right' });
+      
+      // Customer/Professional info (left side)
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(11);
+      doc.text('Invoice Details', 14, 42);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...grayColor);
+      doc.text('Service: ' + payment.service, 14, 50);
+      doc.text('Professional: ' + payment.professional, 14, 57);
+      doc.text('Booking Ref: ' + payment.bookingRef, 14, 64);
+      
+      // Invoice Summary box
+      const summaryY = 75;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(pageWidth - 85, summaryY, 71, 30, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(10);
+      doc.text('Invoice Summary', pageWidth - 80, summaryY + 7);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...grayColor);
+      doc.text('Service', pageWidth - 80, summaryY + 15);
+      doc.text('Amount', pageWidth - 80, summaryY + 23);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.text(payment.service, pageWidth - 14, summaryY + 15, { align: 'right' });
+      doc.setFontSize(12);
+      doc.text(payment.amount, pageWidth - 14, summaryY + 23, { align: 'right' });
+      
+      // Payment History Section
+      const historyY = summaryY + 50;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(12);
+      doc.text('Payment History', 14, historyY);
+      
+      // Calculate commission and earnings
+      const amountValue = parseFloat(payment.amount.replace('£', '').replace(',', ''));
+      const commission = amountValue * 0.15;
+      const earnings = amountValue - commission;
+      
+      // Payment History table with all columns matching the screenshot
+      const tableData = [[
+        payment.invoiceNumber, // REFERENCE
+        formattedDate, // DATE
+        payment.professional, // PROFESSIONAL
+        payment.service, // SERVICE
+        payment.amount, // AMOUNT
+        `-£${commission.toFixed(2)}`, // COMMISSION (negative, will be styled in red)
+        `£${earnings.toFixed(2)}`, // EARNINGS (will be styled in green)
+        payment.status === 'paid' ? 'Paid' : 'Pending' // STATUS
+      ]];
+      
+      autoTable(doc, {
+        startY: historyY + 5,
+        head: [['REFERENCE', 'DATE', 'PROFESSIONAL', 'SERVICE', 'AMOUNT', 'COMMISSION', 'EARNINGS', 'STATUS']],
+        body: tableData,
+        theme: 'plain',
+        headStyles: {
+          fillColor: headerBg,
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          cellPadding: 4,
+          minCellHeight: 8,
+        },
+        bodyStyles: {
+          fontSize: 8,
+          cellPadding: 4,
+        },
+        columnStyles: {
+          0: { cellWidth: 24 }, // REFERENCE
+          1: { cellWidth: 24 }, // DATE
+          2: { cellWidth: 28 }, // PROFESSIONAL
+          3: { cellWidth: 28 }, // SERVICE
+          4: { cellWidth: 20, halign: 'right' }, // AMOUNT
+          5: { cellWidth: 24, halign: 'right', textColor: [220, 38, 38] }, // COMMISSION
+          6: { cellWidth: 20, halign: 'right', textColor: [22, 163, 74] }, // EARNINGS
+          7: { cellWidth: 18, halign: 'center' }, // STATUS
+        },
+        margin: { left: 14, right: 14 },
+      });
+      
+      // Get final Y position after table
+      const finalY = (doc as any).lastAutoTable?.finalY || historyY + 30;
+      
+      // Payment Information
+      const paymentInfoY = finalY + 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...primaryColor);
+      doc.setFontSize(11);
+      doc.text('Payment Information', 14, paymentInfoY);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...grayColor);
+      doc.text('Payment Method: ' + payment.paymentMethod, 14, paymentInfoY + 8);
+      doc.text('Date: ' + invoiceDate, 14, paymentInfoY + 15);
+      doc.text('Status: ' + (payment.status === 'paid' ? 'Paid' : 'Pending'), 14, paymentInfoY + 22);
+      
+      // Total Amount box
+      const totalY = paymentInfoY + 35;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(pageWidth / 2 - 35, totalY, 70, 18, 'F');
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.5);
+      doc.rect(pageWidth / 2 - 35, totalY, 70, 18, 'S');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...redColor);
+      doc.setFontSize(10);
+      doc.text('Total Amount:', pageWidth / 2 - 30, totalY + 11);
+      doc.text(payment.amount, pageWidth / 2 + 30, totalY + 11, { align: 'right' });
+      
+      // Footer
+      const footerY = totalY + 35;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...grayColor);
+      doc.setFontSize(8);
+      doc.text('If you have any questions about this invoice, please contact', pageWidth / 2, footerY, { align: 'center' });
+      doc.text('Fire Guide Support | support@fireguide.co.uk', pageWidth / 2, footerY + 6, { align: 'center' });
+      
+      doc.setFont('helvetica', 'bolditalic');
+      doc.setTextColor(...redColor);
+      doc.setFontSize(11);
+      doc.text('Thank You For Your Business!', pageWidth / 2, footerY + 20, { align: 'center' });
+      
+      // Save PDF
+      const fileName = `Invoice_${payment.invoiceNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success(`Invoice ${invoiceNumber} downloaded successfully!`);
+    } catch (error: any) {
+      console.error('Error generating invoice PDF:', error);
+      toast.error("Failed to generate invoice. Please try again.");
+    }
   };
 
   // Generate statement PDF using the payment data shown in cards

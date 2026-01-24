@@ -5,7 +5,9 @@ import {
   X,
   Plus,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -58,6 +60,12 @@ export function ProfessionalAvailabilityContent() {
   const [monthlySummary, setMonthlySummary] = useState<MonthlyAvailabilitySummaryData | null>(null);
   const [loadingMonthlySummary, setLoadingMonthlySummary] = useState(true);
   
+  // Calendar navigation state
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return { month: now.getMonth() + 1, year: now.getFullYear() }; // month: 1-12, year: e.g., 2026
+  });
+  
   const removeBlockedDate = async (id: string) => {
     try {
       const apiToken = getApiToken();
@@ -101,13 +109,21 @@ export function ProfessionalAvailabilityContent() {
         }
         
         // Refresh monthly availability
-        const availabilityResponse = await getMonthlyAvailability({ api_token: apiToken });
+        const availabilityResponse = await getMonthlyAvailability({ 
+          api_token: apiToken,
+          month: currentMonth.month,
+          year: currentMonth.year
+        });
         if (availabilityResponse.data) {
           setMonthlyAvailability(availabilityResponse.data);
         }
         
         // Refresh monthly summary
-        const summaryResponse = await getMonthlyAvailabilitySummary({ api_token: apiToken });
+        const summaryResponse = await getMonthlyAvailabilitySummary({ 
+          api_token: apiToken,
+          month: currentMonth.month,
+          year: currentMonth.year
+        });
         if (summaryResponse.status === true && summaryResponse.data) {
           setMonthlySummary(summaryResponse.data);
         }
@@ -193,13 +209,21 @@ export function ProfessionalAvailabilityContent() {
             }
             
             // Refresh monthly availability
-            const availabilityResponse = await getMonthlyAvailability({ api_token: apiToken });
+            const availabilityResponse = await getMonthlyAvailability({ 
+              api_token: apiToken,
+              month: currentMonth.month,
+              year: currentMonth.year
+            });
             if (availabilityResponse.data) {
               setMonthlyAvailability(availabilityResponse.data);
             }
             
             // Refresh monthly summary
-            const summaryResponse = await getMonthlyAvailabilitySummary({ api_token: apiToken });
+            const summaryResponse = await getMonthlyAvailabilitySummary({ 
+              api_token: apiToken,
+              month: currentMonth.month,
+              year: currentMonth.year
+            });
             if (summaryResponse.status === true && summaryResponse.data) {
               setMonthlySummary(summaryResponse.data);
             }
@@ -397,7 +421,7 @@ export function ProfessionalAvailabilityContent() {
     fetchUpcomingBookings();
   }, []);
 
-  // Fetch monthly availability on mount
+  // Fetch monthly availability on mount and when month changes
   useEffect(() => {
     const fetchMonthlyAvailability = async () => {
       try {
@@ -410,7 +434,11 @@ export function ProfessionalAvailabilityContent() {
           return;
         }
 
-        const response = await getMonthlyAvailability({ api_token: apiToken });
+        const response = await getMonthlyAvailability({ 
+          api_token: apiToken,
+          month: currentMonth.month,
+          year: currentMonth.year
+        });
         
         // Check if response indicates failure
         if (response.status === false || !response.data) {
@@ -458,9 +486,9 @@ export function ProfessionalAvailabilityContent() {
     };
 
     fetchMonthlyAvailability();
-  }, []);
+  }, [currentMonth]);
 
-  // Fetch monthly availability summary on mount and when blocked dates change
+  // Fetch monthly availability summary on mount and when blocked dates or month changes
   useEffect(() => {
     const fetchMonthlySummary = async () => {
       try {
@@ -473,7 +501,11 @@ export function ProfessionalAvailabilityContent() {
           return;
         }
 
-        const response = await getMonthlyAvailabilitySummary({ api_token: apiToken });
+        const response = await getMonthlyAvailabilitySummary({ 
+          api_token: apiToken,
+          month: currentMonth.month,
+          year: currentMonth.year
+        });
         
         // Check if response indicates failure
         if (response.status === false || !response.data) {
@@ -508,7 +540,7 @@ export function ProfessionalAvailabilityContent() {
     };
 
     fetchMonthlySummary();
-  }, [blockedDates]); // Re-fetch when blockedDates change
+  }, [blockedDates, currentMonth]); // Re-fetch when blockedDates or currentMonth change
 
   // Define week days order for sorting
   const weekDaysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -528,6 +560,39 @@ export function ProfessionalAvailabilityContent() {
     new Date(d.date).getMonth() === new Date().getMonth()
   ).length;
   const currentMonthAvailable = monthlySummary?.available_count ?? (30 - currentMonthBookings - currentMonthBlocked);
+
+  // Navigation handlers
+  const handlePreviousMonth = () => {
+    setCurrentMonth(prev => {
+      if (prev.month === 1) {
+        return { month: 12, year: prev.year - 1 };
+      } else {
+        return { month: prev.month - 1, year: prev.year };
+      }
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(prev => {
+      if (prev.month === 12) {
+        return { month: 1, year: prev.year + 1 };
+      } else {
+        return { month: prev.month + 1, year: prev.year };
+      }
+    });
+  };
+
+  const handleToday = () => {
+    const now = new Date();
+    setCurrentMonth({ month: now.getMonth() + 1, year: now.getFullYear() });
+  };
+
+  // Format month display
+  const getMonthDisplay = () => {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${monthNames[currentMonth.month - 1]} ${currentMonth.year}`;
+  };
 
   return (
     <div>
@@ -589,8 +654,41 @@ export function ProfessionalAvailabilityContent() {
           {/* Calendar */}
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>{monthlyAvailability?.month || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</CardTitle>
-              <CardDescription>Click on dates to block or unblock availability</CardDescription>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousMonth}
+                    className="h-8 w-8 p-0"
+                    disabled={loadingMonthlyAvailability}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <CardTitle className="mb-0 min-w-[200px] text-center">
+                    {getMonthDisplay()}
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextMonth}
+                    className="h-8 w-8 p-0"
+                    disabled={loadingMonthlyAvailability}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToday}
+                  className="text-sm"
+                  disabled={loadingMonthlyAvailability}
+                >
+                  Today
+                </Button>
+              </div>
+              <CardDescription className="mt-2">Click on dates to block or unblock availability</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingMonthlyAvailability ? (
@@ -611,30 +709,9 @@ export function ProfessionalAvailabilityContent() {
                   </div>
                   <div className="grid grid-cols-7 gap-2">
                     {(() => {
-                      // Get current month and year from API data or use current date
-                      let year: number;
-                      let month: number;
-                      
-                      if (monthlyAvailability?.month) {
-                        // Parse month string like "January 2026" or "December 2025"
-                        const monthParts = monthlyAvailability.month.split(' ');
-                        if (monthParts.length >= 2) {
-                          const monthName = monthParts[0]; // "January" or "December"
-                          year = parseInt(monthParts[1], 10); // "2026" or "2025"
-                          // Create a date object to get the month index (0-11)
-                          const tempDate = new Date(`${monthName} 1, ${year}`);
-                          month = tempDate.getMonth();
-                        } else {
-                          // Fallback to current date if parsing fails
-                          const currentDate = new Date();
-                          year = currentDate.getFullYear();
-                          month = currentDate.getMonth();
-                        }
-                      } else {
-                        const currentDate = new Date();
-                        year = currentDate.getFullYear();
-                        month = currentDate.getMonth();
-                      }
+                      // Use currentMonth state to ensure correct month/year display
+                      const year = currentMonth.year;
+                      const month = currentMonth.month - 1; // Convert to 0-based index (0-11)
                       
                       // Get first day of month and number of days
                       const firstDay = new Date(year, month, 1).getDay();
@@ -653,6 +730,12 @@ export function ProfessionalAvailabilityContent() {
                         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         let status: 'past' | 'booked' | 'blocked' | 'available' = 'available';
                         
+                        // Check if date is in the past
+                        const dateObj = new Date(year, month, day);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const isPastDate = dateObj < today;
+                        
                         if (monthlyAvailability) {
                           // Check status in priority order: past > booked > blocked > available
                           const pastDates = monthlyAvailability.past || [];
@@ -660,7 +743,7 @@ export function ProfessionalAvailabilityContent() {
                           const blockedDates = monthlyAvailability.blocked || [];
                           const availableDates = monthlyAvailability.available || [];
                           
-                          if (pastDates.includes(dateStr)) {
+                          if (isPastDate || pastDates.includes(dateStr)) {
                             status = 'past';
                           } else if (bookedDates.includes(dateStr)) {
                             status = 'booked';
@@ -669,6 +752,8 @@ export function ProfessionalAvailabilityContent() {
                           } else if (availableDates.includes(dateStr)) {
                             status = 'available';
                           }
+                        } else if (isPastDate) {
+                          status = 'past';
                         }
                         
                         dates.push({ day, dateStr, status });
