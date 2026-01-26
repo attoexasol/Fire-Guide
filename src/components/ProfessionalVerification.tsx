@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Shield, CheckCircle, AlertCircle, Upload, FileText, Award, X, ShieldCheck, Loader2 } from "lucide-react";
+import { Shield, CheckCircle, AlertCircle, Upload, FileText, Award, X, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
-import { getProfessionalWiseIdentity, updateProfessionalIdentity, ProfessionalIdentityItem, getVerificationSummary, VerificationSummaryData, getProfessionalWiseDBS, ProfessionalDBSItem, updateProfessionalDBS, getProfessionalWiseEvidence, ProfessionalEvidenceItem } from "../api/professionalsService";
+import { getProfessionalWiseIdentity, updateProfessionalIdentity, ProfessionalIdentityItem, getVerificationSummary, VerificationSummaryData, getProfessionalWiseEvidence, ProfessionalEvidenceItem } from "../api/professionalsService";
 import { createCertification, updateEvidence } from "../api/qualificationsService";
 import { showInsuranceCoverage, InsuranceItem, updateInsuranceDocument } from "../api/insuranceService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
@@ -14,7 +14,6 @@ import { toast } from "sonner";
 export function ProfessionalVerification() {
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [identityData, setIdentityData] = useState<ProfessionalIdentityItem | null>(null);
-  const [dbsData, setDbsData] = useState<ProfessionalDBSItem | null>(null);
   const [qualificationsEvidence, setQualificationsEvidence] = useState<ProfessionalEvidenceItem[]>([]);
   const [insuranceData, setInsuranceData] = useState<InsuranceItem[]>([]);
   const [isLoadingIdentity, setIsLoadingIdentity] = useState(false);
@@ -53,29 +52,6 @@ export function ProfessionalVerification() {
       }
     } catch (err: any) {
       console.error("Error fetching verification summary:", err);
-    }
-  };
-
-  // Fetch DBS data (extracted to a function so we can call it after upload)
-  const fetchDBSData = async () => {
-    try {
-      const apiToken = getApiToken();
-      if (!apiToken) {
-        console.warn("No API token available for fetching DBS");
-        return;
-      }
-
-      const response = await getProfessionalWiseDBS({ api_token: apiToken });
-      
-      if (response.status === true && response.data && response.data.length > 0) {
-        // Use the first DBS item (most recent)
-        setDbsData(response.data[0]);
-      } else {
-        setDbsData(null);
-      }
-    } catch (err: any) {
-      console.error("Error fetching DBS:", err);
-      setDbsData(null);
     }
   };
 
@@ -127,7 +103,6 @@ export function ProfessionalVerification() {
   useEffect(() => {
     fetchIdentityData();
     fetchVerificationSummary();
-    fetchDBSData();
     fetchQualificationsEvidence();
     fetchInsuranceData();
   }, []);
@@ -345,17 +320,6 @@ export function ProfessionalVerification() {
           status: item.status // Store the status
         };
       })
-    },
-    {
-      id: "dbs",
-      title: "DBS Check",
-      description: "Enhanced DBS clearance",
-      status: verificationSummary?.checks?.dbs !== undefined
-        ? getRequirementStatus(verificationSummary.checks.dbs)
-        : (dbsData?.status || "pending"),
-      verifiedDate: dbsData?.updated_at ? formatDate(dbsData.updated_at) : null,
-      file: dbsData?.file || null,
-      icon: ShieldCheck
     }
   ];
 
@@ -504,12 +468,6 @@ export function ProfessionalVerification() {
         setCurrentUploadRequirement(null);
         return;
       }
-    } else if (requirementId === "dbs") {
-      if (!dbsData || !dbsData.id) {
-        toast.error("DBS record not found. Please contact support.");
-        setCurrentUploadRequirement(null);
-        return;
-      }
     }
     // Note: qualifications doesn't require existing record check - we can create new evidence
 
@@ -544,21 +502,6 @@ export function ProfessionalVerification() {
           await fetchIdentityData();
         } else {
           toast.error(response.message || "Failed to update identity document.");
-        }
-      } else if (requirementId === "dbs") {
-        const response = await updateProfessionalDBS({
-          api_token: apiToken,
-          id: dbsData!.id,
-          professional_id: professionalId,
-          file: fileToSend,
-        });
-
-        if (response.status === true || response.data) {
-          toast.success(response.message || "DBS document updated successfully!");
-          // Immediately refresh the DBS data
-          await fetchDBSData();
-        } else {
-          toast.error(response.message || "Failed to update DBS document.");
         }
       } else if (requirementId === "qualifications") {
         // fileToSend is already determined above:
@@ -757,7 +700,7 @@ export function ProfessionalVerification() {
                     </div>
                   )}
 
-                  {(requirement.id === "identity" || requirement.id === "dbs") && requirement.file && (
+                  {requirement.id === "identity" && requirement.file && (
                     <div className="mt-4">
                       <Separator className="mb-3" />
                       <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -765,7 +708,7 @@ export function ProfessionalVerification() {
                           <FileText className="w-4 h-4 text-gray-400" />
                           <div>
                             <p className="text-sm text-gray-900">
-                              {requirement.id === "identity" ? "Identity Document" : "DBS Document"}
+                              Identity Document
                             </p>
                             {requirement.verifiedDate && (
                               <p className="text-xs text-gray-500">Verified {requirement.verifiedDate}</p>
@@ -835,7 +778,7 @@ export function ProfessionalVerification() {
                                         variant="ghost" 
                                         size="sm"
                                         onClick={() => {
-                                          // Use the stored URL from the document (same as Identity and DBS)
+                                          // Use the stored URL from the document (same as Identity)
                                           const urlToOpen = (doc as any).url || '';
                                           window.open(urlToOpen, '_blank');
                                         }}
@@ -922,7 +865,7 @@ export function ProfessionalVerification() {
                     </div>
                   )}
 
-                  {(requirement.id === "identity" || requirement.id === "dbs") && (
+                  {requirement.id === "identity" && (
                     <div className="mt-4">
                       <Button
                         variant="outline"
@@ -938,10 +881,7 @@ export function ProfessionalVerification() {
                         ) : (
                           <>
                             <Upload className="w-4 h-4 mr-2" />
-                            {(requirement.id === "identity" && identityData) || 
-                             (requirement.id === "dbs" && dbsData)
-                              ? "Update Document"
-                              : "Upload Document"}
+                            {identityData ? "Update Document" : "Upload Document"}
                           </>
                         )}
                       </Button>

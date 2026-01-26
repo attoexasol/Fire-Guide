@@ -1200,6 +1200,69 @@ export const getCertificates = async (
   }
 };
 
+// TypeScript types for Professional Experience (similar to Certificates)
+export interface ExperienceItem {
+  id: number;
+  professional_id: number;
+  experience_name: string;
+  description: string;
+  evidence: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GetExperiencesRequest {
+  api_token: string;
+  professional_id: number;
+}
+
+export interface GetExperiencesResponse {
+  status: boolean;
+  message: string;
+  data: ExperienceItem[];
+  error?: string;
+}
+
+export const getExperiences = async (
+  data: GetExperiencesRequest
+): Promise<GetExperiencesResponse> => {
+  try {
+    const response = await apiClient.post<GetExperiencesResponse>(
+      '/professional/get_experience',
+      {
+        api_token: data.api_token,
+        professional_id: data.professional_id,
+      }
+    );
+    console.log('POST /professional/get_experience - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching experiences:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch experiences',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
 // TypeScript types for Store Service Prices
 export interface ServicePriceItem {
   service_id: number;

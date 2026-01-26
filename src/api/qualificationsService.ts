@@ -55,6 +55,33 @@ export interface DeleteCertificationResponse {
   error?: string;
 }
 
+// TypeScript types for Create Experience (similar to Create Certification)
+export interface CreateExperienceRequest {
+  api_token: string;
+  experience_name: string;
+  description: string;
+  evidence: string | File; // Base64 string (images) or File object (documents)
+  status?: string;
+  professional_id?: number;
+}
+
+export interface CreateExperienceResponse {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    experience_name: string;
+    description: string;
+    evidence: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  };
+  error?: string;
+}
+
 export interface CreateCertificationRequest {
   api_token: string;
   title?: string; // Optional for backward compatibility
@@ -164,6 +191,103 @@ export const updateCertification = async (
     }
     throw {
       success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Create a new experience with evidence
+ * BaseURL: https://fireguide.attoexasolutions.com/api/experiences-certification/create
+ * Method: POST
+ * - Images: JSON body with base64 evidence
+ * - Documents (PDF, Word, Excel, etc.): FormData with File object
+ */
+export const createExperience = async (
+  data: CreateExperienceRequest
+): Promise<CreateExperienceResponse> => {
+  try {
+    const isFileObject = data.evidence instanceof File;
+    let response: any;
+
+    if (isFileObject) {
+      // For documents (PDF, Word, Excel, etc.): send File object as FormData
+      const formData = new FormData();
+      formData.append('api_token', data.api_token);
+      formData.append('experience_name', data.experience_name);
+      formData.append('description', data.description);
+      formData.append('evidence', data.evidence as File);
+      formData.append('status', data.status || 'pending');
+
+      // Add optional fields if provided
+      if (data.professional_id) {
+        formData.append('professional_id', data.professional_id.toString());
+      }
+
+      console.log('POST /experiences-certification/create - Request (FormData):', {
+        endpoint: '/experiences-certification/create',
+        hasApiToken: !!data.api_token,
+        experience_name: data.experience_name,
+        description: data.description,
+        evidence: `File: ${(data.evidence as File).name}`,
+        status: data.status || 'pending',
+      });
+
+      response = await apiClient.post<CreateExperienceResponse>(
+        '/experiences-certification/create',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+    } else {
+      // For images: send base64 string as JSON body
+      const requestBody: any = {
+        api_token: data.api_token,
+        experience_name: data.experience_name,
+        description: data.description,
+        evidence: data.evidence as string,
+        status: data.status || 'pending',
+      };
+
+      if (data.professional_id) {
+        requestBody.professional_id = data.professional_id;
+      }
+
+      console.log('POST /experiences-certification/create - Request (JSON):', {
+        endpoint: '/experiences-certification/create',
+        hasApiToken: !!data.api_token,
+        experience_name: data.experience_name,
+        description: data.description,
+        evidence: 'Base64 string',
+        status: data.status || 'pending',
+      });
+
+      response = await apiClient.post<CreateExperienceResponse>(
+        '/experiences-certification/create',
+        requestBody
+      );
+    }
+    console.log('POST /experiences-certification/create - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating experience:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: false,
+          message: error.response.data?.message || 'Failed to create experience',
+          error: error.response.data?.error || error.message,
+        };
+      } else if (error.request) {
+        throw {
+          status: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };

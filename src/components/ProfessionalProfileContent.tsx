@@ -32,8 +32,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { fetchServices, ServiceResponse } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
 import { getApiToken, getProfessionalId, setProfessionalId, getUserEmail } from "../lib/auth";
-import { createCertification } from "../api/qualificationsService";
-import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem } from "../api/professionalsService";
+import { createCertification, createExperience } from "../api/qualificationsService";
+import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem, getExperiences, ExperienceItem } from "../api/professionalsService";
 import { toast } from "sonner";
 
 export function ProfessionalProfileContent() {
@@ -64,6 +64,11 @@ export function ProfessionalProfileContent() {
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false); // Track if we've attempted to fetch data (i.e., professional_id exists)
   
+  // Experiences from API
+  const [experiences, setExperiences] = useState<ExperienceItem[]>([]);
+  const [loadingExperiences, setLoadingExperiences] = useState(false);
+  const [hasAttemptedFetchExperiences, setHasAttemptedFetchExperiences] = useState(false);
+  
   // Profile image upload states
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -87,6 +92,22 @@ export function ProfessionalProfileContent() {
   // State for viewing certification details in modal
   const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
   const [selectedCertification, setSelectedCertification] = useState<CertificateItem | null>(null);
+
+  // Experience form states
+  const [showExperienceForm, setShowExperienceForm] = useState(false);
+  const [experienceFormData, setExperienceFormData] = useState({
+    experience_name: "",
+    description: "",
+    evidence: "",
+    status: "pending"
+  });
+  const [selectedExperienceFile, setSelectedExperienceFile] = useState<File | null>(null);
+  const [isSubmittingExperience, setIsSubmittingExperience] = useState(false);
+  const experienceFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for viewing experience details in modal
+  const [isExperienceModalOpen, setIsExperienceModalOpen] = useState(false);
+  const [selectedExperience, setSelectedExperience] = useState<ExperienceItem | null>(null);
 
   // Load profile image from localStorage using email-based key for persistence
   // This allows the image to persist across logout/login for the same user
@@ -293,13 +314,32 @@ export function ProfessionalProfileContent() {
         
         // Only update state if component is still mounted
         if (isMounted) {
-          // Filter only ACTIVE services
-          const activeServices = fetchedServices.filter(service => service.status === "ACTIVE");
+          // Ensure we have a valid array
+          if (!Array.isArray(fetchedServices)) {
+            console.warn("Services data is not an array:", fetchedServices);
+            startTransition(() => {
+              setServices([]);
+              setServicesError("Invalid services data received.");
+              setLoadingServices(false);
+            });
+            return;
+          }
+          
+          // Filter only ACTIVE services (case-insensitive check)
+          const activeServices = fetchedServices.filter(service => 
+            service && service.status && service.status.toUpperCase() === "ACTIVE"
+          );
+          
+          // If no active services found, show all services (fallback to show all)
+          const servicesToShow = activeServices.length > 0 ? activeServices : fetchedServices;
+          
+          console.log(`Loaded ${servicesToShow.length} services (${activeServices.length} active, ${fetchedServices.length} total)`);
           
           // Wrap state updates in startTransition to prevent suspend during render
           startTransition(() => {
-            setServices(activeServices);
+            setServices(servicesToShow);
             setLoadingServices(false);
+            setServicesError(null);
           });
         }
       } catch (error) {
@@ -308,7 +348,9 @@ export function ProfessionalProfileContent() {
         // Only update state if component is still mounted
         if (isMounted) {
           startTransition(() => {
-            setServicesError("Failed to load services. Please try again later.");
+            const errorMessage = (error as any)?.message || "Failed to load services. Please try again later.";
+            setServicesError(errorMessage);
+            setServices([]);
             setLoadingServices(false);
           });
         }
@@ -417,6 +459,33 @@ export function ProfessionalProfileContent() {
     }
   };
 
+  // Function to fetch experiences for a professional
+  const fetchProfessionalExperiences = async (profId: number) => {
+    try {
+      setLoadingExperiences(true);
+      setHasAttemptedFetchExperiences(true);
+      const token = getApiToken();
+      const response = await getExperiences({
+        professional_id: profId,
+        api_token: token || undefined
+      });
+
+      if (response.status === true && response.data) {
+        startTransition(() => {
+          setExperiences(response.data || []);
+        });
+      } else {
+        console.error('Failed to fetch experiences:', response.error || response.message);
+        setExperiences([]);
+      }
+    } catch (error: any) {
+      console.error('Error fetching experiences:', error);
+      setExperiences([]);
+    } finally {
+      setLoadingExperiences(false);
+    }
+  };
+
   // Function to fetch professional data by ID
   const fetchProfessionalData = async (professionalId: number) => {
     try {
@@ -454,6 +523,7 @@ export function ProfessionalProfileContent() {
         fetchSelectedServicesForProfessional(professionalId);
         fetchProfileCompletion(professionalId);
         fetchProfessionalCertificates(professionalId);
+        fetchProfessionalExperiences(professionalId);
       } else {
         setLoadingProfessional(false);
       }
@@ -820,6 +890,139 @@ export function ProfessionalProfileContent() {
     }
   };
 
+  // Handle experience form
+  const handleOpenExperienceForm = () => {
+    setShowExperienceForm(true);
+  };
+
+  const handleCloseExperienceForm = () => {
+    setShowExperienceForm(false);
+    // Reset form data
+    setExperienceFormData({
+      experience_name: "",
+      description: "",
+      evidence: "",
+      status: "pending"
+    });
+    setSelectedExperienceFile(null);
+    if (experienceFileInputRef.current) {
+      experienceFileInputRef.current.value = "";
+    }
+  };
+
+  const handleExperienceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type (allow PDF, images, and common document formats)
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.doc', '.docx'];
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(`.${fileExtension || ''}`)) {
+        toast.error("Please upload a PDF, image, or document file");
+        if (experienceFileInputRef.current) {
+          experienceFileInputRef.current.value = "";
+        }
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        toast.error("File size must be less than 10MB");
+        if (experienceFileInputRef.current) {
+          experienceFileInputRef.current.value = "";
+        }
+        return;
+      }
+
+      setSelectedExperienceFile(file);
+      setExperienceFormData({ ...experienceFormData, evidence: file.name });
+    }
+  };
+
+  const handleExperienceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (!experienceFormData.experience_name.trim()) {
+      toast.error("Please enter an experience name");
+      return;
+    }
+
+    if (!experienceFormData.description.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+
+    if (!experienceFormData.evidence && !selectedExperienceFile) {
+      toast.error("Please upload evidence file");
+      return;
+    }
+
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Please log in to create an experience.");
+      return;
+    }
+
+    setIsSubmittingExperience(true);
+    try {
+      // Use File object directly (will be sent as FormData)
+      let evidenceValue: string | File = experienceFormData.evidence;
+      if (selectedExperienceFile) {
+        // For documents, send File object directly
+        evidenceValue = selectedExperienceFile;
+      } else {
+        // If no file selected but evidence string exists, try to convert
+        toast.error("Please select a file to upload");
+        setIsSubmittingExperience(false);
+        return;
+      }
+
+      // Get professional_id
+      const professionalId = getProfessionalId();
+
+      const response = await createExperience({
+        api_token: token,
+        experience_name: experienceFormData.experience_name.trim(),
+        description: experienceFormData.description.trim(),
+        evidence: evidenceValue,
+        status: experienceFormData.status,
+        ...(professionalId && { professional_id: professionalId }),
+      });
+
+      if (response.status === "success" || response.success || (response.status === true) || (response.message && !response.error)) {
+        toast.success(response.message || "Experience created successfully!");
+        // Close form and reset
+        handleCloseExperienceForm();
+        
+        // Refresh experiences list after successful creation
+        if (professionalId && !isNaN(professionalId)) {
+          fetchProfessionalExperiences(professionalId);
+          // Also refresh profile completion to update the percentage
+          fetchProfileCompletion(professionalId);
+        }
+      } else {
+        toast.error(response.message || response.error || "Failed to create experience. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error creating experience:", error);
+      const errorMessage = error?.message || error?.error || "An error occurred while creating experience. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmittingExperience(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     // Validate required fields from Basic Information
     if (!formData.name.trim()) {
@@ -963,6 +1166,7 @@ export function ProfessionalProfileContent() {
             fetchProfileCompletion(profIdFromResponse);
             fetchSelectedServicesForProfessional(profIdFromResponse);
             fetchProfessionalCertificates(profIdFromResponse);
+            fetchProfessionalExperiences(profIdFromResponse);
             
             // Also fetch and populate professional data
             fetchProfessionalData(profIdFromResponse);
@@ -1525,6 +1729,251 @@ export function ProfessionalProfileContent() {
               )}
             </CardContent>
           </Card>
+
+          {/* Experience */}
+          <Card className="border-0 shadow-md">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
+                Experience
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm text-gray-600 mt-2">
+                Upload your experience details and evidence. An admin will review and mark them as Verified, Pending, or Rejected.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 p-4 sm:p-6 pt-0">
+              {loadingExperiences ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm text-gray-500">Loading experiences...</p>
+                </div>
+              ) : experiences.length > 0 ? (
+                experiences.map((exp) => (
+                <div 
+                  key={exp.id} 
+                    className={`p-3 sm:p-4 border rounded-lg ${
+                    exp.status === 'verified' ? 'bg-green-50 border-green-200' :
+                    exp.status === 'pending' ? 'bg-amber-50 border-amber-200' :
+                    'bg-red-50 border-red-200'
+                  }`}
+                >
+                  {/* Header with title and status */}
+                    <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2 sm:gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
+                          {/* Prominent Checkmark for Verified Experiences */}
+                          {exp.status === 'verified' && (
+                            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
+                          )}
+                          {exp.status === 'pending' && (
+                            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 flex-shrink-0" />
+                          )}
+                          {exp.status === 'rejected' && (
+                            <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
+                          )}
+                          <h4 className="font-medium text-sm sm:text-base text-gray-900 break-words">{exp.experience_name}</h4>
+                        </div>
+                        
+                        {/* Description if available */}
+                        {exp.description && (
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2 break-words">{exp.description}</p>
+                        )}
+                      
+                      {/* Evidence Info Row */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="text-xs sm:text-sm text-gray-600 break-words">
+                            Evidence: <span className="text-gray-700">{exp.evidence}</span> (1 file)
+                        </p>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                            className="h-7 text-xs sm:text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0 -mr-1 sm:-mr-2"
+                            onClick={() => {
+                              setSelectedExperience(exp);
+                              setIsExperienceModalOpen(true);
+                            }}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                      <div className="ml-2 sm:ml-3 flex-shrink-0">
+                      {exp.status === 'verified' && (
+                        <Badge className="bg-green-600 text-white">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Verified
+                        </Badge>
+                      )}
+                      {exp.status === 'pending' && (
+                        <Badge className="bg-amber-500 text-white">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pending verification
+                        </Badge>
+                      )}
+                      {exp.status === 'rejected' && (
+                        <Badge className="bg-red-600 text-white">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Rejected
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Additional info based on status */}
+                    {exp.status === 'verified' && exp.updated_at && (
+                    <p className="text-xs text-green-700">
+                      <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                        Verified on {formatDate(exp.updated_at)}
+                    </p>
+                  )}
+                  {exp.status === 'pending' && (
+                    <p className="text-xs text-amber-700">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                        Uploaded {formatDate(exp.created_at)} - Awaiting admin review
+                    </p>
+                  )}
+                    {exp.status === 'rejected' && exp.updated_at && (
+                    <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded">
+                      <p className="text-xs text-red-900 flex items-start gap-1">
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                          <span><strong>Rejected on:</strong> {formatDate(exp.updated_at)}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+                ))
+              ) : hasAttemptedFetchExperiences ? (
+                // Only show "no experiences" message if we've attempted to fetch (i.e., professional_id exists)
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-sm sm:text-base text-gray-500">No experiences found. Upload one to get started!</p>
+                </div>
+              ) : (
+                // If no professional_id exists, show blank UI (no experiences displayed)
+                null
+              )}
+
+              <Button 
+                variant="outline" 
+                className="w-full mt-4 sm:mt-6 h-10 sm:h-11 text-sm sm:text-base"
+                onClick={handleOpenExperienceForm}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload New Experience
+              </Button>
+
+              {/* Inline Experience Form */}
+              {showExperienceForm && (
+                <Card className="mt-6 border-2 border-red-200 shadow-lg">
+                  <CardHeader className="relative pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Add New Experience</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleCloseExperienceForm}
+                        className="h-8 w-8 hover:bg-gray-100"
+                        aria-label="Close form"
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleExperienceSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="experience_name">Experience Name *</Label>
+                        <Input
+                          id="experience_name"
+                          value={experienceFormData.experience_name}
+                          onChange={(e) => setExperienceFormData({ ...experienceFormData, experience_name: e.target.value })}
+                          placeholder="e.g., 5 Years Fire Safety Experience, Commercial Fire Alarm Installation"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="exp_description">Description *</Label>
+                        <Textarea
+                          id="exp_description"
+                          value={experienceFormData.description}
+                          onChange={(e) => setExperienceFormData({ ...experienceFormData, description: e.target.value })}
+                          placeholder="Enter a detailed description of your experience..."
+                          className="min-h-[120px]"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="exp_evidence">Evidence (File Upload) *</Label>
+                        <Input
+                          ref={experienceFileInputRef}
+                          id="exp_evidence"
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+                          onChange={handleExperienceFileChange}
+                          className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                          required={!experienceFormData.evidence}
+                        />
+                        {selectedExperienceFile && (
+                          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                            <FileText className="w-5 h-5 text-gray-600" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900">{selectedExperienceFile.name}</p>
+                              <p className="text-xs text-gray-500">{(selectedExperienceFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedExperienceFile(null);
+                                setExperienceFormData({ ...experienceFormData, evidence: "" });
+                                if (experienceFileInputRef.current) {
+                                  experienceFileInputRef.current.value = '';
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleCloseExperienceForm}
+                          disabled={isSubmittingExperience}
+                          className="h-10"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="bg-red-600 hover:bg-red-700 h-10"
+                          disabled={isSubmittingExperience}
+                        >
+                          {isSubmittingExperience ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            "Submit Experience"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar - Takes 1 column on desktop */}
@@ -1605,10 +2054,16 @@ export function ProfessionalProfileContent() {
                   <span className="text-gray-600">Service Radius</span>
                   <span className="font-semibold text-gray-900">{formData.serviceRadius[0]} mi</span>
                 </div>
-                <div className="flex items-center justify-between text-xs sm:text-sm">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                   <span className="text-gray-600">Certifications</span>
                   <span className="font-semibold text-gray-900">
                     {hasAttemptedFetch ? certifications.length : 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="text-gray-600">Experience</span>
+                  <span className="font-semibold text-gray-900">
+                    {hasAttemptedFetchExperiences ? experiences.length : 0}
                   </span>
                 </div>
               </div>
@@ -1805,6 +2260,158 @@ export function ProfessionalProfileContent() {
 
               {/* Status Message */}
               {selectedCertification.status === 'pending' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-2 sm:p-3">
+                  <p className="text-xs sm:text-sm text-amber-800 flex items-center gap-2 flex-wrap">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>Awaiting admin review</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Experience Details Modal */}
+      <Dialog open={isExperienceModalOpen} onOpenChange={setIsExperienceModalOpen}>
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto w-[95%] sm:w-[90%] md:w-[85%] lg:w-[80%] max-w-[1200px] p-4 sm:p-6 md:p-8 lg:p-[30px]"
+        >
+          <DialogHeader>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <DialogTitle className="text-2xl text-[#0A1A2F] flex items-center gap-2">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                  Experience Details
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedExperience ? `View details for ${selectedExperience.experience_name}` : 'Experience information'}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsExperienceModalOpen(false)}
+                className="h-8 w-8 hover:bg-gray-100 -mt-2 -mr-2"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          {selectedExperience && (
+            <div className="space-y-4 sm:space-y-6 mt-2 sm:mt-4">
+              {/* Experience Name */}
+              <div>
+                <Label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Experience Name
+                </Label>
+                <div className="flex items-center gap-2">
+                  {selectedExperience.status === 'verified' && (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  )}
+                  {selectedExperience.status === 'pending' && (
+                    <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                  )}
+                  {selectedExperience.status === 'rejected' && (
+                    <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  )}
+                  <p className="text-base font-medium text-gray-900">{selectedExperience.experience_name}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              {selectedExperience.description && (
+                <div>
+                  <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                    Description
+                  </Label>
+                  <p className="text-xs sm:text-sm text-gray-700 bg-gray-50 p-2 sm:p-3 rounded-md border border-gray-200 break-words">
+                    {selectedExperience.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Evidence */}
+              <div>
+                <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                  Evidence
+                </Label>
+                <div className="flex items-center gap-2 bg-gray-50 p-2 sm:p-3 rounded-md border border-gray-200 flex-wrap">
+                  <FileText className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <p className="text-xs sm:text-sm text-gray-700 flex-1 min-w-0 break-words">{selectedExperience.evidence}</p>
+                  <Badge variant="outline" className="text-xs flex-shrink-0">
+                    1 file
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                  Status
+                </Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedExperience.status === 'verified' && (
+                    <Badge className="bg-green-600 text-white text-xs">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Verified
+                    </Badge>
+                  )}
+                  {selectedExperience.status === 'pending' && (
+                    <Badge className="bg-amber-500 text-white text-xs">
+                      <Clock className="w-3 h-3 mr-1" />
+                      <span className="whitespace-nowrap">Pending verification</span>
+                    </Badge>
+                  )}
+                  {selectedExperience.status === 'rejected' && (
+                    <Badge className="bg-red-600 text-white text-xs">
+                      <XCircle className="w-3 h-3 mr-1" />
+                      Rejected
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Date */}
+              <div>
+                <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                  Upload Date
+                </Label>
+                <p className="text-xs sm:text-sm text-gray-700 flex items-center gap-2 flex-wrap">
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                  <span>{formatDate(selectedExperience.created_at)}</span>
+                </p>
+              </div>
+
+              {/* Verification/Rejection Date */}
+              {selectedExperience.status === 'verified' && selectedExperience.updated_at && (
+                <div>
+                  <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                    Verified Date
+                  </Label>
+                  <p className="text-xs sm:text-sm text-green-700 flex items-center gap-2 flex-wrap">
+                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>{formatDate(selectedExperience.updated_at)}</span>
+                  </p>
+                </div>
+              )}
+
+              {selectedExperience.status === 'rejected' && selectedExperience.updated_at && (
+                <div>
+                  <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">
+                    Rejected Date
+                  </Label>
+                  <p className="text-xs sm:text-sm text-red-700 flex items-center gap-2 flex-wrap">
+                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>{formatDate(selectedExperience.updated_at)}</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Status Message */}
+              {selectedExperience.status === 'pending' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-md p-2 sm:p-3">
                   <p className="text-xs sm:text-sm text-amber-800 flex items-center gap-2 flex-wrap">
                     <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />

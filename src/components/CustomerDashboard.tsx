@@ -24,7 +24,10 @@ import {
   Plus,
   Edit,
   Trash2,
-  Star
+  Star,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Booking } from "../App";
@@ -41,7 +44,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
-import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem, getCustomerData, updateCustomerData, UpdateCustomerDataRequest } from "../api/authService";
+import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem, getCustomerData, updateCustomerData, UpdateCustomerDataRequest, changePassword } from "../api/authService";
 import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
 import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
 import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
@@ -267,6 +270,14 @@ export function CustomerDashboard({
   const [isDeleteAddressModalOpen, setIsDeleteAddressModalOpen] = useState(false);
   const [addressIdToDelete, setAddressIdToDelete] = useState<number | null>(null);
   const [isDeletingAddress, setIsDeletingAddress] = useState(false);
+
+  // Password change state
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Load user data from localStorage or use defaults
   const getUserData = () => {
@@ -595,6 +606,68 @@ export function CustomerDashboard({
       toast.error(errorMessage);
     } finally {
       setIsUpdatingProfile(false);
+    }
+  };
+
+  // Password change handler
+  const handleChangePassword = async () => {
+    try {
+      // Validate passwords match
+      if (newPassword !== confirmPassword) {
+        toast.error("New passwords do not match!");
+        return;
+      }
+      
+      // Validate password length
+      if (newPassword.length < 8) {
+        toast.error("Password must be at least 8 characters long!");
+        return;
+      }
+      
+      // Validate current password is provided
+      if (!currentPassword.trim()) {
+        toast.error("Current password is required!");
+        return;
+      }
+
+      const apiToken = getApiToken();
+      
+      if (!apiToken) {
+        toast.error("Authentication token not found. Please log in again.");
+        return;
+      }
+
+      setIsChangingPassword(true);
+      
+      console.log("Changing password...");
+      const response = await changePassword({
+        api_token: apiToken,
+        current_password: currentPassword.trim(),
+        new_password: newPassword.trim(),
+        new_password_confirmation: confirmPassword.trim(),
+      });
+      
+      console.log("Change password response:", response);
+      
+      if (response.status === true) {
+        toast.success(response.message || "Password changed successfully!");
+        // Clear password fields on success
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setIsChangePasswordDialogOpen(false);
+      } else {
+        toast.error(response.message || "Failed to change password");
+      }
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          error?.error || 
+                          "An error occurred while changing the password. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -1772,12 +1845,117 @@ export function CustomerDashboard({
         <CardContent className="p-6">
           <h3 className="text-[#0A1A2F] mb-4">Account Security</h3>
           <div className="space-y-3">
-            <Button variant="outline" className="w-full justify-start">Change Password</Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => setIsChangePasswordDialogOpen(true)}
+            >
+              Change Password
+            </Button>
             <Button variant="outline" className="w-full justify-start">Enable Two-Factor Authentication</Button>
             <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50">Delete Account</Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Change Password Dialog */}
+      <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-[#0A1A2F]">Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new one.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <div className="relative mt-2">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="currentPassword"
+                  type={showPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="pl-10"
+                  placeholder="Enter current password"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <div className="relative mt-2">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="newPassword"
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pl-10"
+                  placeholder="Enter new password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">Must be at least 8 characters</p>
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <div className="relative mt-2">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="confirmPassword"
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pl-10"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsChangePasswordDialogOpen(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }}
+                disabled={isChangingPassword}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={isChangingPassword}
+              >
+                {isChangingPassword ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Changing...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Change Password
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
