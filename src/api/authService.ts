@@ -63,6 +63,7 @@ apiClient.interceptors.response.use(
  * @param data - User registration data
  * @returns Promise with the API response
  */
+
 export const registerUser = async (
   data: RegisterUserRequest
 ): Promise<RegisterUserResponse> => {
