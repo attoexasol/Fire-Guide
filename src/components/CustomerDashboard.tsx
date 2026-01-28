@@ -44,7 +44,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
-import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem, getCustomerData, updateCustomerData, UpdateCustomerDataRequest, changePassword } from "../api/authService";
+import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRequest, getCustomerDashboardSummary, CustomerDashboardSummaryData, getCustomerUpcomingBookings, CustomerUpcomingBookingItem, getCustomerData, updateCustomerData, UpdateCustomerDataRequest, changePassword, getCustomerNotifications, CustomerNotificationItem, deleteAccount, getRecentActivity, RecentActivityItem, enableNotification, disableNotification, NotificationPreferencesData, getNotificationPreferences } from "../api/authService";
 import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
 import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
 import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
@@ -279,6 +279,23 @@ export function CustomerDashboard({
   const [showPassword, setShowPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  // Notifications state
+  const [notifications, setNotifications] = useState<CustomerNotificationItem[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+
+  // Delete account state
+  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // Recent activity state
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
+  const [isLoadingRecentActivity, setIsLoadingRecentActivity] = useState(false);
+
+  // Notification preferences state
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferencesData | null>(null);
+  const [isLoadingNotificationPreferences, setIsLoadingNotificationPreferences] = useState(false);
+  const [updatingNotification, setUpdatingNotification] = useState<string | null>(null);
+
   // Load user data from localStorage or use defaults
   const getUserData = () => {
     const userInfo = getUserInfo();
@@ -445,6 +462,180 @@ export function CustomerDashboard({
       fetchUpcomingBookings();
     }
   }, [currentView]);
+
+  // Fetch notifications from API on mount and when notifications view is shown
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for notifications');
+        setIsLoadingNotifications(false);
+        return;
+      }
+
+      // Only show loading spinner when on notifications view
+      if (currentView === 'notifications') {
+        setIsLoadingNotifications(true);
+      }
+
+      try {
+        const response = await getCustomerNotifications({ api_token: token });
+        if (response.status === true && response.data) {
+          setNotifications(Array.isArray(response.data) ? response.data : []);
+          console.log('Notifications loaded from API:', response.data);
+        } else {
+          console.log('No notifications found:', response.message);
+          setNotifications([]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching notifications:', error);
+        setNotifications([]);
+      } finally {
+        if (currentView === 'notifications') {
+          setIsLoadingNotifications(false);
+        }
+      }
+    };
+
+    fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
+
+  // Fetch recent activity from API when overview is shown
+  useEffect(() => {
+    const fetchRecentActivity = async () => {
+      if (currentView !== 'overview') return;
+      
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for recent activity');
+        setIsLoadingRecentActivity(false);
+        return;
+      }
+
+      setIsLoadingRecentActivity(true);
+      try {
+        const response = await getRecentActivity({ api_token: token });
+        if (response.status === 'success' && response.data) {
+          setRecentActivity(Array.isArray(response.data) ? response.data : []);
+          console.log('Recent activity loaded from API:', response.data);
+        } else {
+          console.log('No recent activity found');
+          setRecentActivity([]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching recent activity:', error);
+        setRecentActivity([]);
+      } finally {
+        setIsLoadingRecentActivity(false);
+      }
+    };
+
+    fetchRecentActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
+
+  // Fetch notification preferences from API when settings view is shown
+  useEffect(() => {
+    const fetchNotificationPreferences = async () => {
+      // Only fetch when on settings view
+      if (currentView !== 'settings') {
+        return;
+      }
+      
+      const token = getApiToken();
+      if (!token) {
+        console.log('No API token available for notification preferences');
+        setIsLoadingNotificationPreferences(false);
+        return;
+      }
+
+      setIsLoadingNotificationPreferences(true);
+      try {
+        const response = await getNotificationPreferences({ api_token: token });
+        console.log('GET notification preferences response:', response);
+        console.log('Response success:', response?.success);
+        console.log('Response data:', response?.data);
+        console.log('Response data type:', typeof response?.data);
+        console.log('Response data keys:', response?.data ? Object.keys(response.data) : 'no data');
+        
+        // Check for both 'success' and 'status' fields
+        const isSuccess = response?.success === true || response?.status === true;
+        
+        if (isSuccess && response?.data) {
+          const d = response.data;
+          
+          // Ensure we have the data object with all required fields
+          if (!d || typeof d !== 'object') {
+            console.error('Invalid data structure in API response:', d);
+            setNotificationPreferences(null);
+            return;
+          }
+          
+          // Debug: Log each value before conversion
+          console.log('Raw API values:', {
+            is_booking_confirmation: d.is_booking_confirmation,
+            is_service_reminders: d.is_service_reminders,
+            report_uploads: d.report_uploads,
+            marketing_emails: d.marketing_emails,
+          });
+          
+          // Coerce any value to boolean, then to 1/0. Handles true/false, 1/0, "true"/"false"
+          const toOnOff = (v: unknown): number => {
+            if (v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true') {
+              return 1;
+            }
+            return 0;
+          };
+          
+          const preferencesData: NotificationPreferencesData = {
+            id: 0,
+            is_booking_confirmation: toOnOff(d.is_booking_confirmation),
+            is_service_reminders: toOnOff(d.is_service_reminders),
+            report_uploads: toOnOff(d.report_uploads),
+            marketing_emails: toOnOff(d.marketing_emails),
+            user_id: 0,
+            created_at: '',
+            updated_at: '',
+          };
+          
+          console.log('Converted notification preferences:', preferencesData);
+          console.log('Expected toggle states:', {
+            booking: preferencesData.is_booking_confirmation === 1 ? 'ON' : 'OFF',
+            reminder: preferencesData.is_service_reminders === 1 ? 'ON' : 'OFF',
+            report: preferencesData.report_uploads === 1 ? 'ON' : 'OFF',
+            marketing: preferencesData.marketing_emails === 1 ? 'ON' : 'OFF',
+          });
+          
+          // Set state - React will batch this update
+          setNotificationPreferences(preferencesData);
+        } else {
+          console.log('No notification preferences found or success is false. Response:', response);
+          setNotificationPreferences(null);
+        }
+      } catch (error: any) {
+        console.error('Error fetching notification preferences:', error);
+      } finally {
+        setIsLoadingNotificationPreferences(false);
+      }
+    };
+
+    fetchNotificationPreferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
+
+  // Debug: Log whenever notificationPreferences state changes
+  useEffect(() => {
+    console.log('notificationPreferences state changed:', notificationPreferences);
+    if (notificationPreferences) {
+      console.log('Current toggle values from state:', {
+        booking: notificationPreferences.is_booking_confirmation,
+        reminder: notificationPreferences.is_service_reminders,
+        report: notificationPreferences.report_uploads,
+        marketing: notificationPreferences.marketing_emails,
+      });
+    }
+  }, [notificationPreferences]);
 
   // Use API data for stats - show 0 while loading, then API data
   const upcomingBookings = isLoadingDashboardSummary ? 0 : (dashboardSummary?.jobs?.upcoming ?? 0);
@@ -1335,42 +1526,49 @@ export function CustomerDashboard({
           <CardContent className="p-6">
             <h3 className="text-[#0A1A2F] mb-4">Recent Activity</h3>
             <div className="space-y-4">
-              {bookings.length === 0 && payments.length === 0 ? (
+              {isLoadingRecentActivity ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+                  <p className="text-gray-600">Loading activity...</p>
+                </div>
+              ) : recentActivity.length === 0 ? (
                 <div className="text-center py-8">
                   <Home className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-600">No activity yet</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {[...bookings, ...payments]
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 5)
-                    .map((item, index) => {
-                      const isBooking = 'bookingRef' in item && 'professionalEmail' in item;
-                      return (
-                        <div key={index} className="flex items-start gap-3 border-l-2 border-gray-200 pl-4 pb-3">
-                          <div className="flex-1">
-                            {isBooking ? (
-                              <>
-                                <p className="text-sm font-medium text-gray-900">
-                                  Booking {(item as Booking).status === "completed" ? "Completed" : "Created"}
-                                </p>
-                                <p className="text-xs text-gray-600">{(item as Booking).service}</p>
-                                <p className="text-xs text-gray-500 mt-1">{(item as Booking).date}</p>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-sm font-medium text-gray-900">Payment Processed</p>
-                                <p className="text-xs text-gray-600">{(item as Payment).service}</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {(item as Payment).date} • {(item as Payment).amount}
-                                </p>
-                              </>
-                            )}
-                          </div>
+                  {recentActivity.map((activity, index) => {
+                    // Format date from "2026-01-26 07:56:11" to "2026-01-26"
+                    const formatDate = (dateString: string): string => {
+                      try {
+                        const date = new Date(dateString);
+                        return date.toISOString().split('T')[0];
+                      } catch (error) {
+                        return dateString.split(' ')[0]; // Fallback to first part if date parsing fails
+                      }
+                    };
+
+                    // Check if activity title contains payment-related keywords
+                    const isPayment = activity.title.toLowerCase().includes('payment') || 
+                                     activity.title.toLowerCase().includes('paid') ||
+                                     activity.title.toLowerCase().includes('processed');
+
+                    return (
+                      <div key={index} className="flex items-start gap-3 border-l-2 border-gray-200 pl-4 pb-3">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            {activity.title}
+                          </p>
+                          <p className="text-xs text-gray-600">{activity.service_name}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formatDate(activity.date)}
+                            {activity.amount && ` • ${activity.amount}`}
+                          </p>
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1819,25 +2017,49 @@ export function CustomerDashboard({
       <Card>
         <CardContent className="p-6">
           <h3 className="text-[#0A1A2F] mb-4">Notification Preferences</h3>
-          <div className="space-y-4">
-            {[
-              { id: "booking", label: "Booking Confirmations", description: "Get notified when bookings are confirmed" },
-              { id: "reminder", label: "Service Reminders", description: "Receive reminders before scheduled services" },
-              { id: "report", label: "Report Uploads", description: "Notification when reports are available" },
-              { id: "marketing", label: "Marketing Emails", description: "Receive updates and special offers" },
-            ].map((pref) => (
-              <div key={pref.id} className="flex items-start justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{pref.label}</p>
-                  <p className="text-sm text-gray-600">{pref.description}</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" defaultChecked className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                </label>
-              </div>
-            ))}
-          </div>
+          {isLoadingNotificationPreferences ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+              <p className="text-gray-600">Loading preferences...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {[
+                { id: "booking", label: "Booking Confirmations", description: "Get notified when bookings are confirmed" },
+                { id: "reminder", label: "Service Reminders", description: "Receive reminders before scheduled services" },
+                { id: "report", label: "Report Uploads", description: "Notification when reports are available" },
+                { id: "marketing", label: "Marketing Emails", description: "Receive updates and special offers" },
+              ].map((pref) => {
+                const isChecked = getNotificationValue(pref.id);
+                const isUpdating = updatingNotification === pref.id;
+
+                return (
+                  <div key={pref.id} className="flex items-start justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{pref.label}</p>
+                      <p className="text-sm text-gray-600">{pref.description}</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => handleNotificationToggle(pref.id, e.target.checked)}
+                        disabled={isUpdating}
+                        className="sr-only peer"
+                      />
+                      <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600 ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        {isUpdating && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="w-3 h-3 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1853,10 +2075,19 @@ export function CustomerDashboard({
               Change Password
             </Button>
             <Button variant="outline" className="w-full justify-start">Enable Two-Factor Authentication</Button>
-            <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50">Delete Account</Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setIsDeleteAccountDialogOpen(true)}
+            >
+              Delete Account
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Account Dialog */}
+      {renderDeleteAccountDialog()}
 
       {/* Change Password Dialog */}
       <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
@@ -1959,6 +2190,208 @@ export function CustomerDashboard({
     </div>
   );
 
+  // Handle notification preference toggle
+  const handleNotificationToggle = async (prefId: string, newCheckedState: boolean) => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    // Map preference ID to API column name
+    const columnMap: Record<string, 'is_booking_confirmation' | 'is_service_reminders' | 'report_uploads' | 'marketing_emails'> = {
+      'booking': 'is_booking_confirmation',
+      'reminder': 'is_service_reminders',
+      'report': 'report_uploads',
+      'marketing': 'marketing_emails',
+    };
+
+    const column = columnMap[prefId];
+    if (!column) {
+      console.error('Invalid preference ID:', prefId);
+      return;
+    }
+
+    setUpdatingNotification(prefId);
+    try {
+      // Store current state before making API call
+      const currentState = notificationPreferences ? { ...notificationPreferences } : null;
+      console.log(`Toggling ${prefId} (${column}) to ${newCheckedState ? 'ON' : 'OFF'}. Current state:`, currentState);
+      
+      let response;
+      if (newCheckedState) {
+        // Toggle is being turned ON - call enable API
+        response = await enableNotification({
+          api_token: token,
+          column: column,
+        });
+      } else {
+        // Toggle is being turned OFF - call disable API
+        response = await disableNotification({
+          api_token: token,
+          column: column,
+        });
+      }
+
+      console.log(`API response for ${column}:`, response);
+
+      if (response.success && response.data) {
+        // Use functional update to only update the specific field that changed
+        setNotificationPreferences((prevState) => {
+          // Start with previous state or defaults
+          const baseState: NotificationPreferencesData = prevState || {
+            id: 0,
+            is_booking_confirmation: 0,
+            is_service_reminders: 0,
+            report_uploads: 0,
+            marketing_emails: 0,
+            user_id: 0,
+            created_at: '',
+            updated_at: '',
+          };
+
+          // Helper function to normalize a single value
+          const normalizeValue = (value: number | boolean | undefined, defaultValue: number): number => {
+            if (value === undefined || value === null) return defaultValue;
+            if (typeof value === 'boolean') return value ? 1 : 0;
+            if (typeof value === 'number') return value;
+            return defaultValue;
+          };
+
+          // Only update the specific field that was toggled, preserve all others from previous state
+          const updatedState: NotificationPreferencesData = {
+            ...baseState,
+            id: response.data.id ?? baseState.id,
+            user_id: response.data.user_id ?? baseState.user_id,
+            created_at: response.data.created_at || baseState.created_at,
+            updated_at: response.data.updated_at || baseState.updated_at,
+            // Update only the field that was changed, use API response if available, otherwise keep previous state
+            is_booking_confirmation: column === 'is_booking_confirmation' 
+              ? normalizeValue(response.data.is_booking_confirmation, newCheckedState ? 1 : 0)
+              : normalizeValue(response.data.is_booking_confirmation, baseState.is_booking_confirmation),
+            is_service_reminders: column === 'is_service_reminders'
+              ? normalizeValue(response.data.is_service_reminders, newCheckedState ? 1 : 0)
+              : normalizeValue(response.data.is_service_reminders, baseState.is_service_reminders),
+            report_uploads: column === 'report_uploads'
+              ? normalizeValue(response.data.report_uploads, newCheckedState ? 1 : 0)
+              : normalizeValue(response.data.report_uploads, baseState.report_uploads),
+            marketing_emails: column === 'marketing_emails'
+              ? normalizeValue(response.data.marketing_emails, newCheckedState ? 1 : 0)
+              : normalizeValue(response.data.marketing_emails, baseState.marketing_emails),
+          };
+
+          console.log(`Updated ${column} to ${newCheckedState ? 'ON' : 'OFF'}`);
+          console.log('Updated state:', {
+            booking: updatedState.is_booking_confirmation,
+            reminder: updatedState.is_service_reminders,
+            report: updatedState.report_uploads,
+            marketing: updatedState.marketing_emails,
+          });
+
+          return updatedState;
+        });
+        toast.success(response.message || "Notification preference updated successfully");
+      } else {
+        toast.error(response.message || "Failed to update notification preference");
+      }
+    } catch (error: any) {
+      console.error("Error updating notification preference:", error);
+      toast.error(error.message || "Failed to update notification preference. Please try again.");
+    } finally {
+      setUpdatingNotification(null);
+    }
+  };
+
+  // Get notification preference value — must match stored 0/1 and API true/false
+  const getNotificationValue = (prefId: string): boolean => {
+    if (!notificationPreferences) {
+      return false;
+    }
+
+    const valueMap: Record<string, keyof NotificationPreferencesData> = {
+      'booking': 'is_booking_confirmation',
+      'reminder': 'is_service_reminders',
+      'report': 'report_uploads',
+      'marketing': 'marketing_emails',
+    };
+
+    const key = valueMap[prefId];
+    if (!key) {
+      return false;
+    }
+
+    const value = notificationPreferences[key];
+    
+    // Handle number (0/1) - most common case after conversion
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+    
+    // Handle boolean
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    
+    // Fallback for any other type
+    return value === 1 || value === true || String(value).toLowerCase() === 'true';
+  };
+
+  // Handle delete account
+  const handleDeleteAccount = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      const response = await deleteAccount({ api_token: token });
+      if (response.status === true) {
+        toast.success(response.message || "Account deleted successfully");
+        // Clear local storage and logout
+        localStorage.clear();
+        setTimeout(() => {
+          onLogout();
+        }, 1500);
+      } else {
+        toast.error(response.message || "Failed to delete account");
+      }
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast.error(error.message || "Failed to delete account. Please try again.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  // Format timestamp from ISO date string to relative time
+  const formatTimestamp = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+      
+      if (diffInSeconds < 60) {
+        return `${diffInSeconds} second${diffInSeconds !== 1 ? 's' : ''} ago`;
+      } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else if (diffInSeconds < 604800) {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+      } else {
+        // Format as date if older than a week
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+    } catch (error) {
+      return dateString;
+    }
+  };
+
   const renderNotifications = () => (
     <div className="space-y-6">
       <div>
@@ -1966,37 +2399,92 @@ export function CustomerDashboard({
         <p className="text-gray-600">Stay updated with your bookings and services.</p>
       </div>
 
-      <div className="space-y-3">
-        {bookings.slice(0, 3).map((booking) => (
-          <Card key={booking.id}>
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bell className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">
-                    {booking.status === "upcoming" ? "Upcoming Service Reminder" : "Service Completed"}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {booking.service} scheduled for {booking.date} at {booking.time}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">2 hours ago</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {bookings.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-600">No notifications yet</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {isLoadingNotifications ? (
+        <div className="text-center py-12">
+          <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <Card key={notification.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Bell className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {notification.title || "Notification"}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {notification.message || ""}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {notification.created_at ? formatTimestamp(notification.created_at) : ""}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-600">No notifications yet</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
+  );
+
+  // Delete Account Confirmation Dialog
+  const renderDeleteAccountDialog = () => (
+    <Dialog open={isDeleteAccountDialogOpen} onOpenChange={setIsDeleteAccountDialogOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="text-red-600">Delete Account</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete your account? This action cannot be undone. All your data, bookings, and payment history will be permanently deleted.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <p className="text-sm text-gray-600">
+            This will permanently delete your account and all associated data. You will be logged out immediately after deletion.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeleteAccountDialogOpen(false)}
+            disabled={isDeletingAccount}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteAccount}
+            className="bg-red-600 hover:bg-red-700 text-white"
+            disabled={isDeletingAccount}
+          >
+            {isDeletingAccount ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Account
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 
   const renderContent = () => {
@@ -2449,9 +2937,9 @@ export function CustomerDashboard({
                   >
                     <Icon className="w-5 h-5" />
                     <span>{item.label}</span>
-                    {item.id === "notifications" && bookings.filter(b => b.status === "upcoming").length > 0 && (
+                    {item.id === "notifications" && (
                       <Badge className="ml-auto bg-red-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs">
-                        {bookings.filter(b => b.status === "upcoming").length}
+                        {notifications.length}
                       </Badge>
                     )}
                   </button> 

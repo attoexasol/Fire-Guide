@@ -191,6 +191,399 @@ export const loginUser = async (
   }
 };
 
+// TypeScript types for customer notifications
+export interface CustomerNotificationItem {
+  id: number;
+  title: string;
+  message: string;
+  created_at: string;
+  type?: string;
+  read?: boolean;
+  [key: string]: any;
+}
+
+export interface GetCustomerNotificationsRequest {
+  api_token: string;
+}
+
+export interface GetCustomerNotificationsResponse {
+  status: boolean;
+  message: string;
+  data: CustomerNotificationItem[];
+}
+
+/**
+ * Get customer notifications
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/get_all_notification
+ * Method: POST
+ * @param data - API token
+ * @returns Promise with the API response
+ */
+export const getCustomerNotifications = async (
+  data: GetCustomerNotificationsRequest
+): Promise<GetCustomerNotificationsResponse> => {
+  try {
+    const response = await apiClient.post<GetCustomerNotificationsResponse>(
+      '/user_dashboard/get_all_notification',
+      {
+        api_token: data.api_token,
+      }
+    );
+    console.log('POST /user_dashboard/get_all_notification - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching customer notifications:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: false,
+          message: error.response.data?.message || 'Failed to fetch notifications',
+          error: error.response.data?.error || 'Unknown error',
+        };
+      } else if (error.request) {
+        throw {
+          status: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for delete account
+export interface DeleteAccountRequest {
+  api_token: string;
+}
+
+export interface DeleteAccountResponse {
+  status: boolean;
+  message: string;
+}
+
+/**
+ * Delete customer account
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/delete-account
+ * Method: POST
+ * @param data - API token
+ * @returns Promise with the API response
+ */
+export const deleteAccount = async (
+  data: DeleteAccountRequest
+): Promise<DeleteAccountResponse> => {
+  try {
+    const response = await apiClient.post<DeleteAccountResponse>(
+      '/user_dashboard/delete-account',
+      {
+        api_token: data.api_token,
+      }
+    );
+    console.log('POST /user_dashboard/delete-account - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: false,
+          message: error.response.data?.message || 'Failed to delete account',
+          error: error.response.data?.error || 'Unknown error',
+        };
+      } else if (error.request) {
+        throw {
+          status: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for recent activity
+export interface RecentActivityItem {
+  title: string;
+  service_name: string;
+  date: string;
+  amount?: string;
+}
+
+export interface GetRecentActivityRequest {
+  api_token: string;
+}
+
+export interface GetRecentActivityResponse {
+  status: string;
+  data: RecentActivityItem[];
+}
+
+/**
+ * Get customer recent activity
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/recent-activity
+ * Method: POST
+ * @param data - API token
+ * @returns Promise with the API response
+ */
+export const getRecentActivity = async (
+  data: GetRecentActivityRequest
+): Promise<GetRecentActivityResponse> => {
+  try {
+    const response = await apiClient.post<GetRecentActivityResponse>(
+      '/user_dashboard/recent-activity',
+      {
+        api_token: data.api_token,
+      }
+    );
+    console.log('POST /user_dashboard/recent-activity - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching recent activity:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          status: 'error',
+          message: error.response.data?.message || 'Failed to fetch recent activity',
+          error: error.response.data?.error || 'Unknown error',
+        };
+      } else if (error.request) {
+        throw {
+          status: 'error',
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      status: 'error',
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// TypeScript types for notification preferences
+export interface NotificationPreferencesData {
+  id: number;
+  is_booking_confirmation: number | boolean;
+  is_service_reminders: number | boolean;
+  report_uploads: number | boolean;
+  marketing_emails: number | boolean;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnableNotificationRequest {
+  api_token: string;
+  column: 'is_booking_confirmation' | 'is_service_reminders' | 'report_uploads' | 'marketing_emails';
+}
+
+export interface EnableNotificationResponse {
+  success: boolean;
+  message: string;
+  data: NotificationPreferencesData;
+}
+
+/**
+ * Enable notification preference
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/enable-notifications
+ * Method: POST
+ * @param data - API token and column name
+ * @returns Promise with the API response
+ */
+export const enableNotification = async (
+  data: EnableNotificationRequest
+): Promise<EnableNotificationResponse> => {
+  try {
+    const response = await apiClient.post<EnableNotificationResponse>(
+      '/user_dashboard/enable-notifications',
+      {
+        api_token: data.api_token,
+        column: data.column,
+      }
+    );
+    console.log('POST /user_dashboard/enable-notifications - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error enabling notification:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to enable notification preference',
+          error: error.response.data?.error || 'Unknown error',
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+export interface DisableNotificationRequest {
+  api_token: string;
+  column: 'is_booking_confirmation' | 'is_service_reminders' | 'report_uploads' | 'marketing_emails';
+}
+
+export interface DisableNotificationResponse {
+  success: boolean;
+  message: string;
+  data: NotificationPreferencesData;
+}
+
+/**
+ * Disable notification preference
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/disable-notifications
+ * Method: POST
+ * @param data - API token and column name
+ * @returns Promise with the API response
+ */
+export const disableNotification = async (
+  data: DisableNotificationRequest
+): Promise<DisableNotificationResponse> => {
+  try {
+    const response = await apiClient.post<DisableNotificationResponse>(
+      '/user_dashboard/disable-notifications',
+      {
+        api_token: data.api_token,
+        column: data.column,
+      }
+    );
+    console.log('POST /user_dashboard/disable-notifications - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error disabling notification:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to disable notification preference',
+          error: error.response.data?.error || 'Unknown error',
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+export interface GetNotificationPreferencesRequest {
+  api_token: string;
+}
+
+export interface GetNotificationPreferencesResponse {
+  success: boolean;
+  data: {
+    is_booking_confirmation: boolean;
+    is_service_reminders: boolean;
+    report_uploads: boolean;
+    marketing_emails: boolean;
+  };
+}
+
+/**
+ * Get notification preferences
+ * BaseURL: https://fireguide.attoexasolutions.com/api/user_dashboard/get_all_notification
+ * Method: POST
+ * @param data - API token
+ * @returns Promise with the API response
+ */
+export const getNotificationPreferences = async (
+  data: GetNotificationPreferencesRequest
+): Promise<GetNotificationPreferencesResponse> => {
+  try {
+    const response = await apiClient.post<GetNotificationPreferencesResponse>(
+      '/user_dashboard/get_all_notification',
+      {
+        api_token: data.api_token,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    console.log('POST /user_dashboard/get_all_notification - Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching notification preferences:', error);
+    if (axios.isAxiosError(error)) {
+      // Check for CORS or network errors
+      if (error.code === 'ERR_NETWORK' || error.message.includes('CORS') || error.message.includes('Network Error')) {
+        console.warn('Network/CORS error when fetching notification preferences. This may be a server configuration issue.');
+        // Return a default response structure instead of throwing
+        // This allows the UI to continue functioning
+        return {
+          success: false,
+          data: {
+            is_booking_confirmation: false,
+            is_service_reminders: false,
+            report_uploads: false,
+            marketing_emails: false,
+          },
+        };
+      }
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch notification preferences',
+          error: error.response.data?.error || 'Unknown error',
+        };
+      } else if (error.request) {
+        // Network error - return default instead of throwing
+        console.warn('Network request failed. Returning default notification preferences.');
+        return {
+          success: false,
+          data: {
+            is_booking_confirmation: false,
+            is_service_reminders: false,
+            report_uploads: false,
+            marketing_emails: false,
+          },
+        };
+      }
+    }
+    // For any other error, return default structure
+    return {
+      success: false,
+      data: {
+        is_booking_confirmation: false,
+        is_service_reminders: false,
+        report_uploads: false,
+        marketing_emails: false,
+      },
+    };
+  }
+};
+
 // TypeScript types for send OTP request
 export interface SendOtpRequest {
   email: string;

@@ -2036,6 +2036,8 @@ export function ProfessionalProfileContent() {
                 </Button>
               </div>
 
+
+
               <div>
                 <h3 className="font-semibold text-sm sm:text-base text-gray-900 mb-1 break-words">{formData.name}</h3>
                 <p className="text-xs sm:text-sm text-gray-600 mb-2 break-words">{formData.businessName}</p>
@@ -2098,7 +2100,8 @@ export function ProfessionalProfileContent() {
                     <li>• Write a detailed bio</li>
                   </ul>
                 </div>
-              </div>
+                \42
+                \              </div>
             </CardContent>
           </Card>
         </div>
