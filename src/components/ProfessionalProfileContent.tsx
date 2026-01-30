@@ -32,8 +32,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { fetchServices, ServiceResponse } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
 import { getApiToken, getProfessionalId, setProfessionalId, getUserEmail } from "../lib/auth";
-import { createCertification, createExperience } from "../api/qualificationsService";
-import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem, getExperiences, ExperienceItem } from "../api/professionalsService";
+import { createCertification } from "../api/qualificationsService";
+import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem, getProfessionalExperiences, createProfessionalExperience, ExperienceItem } from "../api/professionalsService";
 import { toast } from "sonner";
 
 export function ProfessionalProfileContent() {
@@ -459,26 +459,26 @@ export function ProfessionalProfileContent() {
     }
   };
 
-  // Function to fetch experiences for a professional
-  const fetchProfessionalExperiences = async (profId: number) => {
+  // Fetch experiences via POST /professional-experience/get (api_token only)
+  const fetchProfessionalExperiences = async (_profId?: number) => {
+    const token = getApiToken();
+    if (!token) {
+      setLoadingExperiences(false);
+      return;
+    }
     try {
       setLoadingExperiences(true);
       setHasAttemptedFetchExperiences(true);
-      const token = getApiToken();
-      const response = await getExperiences({
-        professional_id: profId,
-        api_token: token || undefined
-      });
+      const response = await getProfessionalExperiences({ api_token: token });
 
-      if (response.status === true && response.data) {
+      if (response.success && response.data) {
         startTransition(() => {
-          setExperiences(response.data || []);
+          setExperiences(Array.isArray(response.data) ? response.data : []);
         });
       } else {
-        console.error('Failed to fetch experiences:', response.error || response.message);
         setExperiences([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching experiences:', error);
       setExperiences([]);
     } finally {
@@ -949,21 +949,28 @@ export function ProfessionalProfileContent() {
     }
   };
 
+  /** Convert a File to a base64 data URL for the professional-experience/create API */
+  const fileToBase64DataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleExperienceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
     if (!experienceFormData.experience_name.trim()) {
       toast.error("Please enter an experience name");
       return;
     }
-
     if (!experienceFormData.description.trim()) {
       toast.error("Please enter a description");
       return;
     }
-
-    if (!experienceFormData.evidence && !selectedExperienceFile) {
+    if (!selectedExperienceFile) {
       toast.error("Please upload evidence file");
       return;
     }
@@ -974,50 +981,47 @@ export function ProfessionalProfileContent() {
       return;
     }
 
+    const professionalId = getProfessionalId();
+    if (!professionalId || isNaN(professionalId)) {
+      toast.error("Professional profile is required. Please complete your profile first.");
+      return;
+    }
+
     setIsSubmittingExperience(true);
     try {
-      // Use File object directly (will be sent as FormData)
-      let evidenceValue: string | File = experienceFormData.evidence;
-      if (selectedExperienceFile) {
-        // For documents, send File object directly
-        evidenceValue = selectedExperienceFile;
-      } else {
-        // If no file selected but evidence string exists, try to convert
-        toast.error("Please select a file to upload");
-        setIsSubmittingExperience(false);
-        return;
-      }
+      const evidenceBase64 = await fileToBase64DataUrl(selectedExperienceFile);
 
-      // Get professional_id
-      const professionalId = getProfessionalId();
-
-      const response = await createExperience({
+      const response = await createProfessionalExperience({
         api_token: token,
         experience_name: experienceFormData.experience_name.trim(),
         description: experienceFormData.description.trim(),
-        evidence: evidenceValue,
-        status: experienceFormData.status,
-        ...(professionalId && { professional_id: professionalId }),
+        professional_id: professionalId,
+        evidence: evidenceBase64,
       });
 
-      if (response.status === "success" || response.success || (response.status === true) || (response.message && !response.error)) {
+      if (response.success && response.data) {
         toast.success(response.message || "Experience created successfully!");
-        // Close form and reset
+        const created = response.data;
+        const newItem: ExperienceItem = {
+          id: created.id,
+          professional_id: created.professional_id,
+          experience_name: created.experience_name,
+          description: created.description,
+          evidence: created.evidence,
+          status: created.status ?? "pending",
+          created_at: created.created_at,
+          updated_at: created.updated_at,
+        };
+        setExperiences((prev) => [newItem, ...prev]);
         handleCloseExperienceForm();
-        
-        // Refresh experiences list after successful creation
-        if (professionalId && !isNaN(professionalId)) {
-          fetchProfessionalExperiences(professionalId);
-          // Also refresh profile completion to update the percentage
-          fetchProfileCompletion(professionalId);
-        }
+        fetchProfessionalExperiences(professionalId);
+        fetchProfileCompletion(professionalId);
       } else {
-        toast.error(response.message || response.error || "Failed to create experience. Please try again.");
+        toast.error(response.message || "Failed to create experience. Please try again.");
       }
-    } catch (error: any) {
-      console.error("Error creating experience:", error);
-      const errorMessage = error?.message || error?.error || "An error occurred while creating experience. Please try again.";
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const err = error as { message?: string; error?: string };
+      toast.error(err?.message || err?.error || "An error occurred while creating experience. Please try again.");
     } finally {
       setIsSubmittingExperience(false);
     }
@@ -2100,8 +2104,7 @@ export function ProfessionalProfileContent() {
                     <li>• Write a detailed bio</li>
                   </ul>
                 </div>
-                \42
-                \              </div>
+               </div>
             </CardContent>
           </Card>
         </div>

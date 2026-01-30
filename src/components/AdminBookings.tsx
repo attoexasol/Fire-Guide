@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Calendar, MoreVertical, Eye, XCircle, CheckCircle, Clock, AlertCircle, MapPin, User, Briefcase, Mail, Phone, FileText, RefreshCw } from "lucide-react";
+import { getApiToken } from "../lib/auth";
+import { getAdminBookings, AdminBookingListItem } from "../api/adminService";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -24,131 +26,114 @@ import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
 import { toast } from "sonner";
 
+type BookingDisplay = {
+  id: number;
+  reference: string;
+  customer: string;
+  customerEmail: string;
+  customerPhone: string;
+  professional: string;
+  professionalEmail: string;
+  professionalPhone: string;
+  professionalImage: string;
+  professionalType: string;
+  service: string;
+  date: string;
+  time: string;
+  location: string;
+  amount: string;
+  commission: number;
+  professionalPayout: number;
+  status: string;
+  createdAt: string;
+  paymentStatus: string;
+  notes: string;
+};
+
+function formatBookingDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "—";
+  }
+}
+
+function formatAppointmentDisplay(dateStr: string, timeStr: string): { date: string; time: string } {
+  try {
+    const date = new Date(dateStr + "T00:00:00");
+    const dateFormatted = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    return { date: dateFormatted, time: timeStr || "—" };
+  } catch {
+    return { date: "—", time: timeStr || "—" };
+  }
+}
+
+function formatLocation(addr: string, city: string, postCode: string): string {
+  const parts = [addr, city, postCode].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
 export function AdminBookings() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedBooking, setSelectedBooking] = useState<BookingDisplay | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationNote, setCancellationNote] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
+  const [bookingsList, setBookingsList] = useState<AdminBookingListItem[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
 
-  const bookings = [
-    {
-      id: 1,
-      reference: "FG-2025-00847",
-      customer: "John Smith",
-      customerEmail: "john.smith@example.com",
-      customerPhone: "07123 456789",
-      professional: "Sarah Mitchell",
-      professionalEmail: "sarah.mitchell@fireguide.co.uk",
-      professionalPhone: "07123 987654",
-      professionalImage: "https://images.unsplash.com/photo-1655249493799-9cee4fe983bb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMHBlcnNvbnxlbnwxfHx8fDE3NjUxMDA5Njd8MA&ixlib=rb-4.1.0&q=80&w=400",
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setBookingsLoading(true);
+    getAdminBookings({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && Array.isArray(res.data)) setBookingsList(res.data);
+        else if (!cancelled) setBookingsList([]);
+      })
+      .catch(() => {
+        if (!cancelled) setBookingsList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBookingsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const mapApiToDisplay = (b: AdminBookingListItem): BookingDisplay => {
+    const { date, time } = formatAppointmentDisplay(b.selected_date, b.selected_time);
+    return {
+      id: b.id,
+      reference: b.ref_code ?? "—",
+      customer: [b.first_name, b.last_name].filter(Boolean).join(" ") || "—",
+      customerEmail: b.email ?? "—",
+      customerPhone: b.phone ?? "—",
+      professional: b.professional_name ?? "—",
+      professionalEmail: "—",
+      professionalPhone: "—",
+      professionalImage: "",
       professionalType: "individual",
-      service: "Fire Risk Assessment",
-      date: "Nov 21, 2025",
-      time: "10:00 AM",
-      location: "123 High Street, London, SW1A 1AA",
-      amount: 300,
-      commission: 45,
-      professionalPayout: 255,
-      status: "confirmed",
-      createdAt: "Nov 18, 2025",
-      paymentStatus: "paid",
-      notes: "Customer requested comprehensive assessment including all fire exits and equipment."
-    },
-    {
-      id: 2,
-      reference: "FG-2025-00846",
-      customer: "Emma Davis",
-      customerEmail: "emma.davis@example.com",
-      customerPhone: "07234 567890",
-      professional: "James Patterson",
-      professionalEmail: "james.patterson@fireguide.co.uk",
-      professionalPhone: "07234 876543",
-      professionalImage: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
-      professionalType: "individual",
-      service: "Fire Equipment Service",
-      date: "Nov 22, 2025",
-      time: "2:00 PM",
-      location: "456 Market Street, Manchester, M1 1AA",
-      amount: 165,
-      commission: 24.75,
-      professionalPayout: 140.25,
-      status: "pending",
-      createdAt: "Nov 19, 2025",
-      paymentStatus: "paid",
-      notes: "Routine service for 8 fire extinguishers."
-    },
-    {
-      id: 3,
-      reference: "FG-2025-00845",
-      customer: "Michael Brown",
-      customerEmail: "michael.brown@example.com",
-      customerPhone: "07345 678901",
-      professional: "David Chen",
-      professionalEmail: "david.chen@fireguide.co.uk",
-      professionalPhone: "07345 765432",
-      professionalImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop",
-      professionalType: "individual",
-      service: "Emergency Lighting Test",
-      date: "Nov 18, 2025",
-      time: "9:00 AM",
-      location: "789 Industrial Park, Birmingham, B1 1AA",
-      amount: 210,
-      commission: 31.5,
-      professionalPayout: 178.5,
-      status: "completed",
-      createdAt: "Nov 10, 2025",
-      paymentStatus: "paid",
-      notes: "Annual emergency lighting compliance test completed successfully."
-    },
-    {
-      id: 4,
-      reference: "FG-2025-00844",
-      customer: "Sarah Wilson",
-      customerEmail: "sarah.wilson@example.com",
-      customerPhone: "07456 789012",
-      professional: "Emma Thompson",
-      professionalEmail: "emma.thompson@fireguide.co.uk",
-      professionalPhone: "07456 654321",
-      service: "Fire Risk Assessment",
-      date: "Nov 20, 2025",
-      time: "1:00 PM",
-      location: "321 Office Complex, Leeds, LS1 1AA",
-      amount: 335,
-      commission: 50.25,
-      professionalPayout: 284.75,
-      status: "cancelled",
-      createdAt: "Nov 12, 2025",
-      paymentStatus: "refunded",
-      notes: "Cancelled by customer due to scheduling conflict."
-    },
-    {
-      id: 5,
-      reference: "FG-2025-00843",
-      customer: "David Taylor",
-      customerEmail: "david.taylor@example.com",
-      customerPhone: "07567 890123",
-      professional: "Lisa Anderson",
-      professionalEmail: "lisa.anderson@fireguide.co.uk",
-      professionalPhone: "07567 543210",
-      service: "Fire Extinguisher Service",
-      date: "Nov 23, 2025",
-      time: "11:30 AM",
-      location: "654 Retail Park, Bristol, BS1 1AA",
-      amount: 290,
-      commission: 43.5,
-      professionalPayout: 246.5,
-      status: "confirmed",
-      createdAt: "Nov 17, 2025",
-      paymentStatus: "paid",
-      notes: "Service for retail store with 12 extinguishers across two floors."
-    },
-  ];
+      service: b.service_name ?? "—",
+      date,
+      time,
+      location: formatLocation(b.property_address, b.city, b.post_code),
+      amount: b.price ?? "0",
+      commission: 0,
+      professionalPayout: 0,
+      status: b.status ?? "pending",
+      createdAt: formatBookingDate(b.created_at),
+      paymentStatus: "—",
+      notes: "",
+    };
+  };
+
+  const bookings: BookingDisplay[] = bookingsList.map(mapApiToDisplay);
 
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch = booking.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,11 +144,11 @@ export function AdminBookings() {
   });
 
   const stats = {
-    total: bookings.length,
-    confirmed: bookings.filter(b => b.status === "confirmed").length,
-    pending: bookings.filter(b => b.status === "pending").length,
-    completed: bookings.filter(b => b.status === "completed").length,
-    cancelled: bookings.filter(b => b.status === "cancelled").length,
+    total: bookingsLoading ? "—" : bookings.length,
+    confirmed: bookingsLoading ? "—" : bookings.filter(b => b.status === "confirmed").length,
+    pending: bookingsLoading ? "—" : bookings.filter(b => b.status === "pending").length,
+    completed: bookingsLoading ? "—" : bookings.filter(b => b.status === "completed").length,
+    cancelled: bookingsLoading ? "—" : bookings.filter(b => b.status === "cancelled").length,
   };
 
   const getStatusIcon = (status: string) => {
@@ -309,7 +294,14 @@ export function AdminBookings() {
 
       {/* Bookings List */}
       <div className="space-y-4">
-        {filteredBookings.map((booking) => (
+        {bookingsLoading ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-gray-500">Loading bookings...</p>
+            </CardContent>
+          </Card>
+        ) : (
+        filteredBookings.map((booking) => (
           <Card key={booking.id}>
             <CardContent className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -401,10 +393,11 @@ export function AdminBookings() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        ))
+        )}
       </div>
 
-      {filteredBookings.length === 0 && (
+      {!bookingsLoading && filteredBookings.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-gray-500">No bookings found matching your criteria</p>

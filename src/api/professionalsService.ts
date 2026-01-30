@@ -1263,6 +1263,129 @@ export const getExperiences = async (
   }
 };
 
+/**
+ * Create professional experience
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional-experience/create
+ * Method: POST
+ * Body: JSON with experience_name, description, professional_id, evidence (base64 data URL)
+ */
+export interface CreateProfessionalExperienceRequest {
+  api_token: string;
+  experience_name: string;
+  description: string;
+  professional_id: number;
+  evidence: string; // base64 data URL e.g. "data:image/jpeg;base64,..."
+}
+
+export interface CreateProfessionalExperienceResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: number;
+    professional_id: number;
+    experience_name: string;
+    description: string;
+    evidence: string;
+    updated_at: string;
+    created_at: string;
+    status?: string;
+  };
+}
+
+export const createProfessionalExperience = async (
+  data: CreateProfessionalExperienceRequest
+): Promise<CreateProfessionalExperienceResponse> => {
+  try {
+    const response = await apiClient.post<CreateProfessionalExperienceResponse>(
+      '/professional-experience/create',
+      {
+        api_token: data.api_token,
+        experience_name: data.experience_name,
+        description: data.description,
+        professional_id: data.professional_id,
+        evidence: data.evidence,
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create experience',
+          error: error.response.data?.error || error.message,
+        };
+      }
+      if (error.request) {
+        throw {
+          success: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Get professional experiences for the authenticated user
+ * BaseURL: https://fireguide.attoexasolutions.com/api/professional-experience/get
+ * Method: POST
+ * Body: JSON with api_token
+ */
+export interface GetProfessionalExperiencesRequest {
+  api_token: string;
+}
+
+export interface GetProfessionalExperiencesResponse {
+  success: boolean;
+  message: string;
+  data: ExperienceItem[];
+}
+
+export const getProfessionalExperiences = async (
+  data: GetProfessionalExperiencesRequest
+): Promise<GetProfessionalExperiencesResponse> => {
+  try {
+    const response = await apiClient.post<GetProfessionalExperiencesResponse>(
+      '/professional-experience/get',
+      { api_token: data.api_token },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch experiences',
+          error: error.response.data?.error || error.message,
+        };
+      }
+      if (error.request) {
+        throw {
+          success: false,
+          message: 'Network error. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
 // TypeScript types for Store Service Prices
 export interface ServicePriceItem {
   service_id: number;

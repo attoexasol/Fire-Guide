@@ -536,16 +536,15 @@ export function CustomerDashboard({
   }, [currentView]);
 
   // Fetch notification preferences from API when settings view is shown
+  // POST /user_dashboard/get_all_notification with { api_token } — response data drives toggle ON/OFF
   useEffect(() => {
     const fetchNotificationPreferences = async () => {
-      // Only fetch when on settings view
       if (currentView !== 'settings') {
         return;
       }
-      
+
       const token = getApiToken();
       if (!token) {
-        console.log('No API token available for notification preferences');
         setIsLoadingNotificationPreferences(false);
         return;
       }
@@ -553,41 +552,22 @@ export function CustomerDashboard({
       setIsLoadingNotificationPreferences(true);
       try {
         const response = await getNotificationPreferences({ api_token: token });
-        console.log('GET notification preferences response:', response);
-        console.log('Response success:', response?.success);
-        console.log('Response data:', response?.data);
-        console.log('Response data type:', typeof response?.data);
-        console.log('Response data keys:', response?.data ? Object.keys(response.data) : 'no data');
-        
-        // Check for both 'success' and 'status' fields
-        const isSuccess = response?.success === true || response?.status === true;
-        
-        if (isSuccess && response?.data) {
-          const d = response.data;
-          
-          // Ensure we have the data object with all required fields
-          if (!d || typeof d !== 'object') {
-            console.error('Invalid data structure in API response:', d);
-            setNotificationPreferences(null);
-            return;
-          }
-          
-          // Debug: Log each value before conversion
-          console.log('Raw API values:', {
-            is_booking_confirmation: d.is_booking_confirmation,
-            is_service_reminders: d.is_service_reminders,
-            report_uploads: d.report_uploads,
-            marketing_emails: d.marketing_emails,
-          });
-          
-          // Coerce any value to boolean, then to 1/0. Handles true/false, 1/0, "true"/"false"
-          const toOnOff = (v: unknown): number => {
-            if (v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true') {
-              return 1;
-            }
-            return 0;
-          };
-          
+        const isSuccess = response?.success === true || (response as { status?: boolean })?.status === true;
+
+        // Support response.data or response.data.data (nested)
+        const rawData = response?.data;
+        const d =
+          rawData &&
+          typeof rawData === 'object' &&
+          'is_booking_confirmation' in rawData
+            ? rawData
+            : (rawData as { data?: typeof rawData })?.['data'];
+
+        if (isSuccess && d && typeof d === 'object') {
+          // Map API booleans to 1/0: true -> ON (1), false -> OFF (0)
+          const toOnOff = (v: unknown): number =>
+            v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true' ? 1 : 0;
+
           const preferencesData: NotificationPreferencesData = {
             id: 0,
             is_booking_confirmation: toOnOff(d.is_booking_confirmation),
@@ -598,23 +578,13 @@ export function CustomerDashboard({
             created_at: '',
             updated_at: '',
           };
-          
-          console.log('Converted notification preferences:', preferencesData);
-          console.log('Expected toggle states:', {
-            booking: preferencesData.is_booking_confirmation === 1 ? 'ON' : 'OFF',
-            reminder: preferencesData.is_service_reminders === 1 ? 'ON' : 'OFF',
-            report: preferencesData.report_uploads === 1 ? 'ON' : 'OFF',
-            marketing: preferencesData.marketing_emails === 1 ? 'ON' : 'OFF',
-          });
-          
-          // Set state - React will batch this update
           setNotificationPreferences(preferencesData);
         } else {
-          console.log('No notification preferences found or success is false. Response:', response);
           setNotificationPreferences(null);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching notification preferences:', error);
+        setNotificationPreferences(null);
       } finally {
         setIsLoadingNotificationPreferences(false);
       }
@@ -623,19 +593,6 @@ export function CustomerDashboard({
     fetchNotificationPreferences();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView]);
-
-  // Debug: Log whenever notificationPreferences state changes
-  useEffect(() => {
-    console.log('notificationPreferences state changed:', notificationPreferences);
-    if (notificationPreferences) {
-      console.log('Current toggle values from state:', {
-        booking: notificationPreferences.is_booking_confirmation,
-        reminder: notificationPreferences.is_service_reminders,
-        report: notificationPreferences.report_uploads,
-        marketing: notificationPreferences.marketing_emails,
-      });
-    }
-  }, [notificationPreferences]);
 
   // Use API data for stats - show 0 while loading, then API data
   const upcomingBookings = isLoadingDashboardSummary ? 0 : (dashboardSummary?.jobs?.upcoming ?? 0);
@@ -2257,6 +2214,7 @@ export function CustomerDashboard({
             if (typeof value === 'number') return value;
             return defaultValue;
           };
+          const toNum = (v: number | boolean): number => (v === 1 || v === true ? 1 : 0);
 
           // Only update the specific field that was toggled, preserve all others from previous state
           const updatedState: NotificationPreferencesData = {
@@ -2266,18 +2224,18 @@ export function CustomerDashboard({
             created_at: response.data.created_at || baseState.created_at,
             updated_at: response.data.updated_at || baseState.updated_at,
             // Update only the field that was changed, use API response if available, otherwise keep previous state
-            is_booking_confirmation: column === 'is_booking_confirmation' 
+            is_booking_confirmation: column === 'is_booking_confirmation'
               ? normalizeValue(response.data.is_booking_confirmation, newCheckedState ? 1 : 0)
-              : normalizeValue(response.data.is_booking_confirmation, baseState.is_booking_confirmation),
+              : normalizeValue(response.data.is_booking_confirmation, toNum(baseState.is_booking_confirmation)),
             is_service_reminders: column === 'is_service_reminders'
               ? normalizeValue(response.data.is_service_reminders, newCheckedState ? 1 : 0)
-              : normalizeValue(response.data.is_service_reminders, baseState.is_service_reminders),
+              : normalizeValue(response.data.is_service_reminders, toNum(baseState.is_service_reminders)),
             report_uploads: column === 'report_uploads'
               ? normalizeValue(response.data.report_uploads, newCheckedState ? 1 : 0)
-              : normalizeValue(response.data.report_uploads, baseState.report_uploads),
+              : normalizeValue(response.data.report_uploads, toNum(baseState.report_uploads)),
             marketing_emails: column === 'marketing_emails'
               ? normalizeValue(response.data.marketing_emails, newCheckedState ? 1 : 0)
-              : normalizeValue(response.data.marketing_emails, baseState.marketing_emails),
+              : normalizeValue(response.data.marketing_emails, toNum(baseState.marketing_emails)),
           };
 
           console.log(`Updated ${column} to ${newCheckedState ? 'ON' : 'OFF'}`);
@@ -2321,19 +2279,12 @@ export function CustomerDashboard({
     }
 
     const value = notificationPreferences[key];
-    
     // Handle number (0/1) - most common case after conversion
-    if (typeof value === 'number') {
-      return value === 1;
-    }
-    
-    // Handle boolean
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    
-    // Fallback for any other type
-    return value === 1 || value === true || String(value).toLowerCase() === 'true';
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'boolean') return value;
+    // Fallback for string or other (e.g. "true" / "1")
+    if (typeof value === 'string') return value.toLowerCase() === 'true' || value === '1';
+    return false;
   };
 
   // Handle delete account
@@ -2347,7 +2298,7 @@ export function CustomerDashboard({
     setIsDeletingAccount(true);
     try {
       const response = await deleteAccount({ api_token: token });
-      if (response.status === true) {
+      if ((response as { status?: boolean }).status === true) {
         toast.success(response.message || "Account deleted successfully");
         // Clear local storage and logout
         localStorage.clear();

@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Star, MoreVertical, Mail, Phone, MapPin, CheckCircle, Clock, XCircle, Eye, Ban, Award, FileText, Download, AlertCircle, Edit2, Image, File } from "lucide-react";
+import { getApiToken } from "../lib/auth";
+import { getAdminProfessionalSummary, AdminProfessionalSummaryData, getAdminProfessionals, AdminProfessionalListItem, adminProfessionalTakeAction, AdminProfessionalStatus } from "../api/adminService";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -43,6 +45,77 @@ export function AdminProfessionals() {
   const [filePreviewModalOpen, setFilePreviewModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [evidenceStatuses, setEvidenceStatuses] = useState<{[key: string]: string}>({});
+  const [professionalSummary, setProfessionalSummary] = useState<AdminProfessionalSummaryData | null>(null);
+  const [professionalSummaryLoading, setProfessionalSummaryLoading] = useState(false);
+  const [professionalsList, setProfessionalsList] = useState<AdminProfessionalListItem[]>([]);
+  const [professionalsLoading, setProfessionalsLoading] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setProfessionalSummaryLoading(true);
+    getAdminProfessionalSummary({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && res.data?.data) setProfessionalSummary(res.data.data);
+      })
+      .catch(() => {
+        if (!cancelled) setProfessionalSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setProfessionalSummaryLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setProfessionalsLoading(true);
+    getAdminProfessionals({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && Array.isArray(res.data)) setProfessionalsList(res.data);
+        else if (!cancelled) setProfessionalsList([]);
+      })
+      .catch(() => {
+        if (!cancelled) setProfessionalsList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProfessionalsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const formatJoinDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    } catch {
+      return "—";
+    }
+  };
+
+  const DEFAULT_AVATAR = "https://via.placeholder.com/96?text=No+Photo";
+
+  type ProfessionalDisplay = {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    photo: string;
+    rating: number;
+    reviewCount: number;
+    totalBookings: number;
+    completionRate: number;
+    responseTime: string;
+    status: string;
+    joinDate: string;
+    qualifications: string[];
+    raw?: AdminProfessionalListItem;
+  };
 
   // Mock services data for professionals
   const professionalServices = {
@@ -220,101 +293,92 @@ export function AdminProfessionals() {
     ]
   };
 
-  const [professionals, setProfessionals] = useState([
-    {
-      id: 1,
-      name: "Sarah Mitchell",
-      email: "sarah.mitchell@fireguide.co.uk",
-      phone: "07123 987654",
-      location: "London",
-      photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
-      rating: 4.9,
-      reviewCount: 127,
-      totalBookings: 156,
-      completionRate: 98,
-      responseTime: "1 hour",
-      status: "approved",
-      joinDate: "Jan 2024",
-      qualifications: ["NEBOSH", "Fire Safety Level 4"]
-    },
-    {
-      id: 2,
-      name: "James Patterson",
-      email: "james.patterson@fireguide.co.uk",
-      phone: "07234 876543",
-      location: "Manchester",
-      photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop",
-      rating: 4.8,
-      reviewCount: 94,
-      totalBookings: 112,
-      completionRate: 96,
-      responseTime: "2 hours",
-      status: "approved",
-      joinDate: "Mar 2024",
-      qualifications: ["IOSH Certified", "Fire Safety Level 3"]
-    },
-    {
-      id: 3,
-      name: "David Chen",
-      email: "david.chen@fireguide.co.uk",
-      phone: "07345 765432",
-      location: "Birmingham",
-      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
-      rating: 4.7,
-      reviewCount: 156,
-      totalBookings: 203,
-      completionRate: 97,
-      responseTime: "30 mins",
-      status: "approved",
-      joinDate: "Dec 2023",
-      qualifications: ["NEBOSH", "IOSH"]
-    },
-    {
-      id: 4,
-      name: "Emily Roberts",
-      email: "emily.roberts@fireguide.co.uk",
-      phone: "07456 654321",
-      location: "Leeds",
-      photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop",
-      rating: 0,
-      reviewCount: 0,
+  // API returns "rejected"; UI shows "suspended" for the same state
+  const mapListToDisplay = (list: AdminProfessionalListItem[]): ProfessionalDisplay[] =>
+    list.map((p) => ({
+      id: p.id,
+      name: p.name ?? "—",
+      email: p.email ?? "—",
+      phone: p.number ?? "—",
+      location: p.business_location ?? "—",
+      photo: p.professional_image ?? DEFAULT_AVATAR,
+      rating: p.rating ?? 0,
+      reviewCount: p.review ?? 0,
       totalBookings: 0,
       completionRate: 0,
-      responseTime: "N/A",
-      status: "pending",
-      joinDate: "Nov 2025",
-      qualifications: ["Fire Safety Level 3", "5+ Years"]
-    },
-    {
-      id: 5,
-      name: "Robert Taylor",
-      email: "robert.taylor@fireguide.co.uk",
-      phone: "07567 543210",
-      location: "Bristol",
-      photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop",
-      rating: 4.3,
-      reviewCount: 45,
-      totalBookings: 67,
-      completionRate: 89,
-      responseTime: "4 hours",
-      status: "suspended",
-      joinDate: "Jun 2024",
-      qualifications: ["Fire Safety Level 3"]
-    },
-  ]);
+      responseTime: p.response_time ?? "N/A",
+      status: (p.status === "rejected" ? "suspended" : p.status) ?? "pending",
+      joinDate: formatJoinDate(p.created_at),
+      qualifications: Array.isArray(p.services) ? p.services : [],
+      raw: p,
+    }));
+
+  const [professionals, setProfessionals] = useState<ProfessionalDisplay[]>([]);
+
+  useEffect(() => {
+    setProfessionals(mapListToDisplay(professionalsList));
+  }, [professionalsList]);
 
   const filteredProfessionals = professionals.filter((professional) => {
-    const matchesSearch = professional.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         professional.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = !search ||
+      professional.name.toLowerCase().includes(search) ||
+      professional.email.toLowerCase().includes(search);
     const matchesFilter = filterStatus === "all" || professional.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
-  const stats = {
+  const derivedStats = {
     total: professionals.length,
-    approved: professionals.filter(p => p.status === "approved").length,
-    pending: professionals.filter(p => p.status === "pending").length,
-    suspended: professionals.filter(p => p.status === "suspended").length,
+    approved: professionals.filter((p) => p.status === "approved").length,
+    pending: professionals.filter((p) => p.status === "pending").length,
+    suspended: professionals.filter((p) => p.status === "suspended").length,
+  };
+  const stats = {
+    total: professionalSummary != null ? professionalSummary.total_professional : derivedStats.total,
+    approved: professionalSummary != null ? professionalSummary.approved_professional : derivedStats.approved,
+    pending: professionalSummary != null ? professionalSummary.pending_professional : derivedStats.pending,
+    suspended: professionalSummary != null ? professionalSummary.suspend_professional : derivedStats.suspended,
+  };
+
+  const refetchSummary = () => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminProfessionalSummary({ api_token: token })
+      .then((res) => { if (res.success && res.data?.data) setProfessionalSummary(res.data.data); })
+      .catch(() => setProfessionalSummary(null));
+  };
+
+  const handleUpdateProfessionalStatus = async (professional: ProfessionalDisplay, status: AdminProfessionalStatus) => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setStatusUpdatingId(professional.id);
+    try {
+      const res = await adminProfessionalTakeAction({
+        api_token: token,
+        professional_id: professional.id,
+        status,
+      });
+      if (res.success && res.data) {
+        const newStatus = res.data.new_status;
+        setProfessionalsList((prev) =>
+          prev.map((p) => (p.id === professional.id ? { ...p, status: newStatus } : p))
+        );
+        refetchSummary();
+        if (status === "approved") toast.success(`${professional.name} has been approved`);
+        else if (status === "rejected") toast.success(`${professional.name}'s status has been updated`);
+        else toast.success(`${professional.name}'s status has been updated`);
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to update status");
+    } finally {
+      setStatusUpdatingId(null);
+    }
   };
 
   const handleApprove = (professional: any) => {
@@ -338,40 +402,31 @@ export function AdminProfessionals() {
   };
 
   const handleSuspend = (professional: any) => {
-    setProfessionals(professionals.map(p => 
-      p.id === professional.id ? { ...p, status: "suspended" } : p
-    ));
-    toast.success(`${professional.name}'s account has been suspended`);
+    handleUpdateProfessionalStatus(professional, "rejected");
   };
 
   const handleReactivate = (professional: any) => {
-    setProfessionals(professionals.map(p => 
-      p.id === professional.id ? { ...p, status: "approved" } : p
-    ));
-    toast.success(`${professional.name}'s account has been reactivated`);
+    handleUpdateProfessionalStatus(professional, "approved");
   };
 
   const handleSendEmail = (professional: any) => {
     toast.success(`Email dialog opened for ${professional.name}`);
   };
 
-  const confirmApproval = () => {
-    setProfessionals(professionals.map(p => 
-      p.id === selectedProfessional?.id ? { ...p, status: "approved" } : p
-    ));
-    toast.success(`${selectedProfessional?.name} has been approved and notified via email`);
+  const confirmApproval = async () => {
+    if (!selectedProfessional) return;
+    await handleUpdateProfessionalStatus(selectedProfessional, "approved");
     setApprovalModalOpen(false);
     setVerificationNotes("");
   };
 
-  const confirmRejection = () => {
+  const confirmRejection = async () => {
     if (!rejectionReason) {
       toast.error("Please select a rejection reason");
       return;
     }
-    // Remove the professional from the list when rejected
-    setProfessionals(professionals.filter(p => p.id !== selectedProfessional?.id));
-    toast.success(`Application rejected. Email notification sent to ${selectedProfessional?.name}`);
+    if (!selectedProfessional) return;
+    await handleUpdateProfessionalStatus(selectedProfessional, "rejected");
     setRejectionModalOpen(false);
     setRejectionReason("");
     setRejectionMessage("");
@@ -409,25 +464,25 @@ export function AdminProfessionals() {
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-gray-600">Total Professionals</p>
-            <p className="text-2xl text-[#0A1A2F] mt-1">{stats.total}</p>
+            <p className="text-2xl text-[#0A1A2F] mt-1">{professionalSummaryLoading ? "—" : stats.total}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-gray-600">Approved</p>
-            <p className="text-2xl text-green-600 mt-1">{stats.approved}</p>
+            <p className="text-2xl text-green-600 mt-1">{professionalSummaryLoading ? "—" : stats.approved}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-gray-600">Pending Approval</p>
-            <p className="text-2xl text-yellow-600 mt-1">{stats.pending}</p>
+            <p className="text-2xl text-yellow-600 mt-1">{professionalSummaryLoading ? "—" : stats.pending}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-gray-600">Suspended</p>
-            <p className="text-2xl text-red-600 mt-1">{stats.suspended}</p>
+            <p className="text-2xl text-red-600 mt-1">{professionalSummaryLoading ? "—" : stats.suspended}</p>
           </CardContent>
         </Card>
       </div>
@@ -464,7 +519,14 @@ export function AdminProfessionals() {
 
       {/* Professional Cards */}
       <div className="grid gap-4 px-4 md:px-0">
-        {filteredProfessionals.map((professional) => (
+        {professionalsLoading ? (
+          <Card>
+            <CardContent className="p-8 text-center text-gray-500">
+              Loading professionals...
+            </CardContent>
+          </Card>
+        ) : (
+        filteredProfessionals.map((professional) => (
           <Card key={professional.id}>
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row gap-6">
@@ -524,7 +586,7 @@ export function AdminProfessionals() {
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" disabled={statusUpdatingId === professional.id}>
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -590,7 +652,7 @@ export function AdminProfessionals() {
                     <div>
                       <p className="text-sm text-gray-600">Completion</p>
                       <p className="font-semibold text-gray-900 mt-1">
-                        {professional.completionRate > 0 ? `${professional.completionRate}%` : "N/A"}
+                        {professional.completionRate > 0 ? `${professional.completionRate}%` : "—"}
                       </p>
                     </div>
                     <div>
@@ -606,10 +668,11 @@ export function AdminProfessionals() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        ))
+        )}
       </div>
 
-      {filteredProfessionals.length === 0 && (
+      {!professionalsLoading && filteredProfessionals.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-gray-500">No professionals found matching your criteria</p>

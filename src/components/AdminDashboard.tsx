@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  Calendar, 
-  CreditCard, 
-  Star, 
-  FileText, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Calendar,
+  CreditCard,
+  Star,
+  FileText,
+  Settings,
   Bell,
   DollarSign,
   TrendingUp,
@@ -24,6 +24,8 @@ import {
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { getApiToken } from "../lib/auth";
+import { getAdminOverviewSummary, AdminOverviewSummaryData, getAdminRecentBookings, AdminRecentBookingItem } from "../api/adminService";
 import { AdminCustomers } from "./AdminCustomers";
 import { AdminProfessionals } from "./AdminProfessionals";
 import { AdminBookings } from "./AdminBookings";
@@ -58,7 +60,52 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   
   const [currentView, setCurrentView] = useState<AdminView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  
+  const [summary, setSummary] = useState<AdminOverviewSummaryData | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [recentBookings, setRecentBookings] = useState<AdminRecentBookingItem[]>([]);
+  const [recentBookingsLoading, setRecentBookingsLoading] = useState(false);
+
+  // Fetch admin overview summary when dashboard view is shown
+  useEffect(() => {
+    if (currentView !== "dashboard") return;
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setSummaryLoading(true);
+    getAdminOverviewSummary({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setSummary(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSummaryLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [currentView]);
+
+  // Fetch recent bookings when dashboard view is shown
+  useEffect(() => {
+    if (currentView !== "dashboard") return;
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setRecentBookingsLoading(true);
+    getAdminRecentBookings({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && Array.isArray(res.data)) setRecentBookings(res.data);
+        else if (!cancelled) setRecentBookings([]);
+      })
+      .catch(() => {
+        if (!cancelled) setRecentBookings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRecentBookingsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [currentView]);
+
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
     setCurrentView(currentViewFromUrl);
@@ -99,7 +146,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <CardContent className="p-5">
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
-              <p className="text-gray-900">£45,280</p>
+              <p className="text-gray-900">
+                {summaryLoading ? "—" : summary != null ? `£${Number(summary.total_revenue).toLocaleString()}` : "£45,280"}
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-green-600 flex items-center gap-1">
@@ -117,7 +166,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <CardContent className="p-5">
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Active Bookings</p>
-              <p className="text-gray-900">127</p>
+              <p className="text-gray-900">
+                {summaryLoading ? "—" : summary != null ? summary.active_bookings : "127"}
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-blue-600 flex items-center gap-1">
@@ -135,7 +186,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <CardContent className="p-5">
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Total Customers</p>
-              <p className="text-gray-900">1,547</p>
+              <p className="text-gray-900">
+                {summaryLoading ? "—" : summary != null ? summary.total_customer.toLocaleString() : "1,547"}
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-purple-600 flex items-center gap-1">
@@ -153,7 +206,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <CardContent className="p-5">
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Active Professionals</p>
-              <p className="text-gray-900">68</p>
+              <p className="text-gray-900">
+                {summaryLoading ? "—" : summary != null ? summary.active_professionals : "68"}
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-orange-600 flex items-center gap-1">
@@ -176,32 +231,38 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-3">
-              {[
-                { customer: "John Smith", professional: "Sarah Mitchell", service: "Fire Risk Assessment", amount: "£285", status: "confirmed" },
-                { customer: "Emma Davis", professional: "James Patterson", service: "Fire Equipment Service", amount: "£150", status: "pending" },
-                { customer: "Michael Brown", professional: "David Chen", service: "Emergency Lighting", amount: "£195", status: "confirmed" },
-                { customer: "Lisa Anderson", professional: "Emma Thompson", service: "Fire Risk Assessment", amount: "£320", status: "completed" },
-              ].map((booking, index) => (
-                <div key={index} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{booking.customer}</p>
-                    <p className="text-xs text-gray-600">{booking.service}</p>
-                    <p className="text-xs text-gray-400">with {booking.professional}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-sm text-gray-900">{booking.amount}</p>
-                    <span 
-                      className={`inline-block mt-1 px-2 py-0.5 rounded text-xs ${
-                        booking.status === "confirmed" ? "bg-green-100 text-green-700" :
-                        booking.status === "pending" ? "bg-yellow-100 text-yellow-700" :
-                        "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {booking.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+              {recentBookingsLoading ? (
+                <p className="text-sm text-gray-500 py-4">Loading...</p>
+              ) : recentBookings.length > 0 ? (
+                recentBookings.map((booking) => {
+                  const amount = booking.price != null && booking.price !== "" ? `£${Number(booking.price).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : "—";
+                  const serviceLabel = booking.selected_service_id != null ? `Service #${booking.selected_service_id}` : "Booking";
+                  return (
+                    <div key={booking.id} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">{booking.user?.full_name ?? "—"}</p>
+                        <p className="text-xs text-gray-600">{serviceLabel}</p>
+                        <p className="text-xs text-gray-400">with {booking.professional?.name ?? "—"}</p>
+                      </div>
+                      <div className="text-right ml-4">
+                        <p className="text-sm text-gray-900">{amount}</p>
+                        <span
+                          className={`inline-block mt-1 px-2 py-0.5 rounded text-xs ${
+                            booking.status === "confirmed" ? "bg-green-100 text-green-700" :
+                            booking.status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                            booking.status === "completed" ? "bg-blue-100 text-blue-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {booking.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-gray-500 py-4">No recent bookings</p>
+              )}
             </div>
           </CardContent>
         </Card>

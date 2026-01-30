@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { Search, Filter, MoreVertical, Mail, Phone, MapPin, Calendar, Eye, Ban, Trash2, AlertTriangle, MessageSquare, CheckCircle, XCircle, FileText } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Filter, MoreVertical, Mail, Phone, MapPin, Calendar, Eye, Ban, Trash2, AlertTriangle, MessageSquare, CheckCircle, XCircle, FileText, Circle } from "lucide-react";
+import { getApiToken } from "../lib/auth";
+import { getAdminCustomerSummary, AdminCustomerSummaryData, getAdminCustomers, AdminCustomerItem, adminCustomerTakeAction, AdminCustomerStatus } from "../api/adminService";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -47,73 +49,90 @@ export function AdminCustomers() {
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [disputeDecision, setDisputeDecision] = useState("");
+  const [customerSummary, setCustomerSummary] = useState<AdminCustomerSummaryData | null>(null);
+  const [customerSummaryLoading, setCustomerSummaryLoading] = useState(false);
+  const [customersList, setCustomersList] = useState<AdminCustomerItem[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
-  const customers = [
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john.smith@example.com",
-      phone: "07123 456789",
-      location: "London, SW1A 1AA",
-      totalBookings: 5,
-      totalSpent: 1420,
-      joinDate: "Jan 15, 2024",
-      status: "active",
-      lastBooking: "Nov 18, 2025"
-    },
-    {
-      id: 2,
-      name: "Emma Davis",
-      email: "emma.davis@example.com",
-      phone: "07234 567890",
-      location: "Manchester, M1 1AA",
-      totalBookings: 3,
-      totalSpent: 850,
-      joinDate: "Mar 22, 2024",
-      status: "active",
-      lastBooking: "Nov 19, 2025"
-    },
-    {
-      id: 3,
-      name: "Michael Brown",
-      email: "michael.brown@example.com",
-      phone: "07345 678901",
-      location: "Birmingham, B1 1AA",
-      totalBookings: 8,
-      totalSpent: 2340,
-      joinDate: "Dec 10, 2023",
-      status: "active",
-      lastBooking: "Nov 20, 2025"
-    },
-    {
-      id: 4,
-      name: "Sarah Wilson",
-      email: "sarah.wilson@example.com",
-      phone: "07456 789012",
-      location: "Leeds, LS1 1AA",
-      totalBookings: 1,
-      totalSpent: 285,
-      joinDate: "Nov 5, 2025",
-      status: "active",
-      lastBooking: "Nov 10, 2025"
-    },
-    {
-      id: 5,
-      name: "David Taylor",
-      email: "david.taylor@example.com",
-      phone: "07567 890123",
-      location: "Bristol, BS1 1AA",
-      totalBookings: 12,
-      totalSpent: 3600,
-      joinDate: "Aug 18, 2023",
-      status: "inactive",
-      lastBooking: "Jun 15, 2025"
-    },
-  ];
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setCustomerSummaryLoading(true);
+    getAdminCustomerSummary({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setCustomerSummary(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCustomerSummaryLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setCustomersLoading(true);
+    getAdminCustomers({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && Array.isArray(res.data)) setCustomersList(res.data);
+        else if (!cancelled) setCustomersList([]);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomersList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCustomersLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const formatJoinDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return "—";
+    }
+  };
+
+  type CustomerDisplay = {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    totalBookings: number;
+    totalSpent: number;
+    joinDate: string;
+    status: string;
+    lastBooking: string;
+    raw?: AdminCustomerItem;
+  };
+
+  const customers: CustomerDisplay[] = customersList.map((c) => ({
+    id: c.id,
+    name: c.full_name ?? "—",
+    email: c.email ?? "—",
+    phone: c.phone ?? "—",
+    location: c.property_address ?? "—",
+    totalBookings: c.total_bookings ?? 0,
+    totalSpent: Number(c.total_price) ?? 0,
+    joinDate: formatJoinDate(c.created_at),
+    status: c.soft_delete ?? "active",
+    lastBooking: "—",
+    raw: c,
+  }));
 
   const filteredCustomers = customers.filter((customer) => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm.trim() ||
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === "all" || customer.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -157,8 +176,46 @@ export function AdminCustomers() {
     toast.success(`Email dialog opened for ${customer.name}`);
   };
 
+  const handleUpdateCustomerStatus = async (customer: CustomerDisplay, status: AdminCustomerStatus) => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Authentication required.");
+      return;
+    }
+    setStatusUpdatingId(customer.id);
+    try {
+      const res = await adminCustomerTakeAction({
+        api_token: token,
+        user_id: customer.id,
+        status,
+      });
+      if (res.success) {
+        setCustomersList((prev) =>
+          prev.map((c) => (c.id === customer.id ? { ...c, soft_delete: status } : c))
+        );
+        const label = status === "suspend" ? "suspended" : status;
+        toast.success(res.message || `Customer status set to ${label}.`);
+      } else {
+        toast.error(res.message || "Failed to update status.");
+      }
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      toast.error(e?.message || "Failed to update customer status.");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const handleSuspendAccount = (customer: any) => {
-    toast.success(`${customer.name}'s account has been suspended`);
+    handleUpdateCustomerStatus(customer, "suspend");
+  };
+
+  const handleSetActive = (customer: any) => {
+    handleUpdateCustomerStatus(customer, "active");
+  };
+
+  const handleSetInactive = (customer: any) => {
+    handleUpdateCustomerStatus(customer, "inactive");
   };
 
   const handleDeleteAccount = (customer: any) => {
@@ -183,25 +240,33 @@ export function AdminCustomers() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Total Customers</p>
-            <p className="text-2xl text-[#0A1A2F] mt-1">1,547</p>
+            <p className="text-2xl text-[#0A1A2F] mt-1">
+              {customerSummaryLoading ? "—" : customerSummary != null ? customerSummary.total_customers.toLocaleString() : "1,547"}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Active This Month</p>
-            <p className="text-2xl text-[#0A1A2F] mt-1">892</p>
+            <p className="text-2xl text-[#0A1A2F] mt-1">
+              {customerSummaryLoading ? "—" : customerSummary != null ? customerSummary.active_this_month.toLocaleString() : "892"}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">New This Month</p>
-            <p className="text-2xl text-green-600 mt-1">+89</p>
+            <p className="text-2xl text-green-600 mt-1">
+              {customerSummaryLoading ? "—" : customerSummary != null ? `+${customerSummary.new_this_month}` : "+89"}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Total Revenue</p>
-            <p className="text-2xl text-[#0A1A2F] mt-1">£45,280</p>
+            <p className="text-2xl text-[#0A1A2F] mt-1">
+              {customerSummaryLoading ? "—" : customerSummary != null ? `£${Number(customerSummary.total_revenue).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : "£45,280"}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -227,6 +292,7 @@ export function AdminCustomers() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="suspend">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -250,7 +316,14 @@ export function AdminCustomers() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredCustomers.map((customer) => (
+                {customersLoading ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                      Loading customers...
+                    </td>
+                  </tr>
+                ) : (
+                filteredCustomers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="p-4">
                       <div>
@@ -283,7 +356,7 @@ export function AdminCustomers() {
                           <span className="font-semibold">{customer.totalBookings}</span> bookings
                         </p>
                         <p className="text-sm text-gray-900">
-                          <span className="font-semibold">£{customer.totalSpent}</span> spent
+                          <span className="font-semibold">£{Number(customer.totalSpent).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span> spent
                         </p>
                       </div>
                     </td>
@@ -295,16 +368,18 @@ export function AdminCustomers() {
                         className={
                           customer.status === "active"
                             ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
+                            : customer.status === "suspend"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700"
                         }
                       >
-                        {customer.status}
+                        {customer.status === "suspend" ? "suspended" : customer.status}
                       </Badge>
                     </td>
                     <td className="p-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-9 w-9">
+                          <Button variant="ghost" size="icon" className="h-9 w-9" disabled={statusUpdatingId === customer.id}>
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -321,6 +396,14 @@ export function AdminCustomers() {
                             <Mail className="w-4 h-4 mr-2" />
                             Send Email
                           </DropdownMenuItem>
+                          <DropdownMenuItem className="text-green-600" onClick={() => handleSetActive(customer)}>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Active Account
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-gray-700" onClick={() => handleSetInactive(customer)}>
+                            <Circle className="w-4 h-4 mr-2" />
+                            Inactive Account
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-yellow-600" onClick={() => handleSuspendAccount(customer)}>
                             <Ban className="w-4 h-4 mr-2" />
                             Suspend Account
@@ -333,14 +416,18 @@ export function AdminCustomers() {
                       </DropdownMenu>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Mobile Card View */}
           <div className="md:hidden divide-y">
-            {filteredCustomers.map((customer) => (
+            {customersLoading ? (
+              <div className="p-8 text-center text-gray-500">Loading customers...</div>
+            ) : (
+            filteredCustomers.map((customer) => (
               <div key={customer.id} className="p-4 space-y-3">
                 {/* Customer Name & Status */}
                 <div className="flex items-start justify-between gap-2">
@@ -355,10 +442,12 @@ export function AdminCustomers() {
                     className={
                       customer.status === "active"
                         ? "bg-green-100 text-green-700 flex-shrink-0"
-                        : "bg-gray-100 text-gray-700 flex-shrink-0"
+                        : customer.status === "suspend"
+                          ? "bg-red-100 text-red-700 flex-shrink-0"
+                          : "bg-gray-100 text-gray-700 flex-shrink-0"
                     }
                   >
-                    {customer.status}
+                    {customer.status === "suspend" ? "suspended" : customer.status}
                   </Badge>
                 </div>
 
@@ -383,7 +472,7 @@ export function AdminCustomers() {
                   <div className="space-y-1">
                     <p className="text-xs text-gray-500">Bookings & Spend</p>
                     <p className="text-sm text-gray-900">
-                      <span className="font-semibold">{customer.totalBookings}</span> bookings • <span className="font-semibold">£{customer.totalSpent}</span>
+                      <span className="font-semibold">{customer.totalBookings}</span> bookings • <span className="font-semibold">£{Number(customer.totalSpent).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                     </p>
                   </div>
                   <div className="text-right">
@@ -414,6 +503,14 @@ export function AdminCustomers() {
                         <Mail className="w-4 h-4 mr-2" />
                         Send Email
                       </DropdownMenuItem>
+                      <DropdownMenuItem className="text-green-600" onClick={() => handleSetActive(customer)}>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Active Account
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-gray-700" onClick={() => handleSetInactive(customer)}>
+                        <Circle className="w-4 h-4 mr-2" />
+                        Inactive Account
+                      </DropdownMenuItem>
                       <DropdownMenuItem className="text-yellow-600" onClick={() => handleSuspendAccount(customer)}>
                         <Ban className="w-4 h-4 mr-2" />
                         Suspend Account
@@ -426,10 +523,11 @@ export function AdminCustomers() {
                   </DropdownMenu>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
-          {filteredCustomers.length === 0 && (
+          {!customersLoading && filteredCustomers.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500">No customers found matching your criteria</p>
             </div>

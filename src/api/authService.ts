@@ -32,7 +32,7 @@ export interface RegisterUserResponse {
 // Create axios instance with base configuration
 // Note: No custom headers - only default Content-Type from axios
 const apiClient = axios.create({
-  baseURL: 'https://fireguide.attoexasolutions.com/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
   timeout: 10000, // 10 seconds timeout
 });
 
