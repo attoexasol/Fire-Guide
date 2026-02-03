@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, Users, DollarSign, AlertCircle, CheckCircle, Info, Trash2, Send, X } from "lucide-react";
+import { getApiToken } from "../lib/auth";
+import { getAdminNotificationDetails, AdminNotificationItem } from "../api/adminService";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -11,103 +13,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { toast } from "sonner";
 
-interface Notification {
-  id: number;
-  type: "user" | "professional" | "payment" | "system" | "alert";
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  priority: "low" | "medium" | "high" | "critical";
-  recipientType?: string;
+function categoryToType(category: string): "user" | "professional" | "payment" | "system" | "alert" {
+  const c = (category || "").toLowerCase();
+  if (c.includes("payment")) return "payment";
+  if (c.includes("professional")) return "professional";
+  if (c.includes("review") || c.includes("user")) return "user";
+  if (c.includes("system")) return "system";
+  return "alert";
 }
 
 export function AdminNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      type: "alert",
-      title: "High Volume Alert",
-      message: "Platform experiencing 200% increase in booking requests today",
-      timestamp: "10 minutes ago",
-      read: false,
-      priority: "high",
-      recipientType: "Platform Alert"
-    },
-    {
-      id: 2,
-      type: "professional",
-      title: "New Professional Application",
-      message: "5 new professionals awaiting approval for Fire Risk Assessment services",
-      timestamp: "30 minutes ago",
-      read: false,
-      priority: "medium",
-      recipientType: "Professional Alert"
-    },
-    {
-      id: 3,
-      type: "payment",
-      title: "Payment Dispute Opened",
-      message: "Customer #4521 has opened a dispute for booking #1234",
-      timestamp: "1 hour ago",
-      read: false,
-      priority: "critical",
-      recipientType: "Payment Alert"
-    },
-    {
-      id: 4,
-      type: "user",
-      title: "Customer Support Ticket",
-      message: "New high-priority support ticket from ABC Office Ltd",
-      timestamp: "2 hours ago",
-      read: true,
-      priority: "high",
-      recipientType: "Customer Alert"
-    },
-    {
-      id: 5,
-      type: "system",
-      title: "Database Backup Complete",
-      message: "Automated daily backup completed successfully at 3:00 AM",
-      timestamp: "5 hours ago",
-      read: true,
-      priority: "low",
-      recipientType: "System Alert"
-    },
-    {
-      id: 6,
-      type: "payment",
-      title: "Payout Processed",
-      message: "£25,450 distributed to 42 professionals",
-      timestamp: "1 day ago",
-      read: true,
-      priority: "medium",
-      recipientType: "Payment Alert"
-    },
-    {
-      id: 7,
-      type: "professional",
-      title: "Professional Suspended",
-      message: "John Smith's account suspended due to policy violation",
-      timestamp: "2 days ago",
-      read: true,
-      priority: "high",
-      recipientType: "Professional Alert"
-    },
-    {
-      id: 8,
-      type: "user",
-      title: "Surge in New Registrations",
-      message: "150 new customer accounts created in the last 24 hours",
-      timestamp: "3 days ago",
-      read: true,
-      priority: "medium",
-      recipientType: "Customer Alert"
-    }
-  ]);
-
+  const [notifications, setNotifications] = useState<AdminNotificationItem[]>([]);
   const [activeTab, setActiveTab] = useState("all");
+  const [notificationCards, setNotificationCards] = useState<{ total_notifications: number; unread: number; critical: number; system_alerts: number } | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setDetailsLoading(true);
+    getAdminNotificationDetails({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.status && res.data) {
+          setNotificationCards(res.data.cards);
+          setNotifications(Array.isArray(res.data.notifications) ? res.data.notifications : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNotificationCards(null);
+          setNotifications([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
   const [notificationTitle, setNotificationTitle] = useState("");
   const [notificationMessage, setNotificationMessage] = useState("");
   const [recipientType, setRecipientType] = useState("all_users");
@@ -147,13 +91,15 @@ export function AdminNotifications() {
 
   const markAsRead = (id: number) => {
     setNotifications(notifications.map(notif =>
-      notif.id === id ? { ...notif, read: true } : notif
+      notif.id === id ? { ...notif, is_read: 1 } : notif
     ));
+    setNotificationCards((prev) => prev ? { ...prev, unread: Math.max(0, (prev.unread ?? 0) - 1) } : prev);
     toast.success("Marked as read");
   };
 
   const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+    setNotifications(notifications.map(notif => ({ ...notif, is_read: 1 })));
+    setNotificationCards((prev) => prev ? { ...prev, unread: 0 } : prev);
     toast.success("All notifications marked as read");
   };
 
@@ -164,6 +110,7 @@ export function AdminNotifications() {
 
   const clearAll = () => {
     setNotifications([]);
+    setNotificationCards((prev) => prev ? { ...prev, total_notifications: 0, unread: 0, critical: 0, system_alerts: 0 } : prev);
     toast.success("All notifications cleared");
   };
 
@@ -181,14 +128,32 @@ export function AdminNotifications() {
     setNotificationPriority("medium");
   };
 
-  const filterNotifications = (type: string) => {
-    if (type === "all") return notifications;
-    if (type === "unread") return notifications.filter(n => !n.read);
-    return notifications.filter(n => n.type === type);
+  const categoryMatchesTab = (category: string, tab: string): boolean => {
+    const c = (category || "").toLowerCase();
+    if (tab === "user") return c.includes("review") || c.includes("user") || c.includes("customer");
+    if (tab === "professional") return c.includes("professional");
+    if (tab === "payment") return c.includes("payment");
+    if (tab === "alert") return c.includes("platform") || c.includes("alert");
+    if (tab === "system") return c.includes("system");
+    return false;
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const filterNotifications = (type: string) => {
+    if (type === "all") return notifications;
+    if (type === "unread") return notifications.filter(n => n.is_read === 0);
+    return notifications.filter(n => categoryMatchesTab(n.category, type));
+  };
+
+  const unreadCount = notifications.filter(n => n.is_read === 0).length;
   const filteredNotifications = filterNotifications(activeTab);
+
+  const stats = {
+    total: detailsLoading ? "—" : (notificationCards?.total_notifications ?? notifications.length),
+    unread: detailsLoading ? "—" : (notificationCards?.unread ?? unreadCount),
+    critical: detailsLoading ? "—" : (notificationCards?.critical ?? notifications.filter(n => n.priority === "critical").length),
+    systemAlerts: detailsLoading ? "—" : (notificationCards?.system_alerts ?? notifications.filter(n => (n.category || "").toLowerCase().includes("system")).length),
+  };
+  const displayUnreadCount = typeof stats.unread === "number" ? stats.unread : unreadCount;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -202,7 +167,7 @@ export function AdminNotifications() {
           <div>
             <h1 className="text-2xl font-semibold text-[#0A1A2F]">Notifications</h1>
             <p className="text-sm text-gray-500 mt-2">
-              {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : 'All caught up!'}
+              {displayUnreadCount > 0 ? `${displayUnreadCount} unread notification${displayUnreadCount !== 1 ? 's' : ''}` : 'All caught up!'}
             </p>
           </div>
 
@@ -297,7 +262,7 @@ export function AdminNotifications() {
               </DialogContent>
             </Dialog>
 
-            {unreadCount > 0 && (
+            {displayUnreadCount > 0 && (
               <Button 
                 variant="outline" 
                 onClick={markAllAsRead} 
@@ -325,32 +290,28 @@ export function AdminNotifications() {
             <Card className="w-full border-gray-200 shadow-sm rounded-lg">
               <CardContent className="p-4">
                 <p className="text-xs text-gray-500 mb-1">Total Notifications</p>
-                <p className="text-3xl font-semibold text-[#0A1A2F]">{notifications.length}</p>
+                <p className="text-3xl font-semibold text-[#0A1A2F]">{stats.total}</p>
               </CardContent>
             </Card>
 
             <Card className="w-full border-gray-200 shadow-sm rounded-lg">
               <CardContent className="p-4">
                 <p className="text-xs text-gray-500 mb-1">Unread</p>
-                <p className="text-3xl font-semibold text-[#0A1A2F]">{unreadCount}</p>
+                <p className="text-3xl font-semibold text-[#0A1A2F]">{stats.unread}</p>
               </CardContent>
             </Card>
 
             <Card className="w-full border-gray-200 shadow-sm rounded-lg">
               <CardContent className="p-4">
                 <p className="text-xs text-gray-500 mb-1">Critical</p>
-                <p className="text-3xl font-semibold text-[#0A1A2F]">
-                  {notifications.filter(n => n.priority === "critical").length}
-                </p>
+                <p className="text-3xl font-semibold text-[#0A1A2F]">{stats.critical}</p>
               </CardContent>
             </Card>
 
             <Card className="w-full border-gray-200 shadow-sm rounded-lg">
               <CardContent className="p-4">
                 <p className="text-xs text-gray-500 mb-1">System Alerts</p>
-                <p className="text-3xl font-semibold text-[#0A1A2F]">
-                  {notifications.filter(n => n.type === "system").length}
-                </p>
+                <p className="text-3xl font-semibold text-[#0A1A2F]">{stats.systemAlerts}</p>
               </CardContent>
             </Card>
           </div>
@@ -375,9 +336,9 @@ export function AdminNotifications() {
                   className="flex items-center justify-center gap-1.5 min-w-[72px] px-3 text-sm whitespace-nowrap rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 >
                   Unread
-                  {unreadCount > 0 && (
+                  {displayUnreadCount > 0 && (
                     <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-100 text-red-700 rounded-full text-[10px] font-medium">
-                      {unreadCount}
+                      {displayUnreadCount}
                     </span>
                   )}
                 </TabsTrigger>
@@ -436,7 +397,7 @@ export function AdminNotifications() {
                     <Card 
                       key={notification.id} 
                       className={`w-full shadow-sm rounded-lg transition-shadow hover:shadow-md ${
-                        !notification.read 
+                        notification.is_read === 0 
                           ? 'border-l-[3px] border-l-red-600 bg-red-50/50 border-y border-r border-gray-200' 
                           : 'border border-gray-200'
                       } ${
@@ -451,14 +412,14 @@ export function AdminNotifications() {
                           {/* Icon + Title Row */}
                           <div className="flex items-start gap-2 mb-2">
                             <div className="flex-shrink-0 mt-0.5">
-                              {getNotificationIcon(notification.type)}
+                              {getNotificationIcon(categoryToType(notification.category))}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <h3 className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-gray-900 break-words flex-1 leading-tight`}>
+                                <h3 className={`text-sm ${notification.is_read === 0 ? 'font-semibold' : 'font-medium'} text-gray-900 break-words flex-1 leading-tight`}>
                                   {notification.title}
                                 </h3>
-                                {!notification.read && (
+                                {notification.is_read === 0 && (
                                   <div className="w-2 h-2 bg-red-600 rounded-full flex-shrink-0 mt-1"></div>
                                 )}
                               </div>
@@ -480,21 +441,21 @@ export function AdminNotifications() {
                             {notification.message}
                           </p>
 
-                          {/* Recipient Badge */}
-                          {notification.recipientType && (
+                          {/* Category Badge */}
+                          {notification.category && (
                             <div className="ml-7 mb-2">
                               <Badge variant="outline" className="text-[11px] px-2 py-0.5 bg-gray-50 border-gray-300">
-                                {notification.recipientType}
+                                {notification.category}
                               </Badge>
                             </div>
                           )}
 
                           {/* Timestamp + Actions */}
                           <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-gray-100">
-                            <p className="text-xs text-gray-400 ml-7">{notification.timestamp}</p>
+                            <p className="text-xs text-gray-400 ml-7">{notification.date}</p>
                             
                             <div className="flex flex-col gap-2 ml-7">
-                              {!notification.read && (
+                              {notification.actions?.can_mark_read && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -505,15 +466,17 @@ export function AdminNotifications() {
                                   Mark as read
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteNotification(notification.id)}
-                                className="w-full h-9 justify-start text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                Delete
-                              </Button>
+                              {notification.actions?.can_delete !== false && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteNotification(notification.id)}
+                                  className="w-full h-9 justify-start text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                  Delete
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>

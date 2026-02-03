@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getApiToken } from "../lib/auth";
+import { createPlatformCommission, getAdminPaymentSummary, getAdminPaymentList } from "../api/adminService";
 import { Search, DollarSign, TrendingUp, TrendingDown, Download, Filter, Settings, Eye, Send, CheckCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -24,85 +26,33 @@ export function AdminPayments() {
   const [commissionModalOpen, setCommissionModalOpen] = useState(false);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [commissionRate, setCommissionRate] = useState("15");
+  const [commissionRate, setCommissionRate] = useState<string>("");
   const [newCommissionRate, setNewCommissionRate] = useState("15");
+  const [commissionUpdating, setCommissionUpdating] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [selectedProfessionals, setSelectedProfessionals] = useState<number[]>([]);
 
-  const transactions = [
-    {
-      id: 1,
-      reference: "PAY-2025-00847",
-      date: "Nov 20, 2025",
-      customer: "John Smith",
-      customerEmail: "john.smith@example.com",
-      professional: "Sarah Mitchell",
-      professionalEmail: "sarah.mitchell@fireguide.co.uk",
-      service: "Fire Risk Assessment",
-      amount: 300,
-      commission: 45,
-      professionalEarning: 255,
-      status: "completed",
-      payoutStatus: "paid",
-      bookingRef: "FG-2025-00847",
-      paymentMethod: "Card",
-      transactionFee: 4.50
-    },
-    {
-      id: 2,
-      reference: "PAY-2025-00846",
-      date: "Nov 19, 2025",
-      customer: "Emma Davis",
-      customerEmail: "emma.davis@example.com",
-      professional: "James Patterson",
-      professionalEmail: "james.patterson@fireguide.co.uk",
-      service: "Fire Equipment Service",
-      amount: 165,
-      commission: 24.75,
-      professionalEarning: 140.25,
-      status: "completed",
-      payoutStatus: "pending",
-      bookingRef: "FG-2025-00846",
-      paymentMethod: "Card",
-      transactionFee: 2.75
-    },
-    {
-      id: 3,
-      reference: "PAY-2025-00845",
-      date: "Nov 18, 2025",
-      customer: "Michael Brown",
-      customerEmail: "michael.brown@example.com",
-      professional: "David Chen",
-      professionalEmail: "david.chen@fireguide.co.uk",
-      service: "Emergency Lighting Test",
-      amount: 210,
-      commission: 31.50,
-      professionalEarning: 178.50,
-      status: "completed",
-      payoutStatus: "paid",
-      bookingRef: "FG-2025-00845",
-      paymentMethod: "Card",
-      transactionFee: 3.15
-    },
-    {
-      id: 4,
-      reference: "PAY-2025-00844",
-      date: "Nov 17, 2025",
-      customer: "Sarah Wilson",
-      customerEmail: "sarah.wilson@example.com",
-      professional: "Emma Thompson",
-      professionalEmail: "emma.thompson@fireguide.co.uk",
-      service: "Fire Risk Assessment",
-      amount: 335,
-      commission: 50.25,
-      professionalEarning: 284.75,
-      status: "refunded",
-      payoutStatus: "cancelled",
-      bookingRef: "FG-2025-00844",
-      paymentMethod: "Card",
-      transactionFee: 5.03
-    },
-  ];
+  type TransactionRow = {
+    id: string;
+    reference: string;
+    date: string;
+    customer: string;
+    customerEmail: string;
+    professional: string;
+    professionalEmail: string;
+    service: string;
+    amount: number;
+    commission: number;
+    commissionRate: string;
+    professionalEarning: number;
+    status: string;
+    payoutStatus: string;
+    bookingRef: string;
+    paymentMethod: string;
+    transactionFee: number;
+  };
+
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
 
   const pendingPayouts = [
     {
@@ -126,20 +76,104 @@ export function AdminPayments() {
   const filteredTransactions = transactions.filter((transaction) =>
     transaction.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
     transaction.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.professional.toLowerCase().includes(searchTerm.toLowerCase())
+    transaction.professional.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.service.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const stats = {
-    totalRevenue: 45280,
-    totalCommission: 6792,
-    pendingPayouts: 2340,
-    transactionCount: 127
-  };
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    totalCommission: 0,
+    pendingPayouts: 0,
+    transactionCount: 0
+  });
 
-  const handleCommissionUpdate = () => {
-    setCommissionRate(newCommissionRate);
-    toast.success(`Commission rate updated to ${newCommissionRate}%`);
-    setCommissionModalOpen(false);
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminPaymentSummary({ api_token: token })
+      .then((res) => {
+        if (res.success && res.data) {
+          const d = res.data;
+          setStats({
+            totalRevenue: Number(d.total_revenue) || 0,
+            totalCommission: parseFloat(String(d.platform_commission)) || 0,
+            pendingPayouts: Number(d.pending_payouts) || 0,
+            transactionCount: Number(d.total_transactions) || 0
+          });
+          if (d.commission_rate) setCommissionRate(d.commission_rate);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminPaymentList({ api_token: token })
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          const rows: TransactionRow[] = res.data.map((item, idx) => {
+            const parties = item.Parties || "";
+            const [customer, professional] = parties.includes(" to ")
+              ? parties.split(" to ").map((s) => s.trim())
+              : [parties, ""];
+            const serviceName = item.services?.[0]?.name ?? "";
+            return {
+              id: item.reference || `pay-${idx}`,
+              reference: item.reference || "",
+              date: item.date || "",
+              customer: customer || "",
+              customerEmail: "",
+              professional: professional || "",
+              professionalEmail: "",
+              service: Array.isArray(item.services)
+                ? item.services.map((s) => s.name).join(", ")
+                : serviceName,
+              amount: parseFloat(String(item.amount)) || 0,
+              commission: parseFloat(String(item.commission?.amount ?? item.commission)) || 0,
+              commissionRate: item.commission?.rate ?? "",
+              professionalEarning: parseFloat(String(item.professional_earning)) || 0,
+              status: item.booking_status || "",
+              payoutStatus: item.payment_status || "",
+              bookingRef: item.reference || "",
+              paymentMethod: "—",
+              transactionFee: 0
+            };
+          });
+          setTransactions(rows);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCommissionUpdate = async () => {
+    const rate = parseFloat(newCommissionRate || "0");
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      toast.error("Please enter a valid commission rate (0-100)");
+      return;
+    }
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setCommissionUpdating(true);
+    try {
+      const res = await createPlatformCommission({ api_token: token, commission_rate: rate });
+      if (res.success && res.data) {
+        const updatedRate = res.data.commission_rate ?? String(rate);
+        setCommissionRate(String(updatedRate).endsWith("%") ? String(updatedRate) : `${updatedRate}%`);
+        setNewCommissionRate(String(updatedRate).replace(/%$/, "") || String(rate));
+        toast.success(res.message || `Commission rate updated to ${updatedRate}%`);
+        setCommissionModalOpen(false);
+      } else {
+        toast.error(res.message || "Failed to update commission rate");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to update commission rate");
+    } finally {
+      setCommissionUpdating(false);
+    }
   };
 
   const handlePayoutSelected = () => {
@@ -171,7 +205,7 @@ export function AdminPayments() {
           <p className="text-gray-600">Manage payments, commissions, and payouts</p>
         </div>
         <div className="flex flex-col md:flex-row gap-2">
-          <Button variant="outline" onClick={() => setCommissionModalOpen(true)} className="w-full md:w-auto">
+          <Button variant="outline" onClick={() => { setNewCommissionRate(commissionRate.replace(/%$/, "") || ""); setCommissionModalOpen(true); }} className="w-full md:w-auto">
             <Settings className="w-4 h-4 mr-2" />
             <span className="md:inline">Commission Settings</span>
           </Button>
@@ -208,7 +242,7 @@ export function AdminPayments() {
                 <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Current rate: {commissionRate}%</p>
+            <p className="text-xs text-gray-500 mt-2">Current rate: {commissionRate || "—"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -304,14 +338,14 @@ export function AdminPayments() {
                       <p className="text-sm text-gray-700">{transaction.service}</p>
                     </td>
                     <td className="p-4">
-                      <p className="font-semibold text-gray-900">£{transaction.amount}</p>
+                      <p className="font-semibold text-gray-900">£{Number(transaction.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                     </td>
                     <td className="p-4">
-                      <p className="font-semibold text-green-600">£{transaction.commission.toFixed(2)}</p>
-                      <p className="text-xs text-gray-500">{commissionRate}%</p>
+                      <p className="font-semibold text-green-600">£{Number(transaction.commission).toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">{transaction.commissionRate || commissionRate || "—"}</p>
                     </td>
                     <td className="p-4">
-                      <p className="font-semibold text-blue-600">£{transaction.professionalEarning.toFixed(2)}</p>
+                      <p className="font-semibold text-blue-600">£{Number(transaction.professionalEarning).toFixed(2)}</p>
                       <Badge className={
                         transaction.payoutStatus === "paid"
                           ? "bg-green-100 text-green-700 text-xs mt-1"
@@ -347,7 +381,7 @@ export function AdminPayments() {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {transaction.status === "completed" && (
+                        {(transaction.payoutStatus === "pending" || transaction.status === "completed" || transaction.status === "confirmed") && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -402,12 +436,12 @@ export function AdminPayments() {
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                   <div>
                     <p className="text-xs text-gray-500">Total Amount</p>
-                    <p className="font-semibold text-gray-900 mt-0.5">£{transaction.amount}</p>
+                    <p className="font-semibold text-gray-900 mt-0.5">£{Number(transaction.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500">Commission</p>
-                    <p className="font-semibold text-green-600 mt-0.5">£{transaction.commission.toFixed(2)}</p>
-                    <p className="text-xs text-gray-500">{commissionRate}%</p>
+                    <p className="font-semibold text-green-600 mt-0.5">£{Number(transaction.commission).toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">{transaction.commissionRate || commissionRate || "—"}</p>
                   </div>
                 </div>
 
@@ -415,7 +449,7 @@ export function AdminPayments() {
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                   <div>
                     <p className="text-xs text-gray-500">Professional Earning</p>
-                    <p className="font-semibold text-blue-600 mt-0.5">£{transaction.professionalEarning.toFixed(2)}</p>
+                    <p className="font-semibold text-blue-600 mt-0.5">£{Number(transaction.professionalEarning).toFixed(2)}</p>
                   </div>
                   <Badge className={
                     transaction.payoutStatus === "paid"
@@ -453,7 +487,7 @@ export function AdminPayments() {
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </Button>
-                    {transaction.status === "completed" && (
+                    {(transaction.payoutStatus === "pending" || transaction.status === "completed" || transaction.status === "confirmed") && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -496,7 +530,7 @@ export function AdminPayments() {
           <div className="flex flex-col gap-3">
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-xs font-medium text-blue-900 mb-1">Current Commission Rate</p>
-              <p className="text-2xl text-blue-600 font-semibold">{commissionRate}%</p>
+              <p className="text-2xl text-blue-600 font-semibold">{commissionRate || "—"}</p>
             </div>
 
             <div>
@@ -535,10 +569,11 @@ export function AdminPayments() {
             <div className="flex flex-col gap-2.5 pt-2">
               <Button 
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-sm font-medium justify-center" 
-                onClick={handleCommissionUpdate}
+                onClick={() => void handleCommissionUpdate()}
+                disabled={commissionUpdating}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Update Commission Rate
+                {commissionUpdating ? "Updating..." : "Update Commission Rate"}
               </Button>
               <Button 
                 variant="outline" 
@@ -567,11 +602,11 @@ export function AdminPayments() {
 
           <div className="space-y-4 py-4">
             <div className="p-4 bg-yellow-50 rounded-lg">
-              <p className="text-sm font-medium text-yellow-900">Total Pending Payouts</p>
-              <p className="text-2xl text-yellow-600 font-semibold mt-1">
+              <p className="text-sm font-medium text-gray-900">Total Pending Payouts</p>
+              <p className="text-2xl text-orange-600 font-semibold mt-1">
                 £{pendingPayouts.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
               </p>
-              <p className="text-sm text-yellow-700 mt-1">
+              <p className="text-sm text-orange-600 mt-1">
                 {pendingPayouts.length} professional(s) waiting for payment
               </p>
             </div>
@@ -672,19 +707,19 @@ export function AdminPayments() {
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Amount</span>
-                  <span className="font-semibold text-gray-900">£{selectedTransaction?.amount}</span>
+                  <span className="font-semibold text-gray-900">£{Number(selectedTransaction?.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Transaction Fee</span>
                   <span className="text-gray-900">£{selectedTransaction?.transactionFee}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Platform Commission ({commissionRate}%)</span>
-                  <span className="text-green-600">£{selectedTransaction?.commission}</span>
+                  <span className="text-gray-600">Platform Commission ({selectedTransaction?.commissionRate || commissionRate || "—"})</span>
+                  <span className="text-green-600">£{Number(selectedTransaction?.commission).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Professional Payout</span>
-                  <span className="font-semibold text-blue-600">£{selectedTransaction?.professionalEarning}</span>
+                  <span className="font-semibold text-blue-600">£{Number(selectedTransaction?.professionalEarning).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -703,7 +738,9 @@ export function AdminPayments() {
                 <Badge className={
                   selectedTransaction?.payoutStatus === "paid"
                     ? "bg-green-100 text-green-700 mt-1"
-                    : "bg-yellow-100 text-yellow-700 mt-1"
+                    : selectedTransaction?.payoutStatus === "pending"
+                    ? "bg-yellow-100 text-yellow-700 mt-1"
+                    : "bg-gray-100 text-gray-700 mt-1"
                 }>
                   {selectedTransaction?.payoutStatus}
                 </Badge>

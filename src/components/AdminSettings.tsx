@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { Save, Globe, Search, Zap, Bell, Shield, CreditCard } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { getApiToken } from "../lib/auth";
+import { getAdminSeoSettings, saveAdminSeoSettings, getAdminNotificationSettings, saveAdminNotificationSettings, getAdminSystemSettings, saveAdminSystemSettings, getAdminSecuritySettings, saveAdminSecuritySettings, getAdminPaymentSettings, saveAdminPaymentSettings } from "../api/adminService";
+import { Save, Globe, Search, Zap, Bell, Shield, CreditCard, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -13,37 +15,238 @@ export function AdminSettings() {
   const [seoTitle, setSeoTitle] = useState("Fire Guide - Book Fire Safety Services Instantly");
   const [seoDescription, setSeoDescription] = useState("Compare and book qualified fire safety professionals in your area. Instant booking, secure payment, transparent pricing.");
   const [keywords, setKeywords] = useState("fire safety, fire risk assessment, fire equipment, emergency lighting");
+  const [seoSaving, setSeoSaving] = useState(false);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminSeoSettings({ api_token: token })
+      .then((res) => {
+        if (res.status && res.data) {
+          setSeoTitle(res.data.meta_title || "");
+          setSeoDescription(res.data.meta_description || "");
+          setKeywords(res.data.keywords || "");
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [adminEmail, setAdminEmail] = useState("admin@fireguide.com");
+  const [notificationSaving, setNotificationSaving] = useState(false);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminNotificationSettings({ api_token: token })
+      .then((res) => {
+        if (res.status && res.data) {
+          setEmailNotifications(res.data.email_notifications === true);
+          setSmsNotifications(res.data.sms_notifications === true);
+          setAdminEmail(res.data.admin_alert_email || "admin@fireguide.com");
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [autoApprove, setAutoApprove] = useState(false);
   const [bookingBuffer, setBookingBuffer] = useState("24");
   const [cancellationWindow, setCancellationWindow] = useState("48");
+  const [systemSaving, setSystemSaving] = useState(false);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminSystemSettings({ api_token: token })
+      .then((res) => {
+        if (res.status && res.data) {
+          setMaintenanceMode(res.data.maintenance_mode === true);
+          setAutoApprove(res.data.auto_approve_professionals === true);
+          setBookingBuffer(String(res.data.booking_buffer_time ?? 24));
+          setCancellationWindow(String(res.data.cancellation_window ?? 48));
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [stripePublicKey, setStripePublicKey] = useState("pk_test_************************");
   const [stripeSecretKey, setStripeSecretKey] = useState("sk_test_************************");
   const [currency, setCurrency] = useState("GBP");
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [showPublicKey, setShowPublicKey] = useState(false);
+  const [showSecretKey, setShowSecretKey] = useState(false);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminPaymentSettings({ api_token: token })
+      .then((res) => {
+        if (res.status && res.data) {
+          if (res.data.stripe_public_key) setStripePublicKey(res.data.stripe_public_key);
+          if (res.data.stripe_secret_key) setStripeSecretKey(res.data.stripe_secret_key);
+          if (res.data.default_currency) setCurrency(res.data.default_currency);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [sessionTimeout, setSessionTimeout] = useState("30");
   const [maxLoginAttempts, setMaxLoginAttempts] = useState("5");
+  const [securitySaving, setSecuritySaving] = useState(false);
 
-  const handleSaveSEO = () => {
-    toast.success("SEO settings saved successfully!");
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminSecuritySettings({ api_token: token })
+      .then((res) => {
+        if (res.status && res.data) {
+          setSessionTimeout(String(res.data.session_timeout ?? 30));
+          setMaxLoginAttempts(String(res.data.max_login_attempts ?? 5));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveSEO = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setSeoSaving(true);
+    try {
+      const res = await saveAdminSeoSettings({
+        api_token: token,
+        meta_title: seoTitle,
+        meta_description: seoDescription,
+        keywords
+      });
+      if ((res.status || (res as any).success) && res.data) {
+        setSeoTitle(res.data.meta_title ?? seoTitle);
+        setSeoDescription(res.data.meta_description ?? seoDescription);
+        setKeywords(res.data.keywords ?? keywords);
+        toast.success(res.message || "SEO settings saved successfully!");
+      } else {
+        toast.error(res.message || "Failed to save SEO settings");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to save SEO settings");
+    } finally {
+      setSeoSaving(false);
+    }
   };
 
-  const handleSaveNotifications = () => {
-    toast.success("Notification settings saved successfully!");
+  const handleSaveNotifications = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setNotificationSaving(true);
+    try {
+      const res = await saveAdminNotificationSettings({
+        api_token: token,
+        admin_alert_email: adminEmail,
+        email_notifications: emailNotifications,
+        sms_notifications: smsNotifications
+      });
+      if (res.status && res.data) {
+        setEmailNotifications(res.data.email_notifications === true);
+        setSmsNotifications(res.data.sms_notifications === true);
+        setAdminEmail(res.data.admin_alert_email ?? adminEmail);
+        toast.success(res.message || "Notification settings saved successfully!");
+      } else {
+        toast.error(res.message || "Failed to save notification settings");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to save notification settings");
+    } finally {
+      setNotificationSaving(false);
+    }
   };
 
-  const handleSaveSystem = () => {
-    toast.success("System settings saved successfully!");
+  const handleSaveSystem = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setSystemSaving(true);
+    try {
+      const res = await saveAdminSystemSettings({
+        api_token: token,
+        maintenance_mode: maintenanceMode,
+        auto_approve_professionals: autoApprove,
+        booking_buffer_time: parseInt(bookingBuffer, 10) || 24,
+        cancellation_window: parseInt(cancellationWindow, 10) || 48
+      });
+      if (res.status && res.data) {
+        setMaintenanceMode(res.data.maintenance_mode === true);
+        setAutoApprove(res.data.auto_approve_professionals === true);
+        setBookingBuffer(String(res.data.booking_buffer_time ?? 24));
+        setCancellationWindow(String(res.data.cancellation_window ?? 48));
+        toast.success(res.message || "System settings saved successfully!");
+      } else {
+        toast.error(res.message || "Failed to save system settings");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to save system settings");
+    } finally {
+      setSystemSaving(false);
+    }
   };
 
-  const handleSavePayment = () => {
-    toast.success("Payment settings saved successfully!");
+  const handleSavePayment = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setPaymentSaving(true);
+    try {
+      const res = await saveAdminPaymentSettings({
+        api_token: token,
+        stripe_public_key: stripePublicKey,
+        stripe_secret_key: stripeSecretKey,
+        default_currency: currency
+      });
+      if (res.status && res.data) {
+        if (res.data.stripe_public_key) setStripePublicKey(res.data.stripe_public_key);
+        if (res.data.default_currency) setCurrency(res.data.default_currency);
+        toast.success(res.message || "Payment settings saved successfully!");
+      } else {
+        toast.error(res.message || "Failed to save payment settings");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to save payment settings");
+    } finally {
+      setPaymentSaving(false);
+    }
   };
 
-  const handleSaveSecurity = () => {
-    toast.success("Security settings saved successfully!");
+  const handleSaveSecurity = async () => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setSecuritySaving(true);
+    try {
+      const res = await saveAdminSecuritySettings({
+        api_token: token,
+        session_timeout: parseInt(sessionTimeout, 10) || 30,
+        max_login_attempts: parseInt(maxLoginAttempts, 10) || 5
+      });
+      if (res.status && res.data) {
+        setSessionTimeout(String(res.data.session_timeout ?? 30));
+        setMaxLoginAttempts(String(res.data.max_login_attempts ?? 5));
+        toast.success(res.message || "Security settings saved successfully!");
+      } else {
+        toast.error(res.message || "Failed to save security settings");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to save security settings");
+    } finally {
+      setSecuritySaving(false);
+    }
   };
 
   const handleClearCache = () => {
@@ -106,9 +309,9 @@ export function AdminSettings() {
             />
           </div>
 
-          <Button onClick={handleSaveSEO} className="bg-red-600 hover:bg-red-700">
+          <Button onClick={() => void handleSaveSEO()} disabled={seoSaving} className="bg-red-600 hover:bg-red-700">
             <Save className="w-4 h-4 mr-2" />
-            Save SEO Settings
+            {seoSaving ? "Saving..." : "Save SEO Settings"}
           </Button>
         </CardContent>
       </Card>
@@ -161,9 +364,9 @@ export function AdminSettings() {
             <p className="text-sm text-gray-500 mt-1">Receive important platform alerts</p>
           </div>
 
-          <Button onClick={handleSaveNotifications} className="bg-red-600 hover:bg-red-700">
+          <Button onClick={() => void handleSaveNotifications()} disabled={notificationSaving} className="bg-red-600 hover:bg-red-700">
             <Save className="w-4 h-4 mr-2" />
-            Save Notification Settings
+            {notificationSaving ? "Saving..." : "Save Notification Settings"}
           </Button>
         </CardContent>
       </Card>
@@ -229,9 +432,9 @@ export function AdminSettings() {
             <p className="text-sm text-gray-500 mt-1">Hours before appointment when cancellations are allowed</p>
           </div>
 
-          <Button onClick={handleSaveSystem} className="bg-red-600 hover:bg-red-700">
+          <Button onClick={() => void handleSaveSystem()} disabled={systemSaving} className="bg-red-600 hover:bg-red-700">
             <Save className="w-4 h-4 mr-2" />
-            Save System Settings
+            {systemSaving ? "Saving..." : "Save System Settings"}
           </Button>
         </CardContent>
       </Card>
@@ -247,26 +450,44 @@ export function AdminSettings() {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="stripe-key">Stripe Public Key</Label>
-            <Input
-              id="stripe-key"
-              type="password"
-              className="mt-2"
-              value={stripePublicKey}
-              onChange={(e) => setStripePublicKey(e.target.value)}
-              placeholder="pk_test_..."
-            />
+            <div className="relative mt-2">
+              <Input
+                id="stripe-key"
+                type={showPublicKey ? "text" : "password"}
+                className="pr-10"
+                value={stripePublicKey}
+                onChange={(e) => setStripePublicKey(e.target.value)}
+                placeholder="pk_test_..."
+              />
+              <button
+                type="button"
+                onClick={() => setShowPublicKey(!showPublicKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPublicKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
             <Label htmlFor="stripe-secret">Stripe Secret Key</Label>
-            <Input
-              id="stripe-secret"
-              type="password"
-              className="mt-2"
-              value={stripeSecretKey}
-              onChange={(e) => setStripeSecretKey(e.target.value)}
-              placeholder="sk_test_..."
-            />
+            <div className="relative mt-2">
+              <Input
+                id="stripe-secret"
+                type={showSecretKey ? "text" : "password"}
+                className="pr-10"
+                value={stripeSecretKey}
+                onChange={(e) => setStripeSecretKey(e.target.value)}
+                placeholder="sk_test_..."
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecretKey(!showSecretKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showSecretKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -280,9 +501,9 @@ export function AdminSettings() {
             />
           </div>
 
-          <Button onClick={handleSavePayment} className="bg-red-600 hover:bg-red-700">
+          <Button onClick={() => void handleSavePayment()} disabled={paymentSaving} className="bg-red-600 hover:bg-red-700">
             <Save className="w-4 h-4 mr-2" />
-            Save Payment Settings
+            {paymentSaving ? "Saving..." : "Save Payment Settings"}
           </Button>
         </CardContent>
       </Card>
@@ -322,9 +543,9 @@ export function AdminSettings() {
             <p className="text-sm text-gray-500 mt-1">Lock account after failed attempts</p>
           </div>
 
-          <Button onClick={handleSaveSecurity} className="bg-red-600 hover:bg-red-700">
+          <Button onClick={() => void handleSaveSecurity()} disabled={securitySaving} className="bg-red-600 hover:bg-red-700">
             <Save className="w-4 h-4 mr-2" />
-            Save Security Settings
+            {securitySaving ? "Saving..." : "Save Security Settings"}
           </Button>
         </CardContent>
       </Card>

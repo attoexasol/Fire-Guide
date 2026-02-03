@@ -4,7 +4,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu } from "lucide-react";
+import { Flame, ArrowRight, User, Shield, Heart, Clock, Star, Menu, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 import { registerUser, loginUser, sendOtp, verifyOtp, resetPassword } from "../api/authService";
@@ -25,12 +25,14 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
   // Sign In State
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
 
   // Sign Up State
   const [signUpName, setSignUpName] = useState("");
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPhone, setSignUpPhone] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [signUpRole, setSignUpRole] = useState<string>("USER");
 
   // Forgot Password State
@@ -42,6 +44,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -331,6 +334,7 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
     setOtpCode("");
     setNewPassword("");
     setConfirmPassword("");
+    setShowForgotPassword(false);
   };
 
   return (
@@ -616,15 +620,24 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                         <Label htmlFor="signin-password" className="text-base">
                           Password
                         </Label>
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="Enter your password"
-                          value={signInPassword}
-                          onChange={(e) => setSignInPassword(e.target.value)}
-                          className="h-12 text-base"
-                          required
-                        />
+                        <div className="relative">
+                          <Input
+                            id="signin-password"
+                            type={showSignInPassword ? "text" : "password"}
+                            placeholder="Enter your password"
+                            value={signInPassword}
+                            onChange={(e) => setSignInPassword(e.target.value)}
+                            className="h-12 text-base pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignInPassword(!showSignInPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showSignInPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
@@ -721,15 +734,24 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                         <Label htmlFor="signup-password" className="text-base">
                           Password
                         </Label>
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          placeholder="Create a strong password"
-                          value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                          className="h-12 text-base"
-                          required
-                        />
+                        <div className="relative">
+                          <Input
+                            id="signup-password"
+                            type={showSignUpPassword ? "text" : "password"}
+                            placeholder="Create a strong password"
+                            value={signUpPassword}
+                            onChange={(e) => setSignUpPassword(e.target.value)}
+                            className="h-12 text-base pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showSignUpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
 
                       <Button
@@ -934,17 +956,26 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                 <Label htmlFor="new-password" className="text-base">
                   New Password
                 </Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="h-12 text-base"
-                  required
-                  disabled={isResettingPassword}
-                  minLength={8}
-                />
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showForgotPassword ? "text" : "password"}
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-12 text-base pr-10"
+                    required
+                    disabled={isResettingPassword}
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(!showForgotPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showForgotPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500">
                   Password must be at least 8 characters long
                 </p>
@@ -953,17 +984,26 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
                 <Label htmlFor="confirm-password" className="text-base">
                   Confirm Password
                 </Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-12 text-base"
-                  required
-                  disabled={isResettingPassword}
-                  minLength={8}
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showForgotPassword ? "text" : "password"}
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-12 text-base pr-10"
+                    required
+                    disabled={isResettingPassword}
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(!showForgotPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showForgotPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
                 <Button

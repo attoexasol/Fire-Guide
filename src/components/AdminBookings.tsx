@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, Calendar, MoreVertical, Eye, XCircle, CheckCircle, Clock, AlertCircle, MapPin, User, Briefcase, Mail, Phone, FileText, RefreshCw } from "lucide-react";
 import { getApiToken } from "../lib/auth";
-import { getAdminBookings, AdminBookingListItem } from "../api/adminService";
+import { getAdminBookings, AdminBookingListItem, getAdminBookingsSummary } from "../api/adminService";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -86,6 +86,14 @@ export function AdminBookings() {
   const [newTime, setNewTime] = useState("");
   const [bookingsList, setBookingsList] = useState<AdminBookingListItem[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsSummary, setBookingsSummary] = useState<{
+    total: number;
+    confirmed: number;
+    pending: number;
+    completed: number;
+    cancelled: number;
+  } | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   useEffect(() => {
     const token = getApiToken();
@@ -102,6 +110,33 @@ export function AdminBookings() {
       })
       .finally(() => {
         if (!cancelled) setBookingsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    let cancelled = false;
+    setSummaryLoading(true);
+    getAdminBookingsSummary({ api_token: token })
+      .then((res) => {
+        if (!cancelled && res.success && res.data?.data) {
+          const d = res.data.data;
+          setBookingsSummary({
+            total: d.total_booking ?? 0,
+            confirmed: d.confirmed_booking ?? 0,
+            pending: d.pending_booking ?? 0,
+            completed: d.completed_booking ?? 0,
+            cancelled: d.cancel_booking ?? 0,
+          });
+        } else if (!cancelled) setBookingsSummary(null);
+      })
+      .catch(() => {
+        if (!cancelled) setBookingsSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSummaryLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
@@ -144,11 +179,11 @@ export function AdminBookings() {
   });
 
   const stats = {
-    total: bookingsLoading ? "—" : bookings.length,
-    confirmed: bookingsLoading ? "—" : bookings.filter(b => b.status === "confirmed").length,
-    pending: bookingsLoading ? "—" : bookings.filter(b => b.status === "pending").length,
-    completed: bookingsLoading ? "—" : bookings.filter(b => b.status === "completed").length,
-    cancelled: bookingsLoading ? "—" : bookings.filter(b => b.status === "cancelled").length,
+    total: summaryLoading ? "—" : (bookingsSummary?.total ?? bookings.length),
+    confirmed: summaryLoading ? "—" : (bookingsSummary?.confirmed ?? bookings.filter(b => b.status === "confirmed").length),
+    pending: summaryLoading ? "—" : (bookingsSummary?.pending ?? bookings.filter(b => b.status === "pending").length),
+    completed: summaryLoading ? "—" : (bookingsSummary?.completed ?? bookings.filter(b => b.status === "completed").length),
+    cancelled: summaryLoading ? "—" : (bookingsSummary?.cancelled ?? bookings.filter(b => b.status === "cancelled").length),
   };
 
   const getStatusIcon = (status: string) => {

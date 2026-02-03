@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getApiToken } from "../lib/auth";
+import { getAdminReviewsList } from "../api/adminService";
 import { Search, Star, CheckCircle, XCircle, Eye, Flag, AlertTriangle, MessageSquare, Mail } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -28,85 +30,67 @@ export function AdminReviews() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [adminResponse, setAdminResponse] = useState("");
 
-  const reviews = [
-    {
-      id: 1,
-      customer: "John Smith",
-      customerEmail: "john.smith@example.com",
-      professional: "Sarah Mitchell",
-      professionalEmail: "sarah.mitchell@fireguide.co.uk",
-      rating: 5,
-      date: "Nov 18, 2025",
-      bookingRef: "FG-2025-00847",
-      service: "Fire Risk Assessment",
-      text: "Excellent service! Very thorough assessment and clear reporting. Sarah was professional and explained everything in detail. Highly recommended.",
-      status: "approved",
-      flagged: false,
-      professionalResponse: null
-    },
-    {
-      id: 2,
-      customer: "Emma Davis",
-      customerEmail: "emma.davis@example.com",
-      professional: "James Patterson",
-      professionalEmail: "james.patterson@fireguide.co.uk",
-      rating: 4,
-      date: "Nov 17, 2025",
-      bookingRef: "FG-2025-00846",
-      service: "Fire Equipment Service",
-      text: "Good service overall. James was knowledgeable and completed the work on time. Would use again.",
-      status: "approved",
-      flagged: false,
-      professionalResponse: "Thank you for your feedback! It was a pleasure working with you."
-    },
-    {
-      id: 3,
-      customer: "Michael Brown",
-      customerEmail: "michael.brown@example.com",
-      professional: "David Chen",
-      professionalEmail: "david.chen@fireguide.co.uk",
-      rating: 1,
-      date: "Nov 19, 2025",
-      bookingRef: "FG-2025-00845",
-      service: "Emergency Lighting Test",
-      text: "Terrible experience. Professional was late and unprofessional. Work was rushed. Not satisfied at all.",
-      status: "pending",
-      flagged: true,
-      flagReason: "Potential dispute - low rating with strong language",
-      professionalResponse: null
-    },
-    {
-      id: 4,
-      customer: "Sarah Wilson",
-      customerEmail: "sarah.wilson@example.com",
-      professional: "Emma Thompson",
-      professionalEmail: "emma.thompson@fireguide.co.uk",
-      rating: 5,
-      date: "Nov 20, 2025",
-      bookingRef: "FG-2025-00844",
-      service: "Fire Risk Assessment",
-      text: "Outstanding work! Emma was thorough, professional, and provided excellent advice. Report was comprehensive and easy to understand.",
-      status: "pending",
-      flagged: false,
-      professionalResponse: null
-    },
-    {
-      id: 5,
-      customer: "David Taylor",
-      customerEmail: "david.taylor@example.com",
-      professional: "Robert Green",
-      professionalEmail: "robert.green@fireguide.co.uk",
-      rating: 2,
-      date: "Nov 16, 2025",
-      bookingRef: "FG-2025-00843",
-      service: "Fire Door Inspection",
-      text: "Below expectations. Service was okay but not worth the price. Expected more attention to detail.",
-      status: "rejected",
-      flagged: false,
-      rejectionReason: "Violates content policy - pricing complaints",
-      professionalResponse: null
-    },
-  ];
+  type ReviewDisplay = {
+    id: number;
+    customer: string;
+    customerEmail: string;
+    professional: string;
+    professionalEmail: string;
+    rating: number;
+    date: string;
+    bookingRef: string;
+    service: string;
+    text: string;
+    status: string;
+    flagged: boolean;
+    flagReason?: string;
+    rejectionReason?: string;
+    professionalResponse: string | null;
+  };
+
+  const [reviews, setReviews] = useState<ReviewDisplay[]>([]);
+
+  const formatReviewDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return iso;
+    }
+  };
+
+  useEffect(() => {
+    const token = getApiToken();
+    if (!token) return;
+    getAdminReviewsList({ api_token: token })
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          const mapped: ReviewDisplay[] = res.data.map((item) => ({
+            id: item.id,
+            customer: item.reviewer_name || "",
+            customerEmail: item.reviewer_email || "",
+            professional: item.professional_name || "",
+            professionalEmail: item.professional_email || "",
+            rating: parseInt(String(item.rating), 10) || 0,
+            date: formatReviewDate(item.created_at),
+            bookingRef: `FG-${item.id}`,
+            service: Array.isArray(item.services) ? item.services[0] || "—" : "—",
+            text: item.feedback || "",
+            status: item.status || "",
+            flagged: false,
+            professionalResponse: null
+          }));
+          setReviews(mapped);
+          setStats({
+            total: res.data.length,
+            pending: res.data.filter((r) => r.status === "pending").length,
+            approved: res.data.filter((r) => r.status === "approved").length,
+            rejected: res.data.filter((r) => r.status === "rejected").length
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const filteredReviews = reviews.filter((review) => {
     const matchesSearch = review.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -116,13 +100,13 @@ export function AdminReviews() {
     return matchesSearch && matchesFilter;
   });
 
-  const stats = {
-    total: reviews.length,
-    pending: reviews.filter(r => r.status === "pending").length,
-    approved: reviews.filter(r => r.status === "approved").length,
-    rejected: reviews.filter(r => r.status === "rejected").length,
-    flagged: reviews.filter(r => r.flagged).length,
-  };
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
+
 
   const renderStars = (rating: number) => {
     return (
@@ -188,7 +172,7 @@ export function AdminReviews() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Total Reviews</p>
@@ -211,12 +195,6 @@ export function AdminReviews() {
           <CardContent className="p-4">
             <p className="text-sm text-gray-600">Rejected</p>
             <p className="text-2xl text-red-600 mt-1">{stats.rejected}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600">Flagged</p>
-            <p className="text-2xl text-orange-600 mt-1">{stats.flagged}</p>
           </CardContent>
         </Card>
       </div>
