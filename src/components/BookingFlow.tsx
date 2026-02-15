@@ -11,6 +11,13 @@ interface BookingFlowProps {
   selectedProfessional?: any;
   professionalId?: number | null;
   bookingProfessional?: any;
+  /** When user clicks Book Now, price is fetched and passed here so Booking Summary shows API values immediately */
+  initialPricing?: { servicePrice: number; platformFee: number; total: number };
+  /** When price API fails on Book Now, pass message so summary can show it */
+  initialPricingError?: string;
+  isCustomQuote?: boolean;
+  customQuoteRequestData?: { building_type: string; people_count: string; floors: number; assessment_type: string; notes?: string };
+  serviceIdForQuote?: number;
 }
 
 export type BookingStep = "appointment" | "details" | "payment" | "confirmation";
@@ -55,11 +62,15 @@ export interface BookingData {
     platformFee: number;
     total: number;
   };
+  /** When set, API failed to get price (e.g. base price not configured); show in summary instead of amounts */
+  pricingErrorMessage?: string;
   // Booking reference
   bookingReference?: string;
 }
 
-export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessional }: BookingFlowProps) {
+const defaultPricing = { servicePrice: 285, platformFee: 15, total: 300 };
+
+export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessional, initialPricing, initialPricingError, isCustomQuote, customQuoteRequestData, serviceIdForQuote }: BookingFlowProps) {
   const [currentStep, setCurrentStep] = useState<BookingStep>("appointment");
   
   // Default professional data (fallback)
@@ -104,11 +115,8 @@ export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessi
       postcode: "",
       notes: ""
     },
-    pricing: {
-      servicePrice: 285,
-      platformFee: 15,
-      total: 300
-    }
+    pricing: initialPricing ?? defaultPricing,
+    pricingErrorMessage: initialPricingError
   });
 
   // Update booking data when professional data changes (e.g., loaded from sessionStorage)
@@ -134,29 +142,18 @@ export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessi
   }, [bookingProfessional, professionalId]);
 
   const handleAppointmentSelected = (date: string, time: string) => {
-    setBookingData({
-      ...bookingData,
-      selectedDate: date,
-      selectedTime: time
-    });
+    setBookingData(prev => ({ ...prev, selectedDate: date, selectedTime: time }));
     setCurrentStep("details");
   };
 
   const handleCustomerDetailsSubmitted = (customerData: BookingData["customer"]) => {
-    setBookingData({
-      ...bookingData,
-      customer: customerData
-    });
+    setBookingData(prev => ({ ...prev, customer: customerData }));
     setCurrentStep("payment");
   };
 
   const handlePaymentCompleted = () => {
-    // Generate booking reference
     const reference = `FG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000).padStart(5, "0")}`;
-    setBookingData({
-      ...bookingData,
-      bookingReference: reference
-    });
+    setBookingData(prev => ({ ...prev, bookingReference: reference }));
     setCurrentStep("confirmation");
   };
 
@@ -176,6 +173,7 @@ export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessi
             service={bookingData.service}
             professional={bookingData.professional}
             pricing={bookingData.pricing}
+            pricingErrorMessage={bookingData.pricingErrorMessage}
             onContinue={handleAppointmentSelected}
             onBack={onBack}
           />
@@ -189,9 +187,14 @@ export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessi
             selectedDate={bookingData.selectedDate}
             selectedTime={bookingData.selectedTime}
             pricing={bookingData.pricing}
+            pricingErrorMessage={bookingData.pricingErrorMessage}
             initialData={bookingData.customer}
             onContinue={handleCustomerDetailsSubmitted}
             onBack={handleBackFromDetails}
+            isCustomQuote={isCustomQuote}
+            forceNormalBooking={!!initialPricing}
+            customQuoteRequestData={customQuoteRequestData}
+            serviceIdForQuote={serviceIdForQuote}
           />
         );
       case "payment":

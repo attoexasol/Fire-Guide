@@ -124,15 +124,16 @@ export function PaymentPage({
       // Convert expiry date from MM/YY to YYYY-MM-DD
       const expiryDateFormatted = convertExpiryDate(expiryDate);
       
-      // Prepare payment data
+      // Prepare payment data — price from Order Summary (bookingData.pricing.total)
       const paymentData = {
         api_token: token,
         card_number: cardNumber.replace(/\s/g, ""), // Remove spaces
         cardholder_name: cardName,
         expiry_date: expiryDateFormatted,
-        cvv: parseInt(cvv),
+        cvv: parseInt(cvv, 10),
         is_terms_privacy: isTermsAccepted,
-        professional_booking_id: bookingData.customer.professionalBookingId
+        professional_booking_id: bookingData.customer.professionalBookingId,
+        price: bookingData.pricing.total,
       };
 
       // Submit payment
@@ -152,7 +153,7 @@ export function PaymentPage({
     }
   };
 
-  const { service, professional, selectedDate, selectedTime, customer, pricing } = bookingData;
+  const { service, professional, selectedDate, selectedTime, customer, pricing, pricingErrorMessage } = bookingData;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
@@ -415,27 +416,34 @@ export function PaymentPage({
                       </div>
 
                       {/* Pricing */}
-                      <div className="space-y-2 pt-4 border-t">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Service fee</span>
-                          <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
+                      {pricingErrorMessage ? (
+                        <div className="pt-4 border-t rounded-lg border-amber-200 bg-amber-50 p-3">
+                          <p className="text-sm text-amber-800">{pricingErrorMessage}</p>
+                          <p className="text-xs text-amber-700 mt-1">Payment is not available. Contact the professional or support.</p>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Platform fee</span>
-                          <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
+                      ) : (
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Service fee</span>
+                            <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Platform fee</span>
+                            <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between pt-3 border-t">
+                            <span className="font-semibold text-gray-900">Total to pay</span>
+                            <span className="text-2xl font-semibold text-gray-900">£{pricing.total.toFixed(2)}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between pt-3 border-t">
-                          <span className="font-semibold text-gray-900">Total to pay</span>
-                          <span className="text-2xl font-semibold text-gray-900">£{pricing.total.toFixed(2)}</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Button
                   onClick={handlePayment}
-                  disabled={processing}
+                  disabled={processing || !!pricingErrorMessage}
                   className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg"
                 >
                   {processing ? (
@@ -446,7 +454,7 @@ export function PaymentPage({
                   ) : (
                     <>
                       <Lock className="w-5 h-5 mr-2" />
-                      Pay £{pricing.total.toFixed(2)}
+                      {pricingErrorMessage ? "Payment unavailable" : `Pay £${pricing.total.toFixed(2)}`}
                     </>
                   )}
                 </Button>

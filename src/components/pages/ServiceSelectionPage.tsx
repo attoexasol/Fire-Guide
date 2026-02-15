@@ -9,10 +9,10 @@ export default function ServiceSelectionPage() {
 
   return (
     <ServiceSelection
-      onSelectService={(service) => {
-        setSelectedService(service);
+      onSelectService={(serviceId, serviceName) => {
+        setSelectedService(serviceId);
         startTransition(() => {
-          navigate(`/services/${service}/questionnaire`);
+          navigate(`/services/${serviceId}/questionnaire`, { state: { serviceName } });
         });
       }}
       onBack={() => {

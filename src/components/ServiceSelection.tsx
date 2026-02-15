@@ -6,7 +6,7 @@ import { Header } from "./Header";
 import { fetchServices, ServiceResponse } from "../api/servicesService";
 
 interface ServiceSelectionProps {
-  onSelectService: (service: string) => void;
+  onSelectService: (serviceId: string, serviceName?: string) => void;
   onBack: () => void;
   onNavigateHome?: () => void;
   onNavigateServices?: () => void;
@@ -37,6 +37,16 @@ export function ServiceSelection({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fallback descriptions when API returns none
+  const serviceDescriptionMap: Record<string, string> = {
+    "Fire Safety Consultation": "Professional fire safety advice to help dutyholders understand requirements, review concerns, and plan appropriate fire safety measures for their premises.",
+    "Fire Marshal / Warden Training": "Training for designated fire marshals and wardens on evacuation procedures, fire prevention, and emergency response.",
+    "Fire Risk Assessment": "A suitable and sufficient assessment of fire hazards and fire safety measures within your premises, tailored to its use and occupancy.",
+    "Fire Alarm Service": "Installation, inspection, testing, and maintenance of fire alarm systems to confirm they operate as intended and provide effective warning.",
+    "Fire Extinguisher Service": "Supply, inspection, and maintenance of fire extinguishers appropriate to the risks and layout of your premises.",
+    "Emergency Lighting Test": "Inspection and testing of emergency lighting systems to support visibility of escape routes in the event of power failure.",
+  };
+
   // Map service types to icons (fallback icons)
   const getIconForService = (type: string | undefined) => {
     const typeUpper = type?.toUpperCase() || "";
@@ -54,7 +64,25 @@ export function ServiceSelection({
         setLoading(true);
         setError(null);
         const data = await fetchServices();
-        setServices(data);
+        // Order: 1 Fire Risk Assessment, 2 Fire Alarm, 3 Fire Extinguisher, 4 Emergency Lighting, 5 Fire Marshal / Warden Training, 6 Fire Safety Consultation
+        const order: Record<string, number> = {
+          "fire risk assessment": 1,
+          "fire alarm": 2,
+          "fire extinguisher": 3,
+          "emergency lighting": 4,
+          "warden": 5,
+          "marshal": 5,
+          "fire safety consultation": 6,
+        };
+        const getOrder = (name: string | undefined) => {
+          const lower = name?.toLowerCase() ?? "";
+          for (const [key, val] of Object.entries(order)) {
+            if (lower.includes(key)) return val;
+          }
+          return 99;
+        };
+        const sorted = [...data].sort((a, b) => getOrder(a.service_name) - getOrder(b.service_name));
+        setServices(sorted);
       } catch (err: any) {
         setError(err.message || "Failed to fetch services");
         console.error("Error loading services:", err);
@@ -68,7 +96,8 @@ export function ServiceSelection({
 
   const handleNext = () => {
     if (selectedService) {
-      onSelectService(selectedService);
+      const serviceName = services.find((s) => s.id.toString() === selectedService)?.service_name;
+      onSelectService(selectedService, serviceName);
     }
   };
 
@@ -133,7 +162,19 @@ export function ServiceSelection({
                 return (
                   <Card
                     key={service.id}
-                    onClick={() => setSelectedService(serviceId)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedService(serviceId);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedService(serviceId);
+                      }
+                    }}
                     className={`cursor-pointer transition-all hover:shadow-lg ${
                       selectedService === serviceId
                         ? "border-2 border-red-600 shadow-lg"
@@ -156,7 +197,7 @@ export function ServiceSelection({
                         <div className="flex-1">
                           <CardTitle className="mb-2">{service.service_name}</CardTitle>
                           <CardDescription className="text-base">
-                            {service.description}
+                            {serviceDescriptionMap[service.service_name] || service.description || "Professional fire safety support tailored to your needs."}
                           </CardDescription>
                         </div>
                       </div>

@@ -5,6 +5,16 @@ import { BookingFlow } from "../BookingFlow";
 
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
+const QUESTIONNAIRE_STORAGE_KEY = 'fireguide_questionnaire_data';
+
+function getQuestionnaireData(questionnaireData: any) {
+  if (questionnaireData != null) return questionnaireData;
+  try {
+    const stored = sessionStorage.getItem(QUESTIONNAIRE_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (_) {}
+  return null;
+}
 
 export default function BookingPage() {
   const navigate = useNavigate();
@@ -14,10 +24,12 @@ export default function BookingPage() {
     selectedProfessional,
     selectedProfessionalId,
     bookingProfessional,
+    questionnaireData: contextQuestionnaireData,
     setBookingData,
     setBookingProfessional,
     setSelectedProfessionalId,
   } = useApp();
+  const questionnaireData = getQuestionnaireData(contextQuestionnaireData);
 
   // Restore professional data from sessionStorage or location state on mount/reload
   useEffect(() => {
@@ -70,6 +82,13 @@ export default function BookingPage() {
         }
       })();
 
+  const locationState = location.state as {
+    bookingPricing?: { servicePrice: number; platformFee: number; total: number };
+    bookingPricingError?: string;
+  } | null;
+  const initialPricing = locationState?.bookingPricing;
+  const initialPricingError = locationState?.bookingPricingError;
+
   return (
     <BookingFlow
       onConfirm={(data) => {
@@ -81,6 +100,11 @@ export default function BookingPage() {
       selectedProfessional={selectedProfessional}
       professionalId={resolvedProfessionalId}
       bookingProfessional={resolvedProfessional}
+      initialPricing={initialPricing}
+      initialPricingError={initialPricingError}
+      isCustomQuote={questionnaireData?.isCustomQuote}
+      customQuoteRequestData={questionnaireData?.request_data}
+      serviceIdForQuote={questionnaireData?.service_id}
     />
   );
 }

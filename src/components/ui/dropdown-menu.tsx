@@ -1,10 +1,12 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronRight } from "lucide-react";
 import { cn } from "./utils";
 
 interface DropdownMenuContextValue {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  triggerRef: React.RefObject<HTMLElement | null>;
 }
 
 const DropdownMenuContext = React.createContext<DropdownMenuContextValue | undefined>(undefined);
@@ -18,6 +20,7 @@ interface DropdownMenuProps {
 const DropdownMenu = ({ open: controlledOpen, onOpenChange, children }: DropdownMenuProps) => {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const triggerRef = React.useRef<HTMLElement | null>(null);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (controlledOpen === undefined) {
@@ -27,15 +30,25 @@ const DropdownMenu = ({ open: controlledOpen, onOpenChange, children }: Dropdown
   };
 
   return (
-    <DropdownMenuContext.Provider value={{ open, onOpenChange: handleOpenChange }}>
+    <DropdownMenuContext.Provider value={{ open, onOpenChange: handleOpenChange, triggerRef }}>
       {children}
     </DropdownMenuContext.Provider>
   );
 };
 
+function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]) {
+  return (el: T | null) => {
+    refs.forEach((r) => {
+      if (typeof r === "function") r(el);
+      else if (r) (r as React.MutableRefObject<T | null>).current = el;
+    });
+  };
+}
+
 const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(
   ({ children, onClick, asChild, ...props }, ref) => {
     const context = React.useContext(DropdownMenuContext);
+    const mergedRef = context?.triggerRef ? mergeRefs(ref, context.triggerRef as React.Ref<HTMLButtonElement>) : ref;
 
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       onClick?.(e);
@@ -45,7 +58,7 @@ const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTML
     // If asChild is true, clone the child element and add our props
     if (asChild && React.isValidElement(children)) {
       return React.cloneElement(children as React.ReactElement<any>, {
-        ref,
+        ref: mergedRef,
         onClick: handleClick,
         ...props,
       });
@@ -53,7 +66,7 @@ const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTML
 
     return (
       <button
-        ref={ref}
+        ref={mergedRef}
         onClick={handleClick}
         {...props}
       >
@@ -64,39 +77,76 @@ const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTML
 );
 DropdownMenuTrigger.displayName = "DropdownMenuTrigger";
 
-const DropdownMenuContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { align?: "start" | "center" | "end" }>(
-  ({ className, children, align = "center", ...props }, ref) => {
-    const context = React.useContext(DropdownMenuContext);
-
-    if (!context?.open) return null;
-
-    const alignStyles = {
-      start: "left-0",
-      center: "left-1/2 -translate-x-1/2",
-      end: "right-0"
-    };
-
-    return (
-      <>
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => context.onOpenChange(false)}
-        />
-        <div
-          ref={ref}
-          className={cn(
-            "absolute z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-900 shadow-md",
-            alignStyles[align],
-            className
-          )}
-          {...props}
-        >
-          {children}
-        </div>
-      </>
-    );
+const DropdownMenuContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & {
+    align?: "start" | "center" | "end";
+    hideBackdrop?: boolean;
   }
-);
+>(({ className, children, align = "center", hideBackdrop = false, ...props }, ref) => {
+  const context = React.useContext(DropdownMenuContext);
+  const [position, setPosition] = React.useState({ top: 0, left: 0 });
+
+  React.useLayoutEffect(() => {
+    if (!context?.open || !hideBackdrop || !context.triggerRef?.current) return;
+    const rect = context.triggerRef.current.getBoundingClientRect();
+    const gap = 8;
+    let left = rect.left;
+    if (align === "center") left = rect.left + rect.width / 2;
+    else if (align === "end") left = rect.right;
+    setPosition({
+      top: rect.bottom + gap,
+      left,
+    });
+  }, [context?.open, hideBackdrop, align, context?.triggerRef?.current]);
+
+  if (!context?.open) return null;
+
+  const alignStyles = {
+    start: "left-0",
+    center: "left-1/2 -translate-x-1/2",
+    end: "right-0"
+  };
+
+  const contentEl = (
+    <div
+      ref={ref}
+      className={cn(
+        hideBackdrop
+          ? "fixed z-50 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-900 shadow-md"
+          : "absolute z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 text-gray-900 shadow-md",
+        !hideBackdrop && alignStyles[align],
+        className
+      )}
+      style={
+        hideBackdrop
+          ? {
+              top: position.top,
+              left: position.left,
+              transform: align === "center" ? "translateX(-50%)" : align === "end" ? "translateX(-100%)" : undefined,
+            }
+          : undefined
+      }
+      {...props}
+    >
+      {children}
+    </div>
+  );
+
+  if (hideBackdrop) {
+    return createPortal(contentEl, document.body);
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40"
+        onClick={() => context.onOpenChange(false)}
+      />
+      {contentEl}
+    </>
+  );
+});
 DropdownMenuContent.displayName = "DropdownMenuContent";
 
 const DropdownMenuItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { inset?: boolean }>(

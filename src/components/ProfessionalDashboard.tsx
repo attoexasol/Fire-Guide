@@ -32,6 +32,9 @@ import { ProfessionalSettings } from "./ProfessionalSettings";
 import { ProfessionalNotifications } from "./ProfessionalNotifications";
 import { ProfessionalProfileContent } from "./ProfessionalProfileContent";
 import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
+import { ServiceBasePriceContent } from "./ServiceBasePriceContent";
+import { FRABasePriceContent } from "./FRABasePriceContent";
+import { ConsultationRateContent } from "./ConsultationRateContent";
 import { ProfessionalAvailabilityContent } from "./ProfessionalAvailabilityContent";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
@@ -40,16 +43,18 @@ interface ProfessionalDashboardProps {
   onNavigateToReports: () => void;
 }
 
-type ProfessionalView = "dashboard" | "profile" | "pricing" | "availability" | "bookings" | "payments" | "verification" | "settings" | "notifications";
+type ProfessionalView = "dashboard" | "profile" | "service-base-price" | "consultation-rate" | "fra-base-price" | "pricing-overview" | "availability" | "bookings" | "payments" | "verification" | "settings" | "notifications";
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
   const navigate = useNavigate();
   const { view } = useParams<{ view?: string }>();
-  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing", "availability", "bookings", "payments", "verification", "settings", "notifications"];
+  const validViews: ProfessionalView[] = ["dashboard", "profile", "service-base-price", "consultation-rate", "fra-base-price", "pricing-overview", "availability", "bookings", "payments", "verification", "settings", "notifications"];
   
   // Determine current view from URL parameter, default to "dashboard"
-  const currentViewFromUrl: ProfessionalView = (view && validViews.includes(view as ProfessionalView)) 
-    ? (view as ProfessionalView) 
+  // Support legacy "pricing" route → redirect to pricing-overview
+  const resolvedView = view === "pricing" ? "pricing-overview" : view;
+  const currentViewFromUrl: ProfessionalView = (resolvedView && validViews.includes(resolvedView as ProfessionalView)) 
+    ? (resolvedView as ProfessionalView) 
     : "dashboard";
   
   const [activeMenu, setActiveMenu] = useState<ProfessionalView>(currentViewFromUrl);
@@ -73,7 +78,10 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
   const menuItems = [
     { id: "dashboard" as ProfessionalView, label: "Dashboard", icon: LayoutDashboard },
     { id: "profile" as ProfessionalView, label: "Profile", icon: User },
-    { id: "pricing" as ProfessionalView, label: "Pricing", icon: DollarSign },
+    { id: "service-base-price" as ProfessionalView, label: " Base Price", icon: DollarSign },
+    { id: "consultation-rate" as ProfessionalView, label: "Consultation Rate", icon: DollarSign },
+    { id: "fra-base-price" as ProfessionalView, label: " FRA Base Price", icon: DollarSign },
+    { id: "pricing-overview" as ProfessionalView, label: "Pricing", icon: DollarSign },
     { id: "availability" as ProfessionalView, label: "Availability", icon: Clock },
     { id: "bookings" as ProfessionalView, label: "Bookings", icon: Calendar },
     { id: "payments" as ProfessionalView, label: "Payments", icon: CreditCard },
@@ -400,8 +408,14 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         return <ProfessionalNotifications />;
       case "profile":
         return <ProfessionalProfileContent />;
-      case "pricing":
+      case "service-base-price":
+        return <ServiceBasePriceContent isAdmin={false} />;
+      case "consultation-rate":
+        return <ConsultationRateContent isAdmin={false} />;
+      case "pricing-overview":
         return <ProfessionalPricingContent />;
+      case "fra-base-price":
+        return <FRABasePriceContent isAdmin={false} />;
       case "availability":
         return <ProfessionalAvailabilityContent />;
       default:

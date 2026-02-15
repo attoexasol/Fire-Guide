@@ -3,7 +3,7 @@ import { Flame, ChevronRight, MapPin, ArrowLeft, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { storeSelectedService } from "../api/servicesService";
+import { storeSelectedService, SelectedServiceStoreRequest } from "../api/servicesService";
 import { getApiToken } from "../lib/auth";
 
 interface LocationPageProps {
@@ -56,20 +56,14 @@ export function LocationPage({ serviceId, questionnaireData, onContinue, onBack 
       return;
     }
 
-    const token = getApiToken();
-    if (!token) {
-      setError("Please log in to continue. You need to be authenticated to search for professionals.");
-      return;
-    }
-
     setIsSubmitting(true);
     setError(null);
 
     try {
       const searchRadius = convertRadiusToKm(selectedRadius);
+      const token = getApiToken();
       
-      const requestData = {
-        api_token: token,
+      const requestData: SelectedServiceStoreRequest = {
         service_id: serviceId,
         property_type_id: questionnaireData.property_type_id,
         approximate_people_id: questionnaireData.approximate_people_id,
@@ -79,6 +73,9 @@ export function LocationPage({ serviceId, questionnaireData, onContinue, onBack 
         post_code: postcode.trim(),
         search_radius: searchRadius
       };
+      if (token) {
+        requestData.api_token = token;
+      }
 
       await storeSelectedService(requestData);
       

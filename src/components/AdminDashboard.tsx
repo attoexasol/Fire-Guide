@@ -19,7 +19,10 @@ import {
   Menu,
   X,
   LogOut,
-  Flame
+  Flame,
+  Layers,
+  Calculator,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -34,19 +37,25 @@ import { AdminReviews } from "./AdminReviews";
 import { AdminServices } from "./AdminServices";
 import { AdminSettings } from "./AdminSettings";
 import { AdminNotifications } from "./AdminNotifications";
+import { ServiceBasePriceContent } from "./ServiceBasePriceContent";
+import { FRABasePriceContent } from "./FRABasePriceContent";
+import { ConsultationRateContent } from "./ConsultationRateContent";
+import { RuleGroupContent } from "./RuleGroupContent";
+import { PricingRuleContent } from "./PricingRuleContent";
+import { AdminCustomQuoteContent } from "./AdminCustomQuoteContent";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "settings" | "notifications";
+type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "reviews" | "services" | "service-base-price" | "consultation-rate" | "fra-base-price" | "rule-group" | "pricing-rule" | "custom-quote" | "notifications" | "settings";
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "settings", "notifications"];
+  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "reviews", "services", "service-base-price", "consultation-rate", "fra-base-price", "rule-group", "pricing-rule", "custom-quote", "notifications", "settings"];
   
   // Determine current view from URL parameter or pathname, default to "dashboard"
   // Check if we're on the services/add or services/edit route
@@ -129,6 +138,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: "payments" as AdminView, label: "Payments", icon: CreditCard },
     { id: "reviews" as AdminView, label: "Reviews", icon: Star },
     { id: "services" as AdminView, label: "Services", icon: FileText },
+    { id: "service-base-price" as AdminView, label: "Base Price", icon: DollarSign },
+    { id: "consultation-rate" as AdminView, label: "Consultation Rate", icon: DollarSign },
+    { id: "fra-base-price" as AdminView, label: "FRA Base Price", icon: DollarSign },
+    { id: "rule-group" as AdminView, label: "Rule group", icon: Layers },
+    { id: "pricing-rule" as AdminView, label: "Pricing Rule", icon: Calculator },
+    { id: "custom-quote" as AdminView, label: "Custom Quote", icon: MessageSquare },
     { id: "notifications" as AdminView, label: "Notifications", icon: Bell },
     { id: "settings" as AdminView, label: "Settings", icon: Settings },
   ];
@@ -331,6 +346,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <AdminReviews />;
       case "services":
         return <AdminServices />;
+      case "service-base-price":
+        return <ServiceBasePriceContent isAdmin />;
+      case "consultation-rate":
+        return <ConsultationRateContent isAdmin />;
+      case "rule-group":
+        return <RuleGroupContent />;
+      case "pricing-rule":
+        return <PricingRuleContent />;
+      case "fra-base-price":
+        return <FRABasePriceContent isAdmin />;
+      case "custom-quote":
+        return <AdminCustomQuoteContent />;
       case "notifications":
         return <AdminNotifications />;
       case "settings":

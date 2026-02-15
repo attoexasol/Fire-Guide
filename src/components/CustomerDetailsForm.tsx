@@ -18,7 +18,8 @@ import {
   Loader2
 } from "lucide-react";
 import type { BookingData } from "./BookingFlow";
-import { storeProfessionalBooking } from "../api/bookingService";
+import { storeProfessionalBooking, ProfessionalBookingStoreRequest } from "../api/bookingService";
+import { storeCustomQuoteRequest } from "../api/customQuoteRequestsService";
 import { toast } from "sonner";
 import { getApiToken } from "../lib/auth";
 
@@ -29,9 +30,15 @@ interface CustomerDetailsFormProps {
   selectedDate: string;
   selectedTime: string;
   pricing: BookingData["pricing"];
+  pricingErrorMessage?: string;
   initialData: BookingData["customer"];
   onContinue: (customerData: BookingData["customer"]) => void;
   onBack: () => void;
+  isCustomQuote?: boolean;
+  /** When true, this booking has real price from API — never use custom-quote flow (avoids backend "Custom quote request not found") */
+  forceNormalBooking?: boolean;
+  customQuoteRequestData?: { building_type: string; people_count: string; floors: number; assessment_type: string; notes?: string };
+  serviceIdForQuote?: number;
 }
 
 export function CustomerDetailsForm({
@@ -41,13 +48,20 @@ export function CustomerDetailsForm({
   selectedDate,
   selectedTime,
   pricing,
+  pricingErrorMessage,
   initialData,
   onContinue,
-  onBack
+  onBack,
+  isCustomQuote,
+  forceNormalBooking,
+  customQuoteRequestData,
+  serviceIdForQuote,
 }: CustomerDetailsFormProps) {
+  const useCustomQuoteFlow = Boolean(isCustomQuote && !forceNormalBooking);
   const [formData, setFormData] = useState<BookingData["customer"]>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCustomQuoteWaiting, setShowCustomQuoteWaiting] = useState(false);
 
 
   const updateFormData = (field: keyof BookingData["customer"], value: string) => {
@@ -116,20 +130,48 @@ export function CustomerDetailsForm({
     }
 
     setIsSubmitting(true);
-    
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Please log in to continue. You need to be authenticated to submit a booking.");
-      return;
-    }
+
+    const CUSTOM_QUOTE_REQUEST_ID_KEY = "fireguide_custom_quote_request_id";
 
     try {
       // Get coordinates
       const coordinates = await getCoordinates(formData.address, formData.city, formData.postcode);
       
-      // Prepare booking data
-      const bookingData = {
-        api_token: token,
+      const token = getApiToken();
+      let customQuoteRequestId: number | undefined;
+
+      // Custom quote: create quote first so backend can find it when creating the booking (only when not forceNormalBooking)
+      if (useCustomQuoteFlow && customQuoteRequestData && serviceIdForQuote) {
+        try {
+          const quoteResponse = await storeCustomQuoteRequest(
+            token || null,
+            serviceIdForQuote,
+            formData.firstName.trim(),
+            formData.email.trim(),
+            formData.phone.trim(),
+            customQuoteRequestData
+          );
+          const raw = quoteResponse as { data?: { id?: number; custom_quote_request_id?: number; custom_quote_request?: { id?: number } } };
+          customQuoteRequestId =
+            raw.data?.id ??
+            raw.data?.custom_quote_request_id ??
+            raw.data?.custom_quote_request?.id;
+          if (customQuoteRequestId != null) {
+            try {
+              localStorage.setItem(CUSTOM_QUOTE_REQUEST_ID_KEY, String(customQuoteRequestId));
+            } catch (_) {}
+          }
+        } catch (quoteErr) {
+          console.error("Custom quote request failed:", quoteErr);
+          toast.error("Custom quote request failed. Please try again.");
+          return;
+        }
+      }
+
+      // Only treat as custom quote for booking payload when we have an ID (avoid "custom quote not found")
+      const isCustomQuoteWithId = useCustomQuoteFlow && customQuoteRequestId != null;
+
+      const bookingPayload: ProfessionalBookingStoreRequest = {
         selected_date: selectedDate,
         selected_time: selectedTime,
         first_name: formData.firstName,
@@ -142,15 +184,34 @@ export function CustomerDetailsForm({
         city: formData.city,
         post_code: formData.postcode,
         additional_notes: formData.notes || "",
-        professional_id: professionalId
+        professional_id: professionalId,
+        price: isCustomQuoteWithId ? "0" : String(pricing.total),
       };
+      if (token) {
+        bookingPayload.api_token = token;
+      }
+      if (isCustomQuoteWithId && customQuoteRequestId != null) {
+        bookingPayload.custom_quote_request_id = customQuoteRequestId;
+        bookingPayload.custom_quote_id = customQuoteRequestId;
+      }
 
-      // Submit booking
-      const response = await storeProfessionalBooking(bookingData);
-      console.log(response);
+      if (useCustomQuoteFlow && !customQuoteRequestId) {
+        toast.error("Custom quote could not be created. Please try again.");
+        return;
+      }
+
+      const response = await storeProfessionalBooking(bookingPayload);
       if (response.status === "success") {
+        if (useCustomQuoteFlow) {
+          try {
+            localStorage.removeItem(CUSTOM_QUOTE_REQUEST_ID_KEY);
+          } catch (_) {}
+          setShowCustomQuoteWaiting(true);
+          toast.success("Booking submitted successfully!");
+          toast.info("Wait for admin assigned then you can payment.");
+          return;
+        }
         toast.success("Booking submitted successfully!");
-        // Update form data with coordinates and booking ID
         const updatedFormData = {
           ...formData,
           longitude: coordinates.longitude,
@@ -432,41 +493,60 @@ export function CustomerDetailsForm({
                       </div>
 
                       {/* Pricing */}
-                      <div className="space-y-2 pt-4 border-t">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Service fee</span>
-                          <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
+                      {pricingErrorMessage ? (
+                        <div className="pt-4 border-t rounded-lg border-amber-200 bg-amber-50 p-3">
+                          <p className="text-sm text-amber-800">{pricingErrorMessage}</p>
+                          <p className="text-xs text-amber-700 mt-1">Contact the professional or support for pricing.</p>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Platform fee</span>
-                          <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
+                      ) : (
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Service fee</span>
+                            <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Platform fee</span>
+                            <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t">
+                            <span className="font-semibold text-gray-900">Total</span>
+                            <span className="text-xl font-semibold text-gray-900">£{pricing.total.toFixed(2)}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between pt-2 border-t">
-                          <span className="font-semibold text-gray-900">Total</span>
-                          <span className="text-xl font-semibold text-gray-900">£{pricing.total.toFixed(2)}</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
-                <Button
-                  onClick={handleContinue}
-                  disabled={isSubmitting}
-                  className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      Continue to Payment
-                      <ChevronRight className="w-5 h-5 ml-2" />
-                    </>
-                  )}
-                </Button>
+                {showCustomQuoteWaiting && (
+                  <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+                    <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-amber-900">Wait for admin assigned</p>
+                      <p className="text-sm text-amber-800 mt-1">Your booking and custom quote request have been submitted. Once the admin assigns a price, you will be able to complete payment.</p>
+                    </div>
+                  </div>
+                )}
+
+                {!showCustomQuoteWaiting && (
+                  <Button
+                    onClick={handleContinue}
+                    disabled={isSubmitting}
+                    className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        Continue to Payment
+                        <ChevronRight className="w-5 h-5 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

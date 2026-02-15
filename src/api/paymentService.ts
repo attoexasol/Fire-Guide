@@ -11,6 +11,8 @@ export interface PaymentInvoiceStoreRequest {
   cvv: number;
   is_terms_privacy: boolean;
   professional_booking_id: number;
+  /** Total to pay from Order Summary (same as calculate-price/for-booking total) */
+  price: number;
 }
 
 export interface PaymentInvoiceStoreResponse {

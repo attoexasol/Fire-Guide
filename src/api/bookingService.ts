@@ -4,7 +4,7 @@ import { getApiToken, handleTokenExpired, isTokenExpiredError } from '../lib/aut
 
 // TypeScript types for Professional Booking Store request
 export interface ProfessionalBookingStoreRequest {
-  api_token: string;
+  api_token?: string;
   selected_date: string;
   selected_time: string;
   first_name: string;
@@ -18,12 +18,30 @@ export interface ProfessionalBookingStoreRequest {
   post_code: string;
   additional_notes?: string;
   professional_id: number;
+  price?: string | number;
+  /** When present, backend links this booking to an existing custom quote request. */
+  custom_quote_request_id?: number;
+  /** Alternate name some backends use for the same link. */
+  custom_quote_id?: number;
 }
 
 export interface ProfessionalBookingStoreResponse {
   status: string;
   message: string;
   data?: any;
+}
+
+export interface CalculatePriceForBookingResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    professional_id: number;
+    service_id: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
 }
 
 // Create axios instance with base configuration
@@ -64,9 +82,15 @@ export const storeProfessionalBooking = async (
   data: ProfessionalBookingStoreRequest
 ): Promise<ProfessionalBookingStoreResponse> => {
   try {
+    const payload = { ...data };
+    const isNormalPrice = payload.price !== "0" && payload.price !== 0;
+    if (isNormalPrice) {
+      delete (payload as Record<string, unknown>).custom_quote_request_id;
+      delete (payload as Record<string, unknown>).custom_quote_id;
+    }
     const response = await apiClient.post<ProfessionalBookingStoreResponse>(
       '/professional_booking/store',
-      data
+      payload
     );
     return response.data;
   } catch (error) {
@@ -95,6 +119,33 @@ export const storeProfessionalBooking = async (
   }
 };
 
+/**
+ * Calculate price for booking (service + platform fee)
+ * POST /calculate-price/for-booking
+ * Body: { professional_id }
+ */
+export const calculatePriceForBooking = async (
+  professionalId: number
+): Promise<CalculatePriceForBookingResponse> => {
+  try {
+    const response = await apiClient.post<CalculatePriceForBookingResponse>(
+      '/calculate-price/for-booking',
+      { professional_id: professionalId }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error calculating price for booking:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
 
 // TypeScript types for Upcoming Bookings API
 export interface UpcomingBookingItem {

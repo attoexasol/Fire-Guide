@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, startTransition } from "react";
+import React, { useState, useEffect, useRef, startTransition, type CSSProperties } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -27,7 +27,8 @@ import {
   Star,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  FileText
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Booking } from "../App";
@@ -48,6 +49,7 @@ import { uploadProfileImage, UploadProfileImageRequest, updateUser, UpdateUserRe
 import { getApiToken, getUserInfo, setUserInfo } from "../lib/auth";
 import { Loader2, Upload, ArrowLeft, Save } from "lucide-react";
 import { storeAddress, StoreAddressRequest, fetchAddresses, AddressResponse, deleteAddress, updateAddress } from "../api/addressService";
+import { getMyQuoteRequests, MyQuoteRequestItem } from "../api/customQuoteRequestsService";
 
 interface CustomerDashboardProps {
   onLogout: () => void;
@@ -58,7 +60,7 @@ interface CustomerDashboardProps {
   onDeleteBooking: (bookingId: string) => void;
 }
 
-type CustomerView = "overview" | "bookings" | "payments" | "profile" | "settings" | "notifications";
+type CustomerView = "overview" | "bookings" | "payments" | "quote-requests" | "profile" | "settings" | "notifications";
 
 export function CustomerDashboard({ 
   onLogout, 
@@ -71,7 +73,7 @@ export function CustomerDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const { view, id: addressIdParam } = useParams<{ view?: string; id?: string }>();
-  const validViews: CustomerView[] = ["overview", "bookings", "payments", "profile", "settings", "notifications"];
+  const validViews: CustomerView[] = ["overview", "bookings", "payments", "quote-requests", "profile", "settings", "notifications"];
   
   // Check if we're on the add or edit address route
   const isAddAddressRoute = location.pathname === "/customer/dashboard/profile/addresses/add";
@@ -296,6 +298,10 @@ export function CustomerDashboard({
   const [isLoadingNotificationPreferences, setIsLoadingNotificationPreferences] = useState(false);
   const [updatingNotification, setUpdatingNotification] = useState<string | null>(null);
 
+  // Quote requests state
+  const [quoteRequests, setQuoteRequests] = useState<MyQuoteRequestItem[]>([]);
+  const [isLoadingQuoteRequests, setIsLoadingQuoteRequests] = useState(false);
+
   // Load user data from localStorage or use defaults
   const getUserData = () => {
     const userInfo = getUserInfo();
@@ -499,6 +505,38 @@ export function CustomerDashboard({
 
     fetchNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
+
+  // Fetch quote requests when quote-requests view is shown
+  useEffect(() => {
+    const fetchQuoteRequests = async () => {
+      const token = getApiToken();
+      if (!token) {
+        setQuoteRequests([]);
+        setIsLoadingQuoteRequests(false);
+        return;
+      }
+
+      setIsLoadingQuoteRequests(true);
+      try {
+        const response = await getMyQuoteRequests(token);
+        if (response.status && response.data) {
+          setQuoteRequests(Array.isArray(response.data) ? response.data : []);
+        } else {
+          setQuoteRequests([]);
+        }
+      } catch (error: unknown) {
+        console.error("Error fetching quote requests:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to load quote requests");
+        setQuoteRequests([]);
+      } finally {
+        setIsLoadingQuoteRequests(false);
+      }
+    };
+
+    if (currentView === "quote-requests") {
+      fetchQuoteRequests();
+    }
   }, [currentView]);
 
   // Fetch recent activity from API when overview is shown
@@ -1301,6 +1339,7 @@ export function CustomerDashboard({
     { id: "overview" as CustomerView, label: "Overview", icon: LayoutDashboard },
     { id: "bookings" as CustomerView, label: "My Bookings", icon: Calendar },
     { id: "payments" as CustomerView, label: "Payments", icon: CreditCard },
+    { id: "quote-requests" as CustomerView, label: "My Quote Request", icon: FileText },
     { id: "profile" as CustomerView, label: "My Profile", icon: User },
     { id: "notifications" as CustomerView, label: "Notifications", icon: Bell },
     { id: "settings" as CustomerView, label: "Settings", icon: Settings },
@@ -2777,6 +2816,95 @@ export function CustomerDashboard({
               <p className="text-gray-600">View your transaction history and download invoices.</p>
             </div>
             <CustomerPayments payments={payments} />
+          </div>
+        );
+      case "quote-requests":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl text-[#0A1A2F] mb-2">My Quote Request</h1>
+              <p className="text-gray-600">View your custom quote requests and their status.</p>
+            </div>
+            <Card>
+              <CardContent className="p-6">
+                {isLoadingQuoteRequests ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-12 h-12 text-gray-400 mx-auto mb-3 animate-spin" />
+                    <p className="text-gray-600">Loading quote requests...</p>
+                  </div>
+                ) : quoteRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-600">No quote requests yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(() => {
+                      const quoteStatusStyle = (status: string): CSSProperties => {
+                        switch (status?.toLowerCase()) {
+                          case "pending": return { backgroundColor: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" };
+                          case "reviewed": return { backgroundColor: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" };
+                          case "quoted": return { backgroundColor: "#d1fae5", color: "#047857", border: "1px solid #6ee7b7" };
+                          case "assigned": return { backgroundColor: "#ede9fe", color: "#5b21b6", border: "1px solid #c4b5fd" };
+                          default: return { backgroundColor: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0" };
+                        }
+                      };
+                      const formatQuoteStatus = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "";
+                      return quoteRequests.map((req) => {
+                      let requestData: Record<string, unknown> = {};
+                      try {
+                        requestData = typeof req.request_data === "string" ? JSON.parse(req.request_data) : req.request_data || {};
+                      } catch {
+                        requestData = {};
+                      }
+                      const buildingType = (requestData.building_type as string) || "—";
+                      const peopleCount = (requestData.people_count as string) || "—";
+                      const floors = requestData.floors != null ? String(requestData.floors) : "—";
+                      const assessmentType = (requestData.assessment_type as string) || "—";
+                      const notes = (requestData.notes as string) || "";
+                      return (
+                        <div
+                          key={req.id}
+                          className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <h3 className="font-semibold text-[#0A1A2F]">
+                                  {req.service?.service_name || `Service #${req.service_id}`}
+                                </h3>
+                                <Badge variant="custom" style={quoteStatusStyle(req.status)}>{formatQuoteStatus(req.status)}</Badge>
+                              </div>
+                              <p className="text-sm text-gray-500 mb-2">
+                                {new Date(req.created_at).toLocaleString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm">
+                                <div><span className="text-gray-500">Building:</span> {buildingType}</div>
+                                <div><span className="text-gray-500">People:</span> {peopleCount}</div>
+                                <div><span className="text-gray-500">Floors:</span> {floors}</div>
+                                <div><span className="text-gray-500">Assessment:</span> {assessmentType}</div>
+                              </dl>
+                              {notes && (
+                                <p className="text-sm text-gray-600 mt-2">
+                                  <span className="text-gray-500">Notes:</span> {notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                    })()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
       case "profile":

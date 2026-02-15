@@ -94,6 +94,18 @@ export interface ApproximatePeopleApiResponse {
   data: ApproximatePeopleResponse[];
 }
 
+export interface FloorPricingItem {
+  floor: string;
+  price: string | null;
+  label: string;
+  custom_quote?: boolean;
+}
+
+export interface FloorPricingApiResponse {
+  status: boolean;
+  data: FloorPricingItem[];
+}
+
 // Create axios instance with base configuration
 // Uses VITE_API_BASE_URL from .env file, with fallback to default URL
 const apiClient = axios.create({
@@ -114,16 +126,22 @@ export const fetchServices = async (): Promise<ServiceResponse[]> => {
     console.log('Services API Response:', response.data);
     
     // Handle the response structure: { status: 'success', data: [...] }
-    if (response.data.status === 'success' && response.data.data) {
+    if (response.data.status === 'success' && response.data.data != null) {
+      const raw = response.data.data;
       // Check if data is a direct array (current API structure)
-      if (Array.isArray(response.data.data)) {
-        console.log('Services found (direct array):', response.data.data.length);
-        return response.data.data; // Direct array
+      if (Array.isArray(raw)) {
+        console.log('Services found (direct array):', raw.length);
+        return raw;
       }
       // Check if data is a paginated object with nested data array
-      if (typeof response.data.data === 'object' && 'data' in response.data.data && Array.isArray((response.data.data as any).data)) {
-        console.log('Services found (paginated):', (response.data.data as any).data.length);
-        return (response.data.data as any).data; // Nested paginated array
+      if (typeof raw === 'object' && 'data' in raw && Array.isArray((raw as any).data)) {
+        console.log('Services found (paginated):', (raw as any).data.length);
+        return (raw as any).data;
+      }
+      // Single service object: normalize to array so all services are always shown
+      if (typeof raw === 'object' && 'id' in raw && (raw as any).service_name != null) {
+        console.log('Services found (single object, normalized to array):', 1);
+        return [raw as ServiceResponse];
       }
     }
     
@@ -209,6 +227,44 @@ export const fetchPropertyTypes = async (): Promise<PropertyTypeResponse[]> => {
 };
 
 /**
+ * Fetch floor pricing options
+ * GET /floor-pricing
+ * @returns Promise with floor options (floor, price, label)
+ */
+export const fetchFloorPricing = async (): Promise<FloorPricingItem[]> => {
+  try {
+    const response = await apiClient.get<FloorPricingApiResponse>('/floor-pricing');
+    if (response.data?.status && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching floor pricing:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch floor pricing',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
  * Fetch all approximate people options
  * @returns Promise with the API response
  */
@@ -251,7 +307,7 @@ export const fetchApproximatePeople = async (): Promise<ApproximatePeopleRespons
 
 // TypeScript types for Selected Service Store request
 export interface SelectedServiceStoreRequest {
-  api_token: string;
+  api_token?: string;
   service_id: number;
   property_type_id: number;
   approximate_people_id: number;

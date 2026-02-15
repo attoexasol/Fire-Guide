@@ -71,9 +71,21 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const QUESTIONNAIRE_STORAGE_KEY = "fireguide_questionnaire_data";
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedService, setSelectedService] = useState<string>("");
-  const [questionnaireData, setQuestionnaireData] = useState<any>(null);
+  const [questionnaireData, setQuestionnaireDataInternal] = useState<any>(null);
+  const setQuestionnaireData = (data: any) => {
+    setQuestionnaireDataInternal(data);
+    try {
+      if (data != null) {
+        sessionStorage.setItem(QUESTIONNAIRE_STORAGE_KEY, JSON.stringify(data));
+      } else {
+        sessionStorage.removeItem(QUESTIONNAIRE_STORAGE_KEY);
+      }
+    } catch (_) {}
+  };
   const [selectedProfessional, setSelectedProfessional] = useState<any>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
   const [bookingProfessional, setBookingProfessional] = useState<any>(null);

@@ -19,6 +19,7 @@ interface AppointmentSelectionProps {
   service: BookingData["service"];
   professional: BookingData["professional"];
   pricing: BookingData["pricing"];
+  pricingErrorMessage?: string;
   onContinue: (date: string, time: string) => void;
   onBack: () => void;
 }
@@ -27,6 +28,7 @@ export function AppointmentSelection({
   service,
   professional,
   pricing,
+  pricingErrorMessage,
   onContinue,
   onBack
 }: AppointmentSelectionProps) {
@@ -312,20 +314,27 @@ export function AppointmentSelection({
                         </div>
                       )}
 
-                      <div className="space-y-2 pt-4 border-t">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Service fee</span>
-                          <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
+                      {pricingErrorMessage ? (
+                        <div className="pt-4 border-t rounded-lg border-amber-200 bg-amber-50 p-3">
+                          <p className="text-sm text-amber-800">{pricingErrorMessage}</p>
+                          <p className="text-xs text-amber-700 mt-1">Contact the professional or support for pricing.</p>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Platform fee</span>
-                          <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
+                      ) : (
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Service fee</span>
+                            <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Platform fee</span>
+                            <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t">
+                            <span className="font-semibold text-gray-900">Total</span>
+                            <span className="text-xl font-semibold text-gray-900">£{pricing.total.toFixed(2)}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between pt-2 border-t">
-                          <span className="font-semibold text-gray-900">Total</span>
-                          <span className="text-xl font-semibold text-gray-900">£{pricing.total.toFixed(2)}</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
