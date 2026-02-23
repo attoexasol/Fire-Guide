@@ -118,10 +118,10 @@ export function AppointmentDetails({ onBack, onBackToHome }: AppointmentDetailsP
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
             <Flame className="w-8 h-8 text-red-500" />
             <span className="text-xl">Fire Guide</span>
-          </div>
+          </a>
           <Button variant="ghost" className="text-white hover:text-red-500" onClick={onBackToHome}>
             Back to Home
           </Button>

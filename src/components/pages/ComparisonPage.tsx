@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ComparisonResults } from "../ComparisonResults";
 import { calculatePriceForBooking } from "../../api/bookingService";
+import { storeSelectedService } from "../../api/servicesService";
+import { toast } from "sonner";
 
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
@@ -24,7 +26,7 @@ function getIsCustomQuote() {
 
 export default function ComparisonPage() {
   const navigate = useNavigate();
-  const { setSelectedProfessional, setBookingProfessional, setSelectedProfessionalId, selectedService, questionnaireData } = useApp();
+  const { setSelectedProfessional, setBookingProfessional, setSelectedProfessionalId, selectedService, questionnaireData, locationSearchData } = useApp();
   const isCustomQuote = Boolean(questionnaireData?.isCustomQuote) || getIsCustomQuote();
 
   return (
@@ -56,22 +58,71 @@ export default function ComparisonPage() {
           console.error('Failed to save professional to sessionStorage:', error);
         }
 
-        // Fetch price when user clicks Book Now so Booking Summary shows API values or error
+        // 1) Store selected service when Book Now is clicked → get session_id from response (auto-generated)
+        let sessionId: number | string | undefined;
+        const serviceId = locationSearchData?.service_id;
+        if (questionnaireData && locationSearchData && serviceId != null) {
+          try {
+            const storeRes = await storeSelectedService({
+              service_id: serviceId,
+              property_type_id: questionnaireData.property_type_id,
+              approximate_people_id: questionnaireData.approximate_people_id,
+              number_of_floors:
+                questionnaireData.number_of_floors_id != null
+                  ? String(questionnaireData.number_of_floors_id)
+                  : questionnaireData.number_of_floors,
+              ...(questionnaireData.number_of_floors_id != null && {
+                number_of_floors_id: questionnaireData.number_of_floors_id,
+              }),
+              ...(questionnaireData.duration_id != null && { duration_id: questionnaireData.duration_id }),
+              preferred_date: questionnaireData.preferred_date,
+              access_note: questionnaireData.access_note,
+              post_code: locationSearchData.post_code,
+              search_radius: locationSearchData.search_radius,
+              professional_id: professional.id,
+            });
+            const data = storeRes?.data;
+            const rawSession =
+              data?.session_id ??
+              data?.id ??
+              (typeof data === 'object' && data !== null && (data as any).selected_service?.session_id) ??
+              (typeof data === 'object' && data !== null && (data as any).selected_service?.id);
+            if (rawSession != null && rawSession !== '') {
+              const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
+              sessionId = Number.isNaN(num) ? rawSession : num;
+            }
+          } catch (err: any) {
+            console.error('Failed to store selected service with professional:', err);
+            toast.error(err?.message || 'Could not complete. Please try again.');
+          }
+        }
+
+        // 2) Fetch price for booking with { professional_id, session_id, service_id }
         let bookingPricing: { servicePrice: number; platformFee: number; total: number } | undefined;
         let bookingPricingError: string | undefined;
-        try {
-          const res = await calculatePriceForBooking(professional.id);
-          if (res?.status && res?.data) {
-            bookingPricing = {
-              servicePrice: res.data.service_price,
-              platformFee: res.data.platform_fee_amount,
-              total: res.data.total_price,
-            };
-          } else if (res?.status === false && res?.message) {
-            bookingPricingError = res.message;
+        if (serviceId != null && sessionId != null) {
+          try {
+            const res = await calculatePriceForBooking({
+              professional_id: professional.id,
+              session_id: sessionId,
+              service_id: serviceId,
+            });
+            if (res?.status && res?.data) {
+              bookingPricing = {
+                servicePrice: res.data.service_price,
+                platformFee: res.data.platform_fee_amount,
+                total: res.data.total_price,
+              };
+            } else if (res?.status === false && res?.message) {
+              bookingPricingError = res.message;
+            }
+          } catch (err: any) {
+            bookingPricingError = err?.message || err?.error || "Unable to load price. Please try again.";
           }
-        } catch (err: any) {
-          bookingPricingError = err?.message || err?.error || "Unable to load price. Please try again.";
+        } else if (serviceId == null) {
+          bookingPricingError = "Service not selected. Please start from the service search.";
+        } else {
+          bookingPricingError = "Could not create booking session. Please try again.";
         }
 
         startTransition(() => {

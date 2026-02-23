@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { 
   Mail, 
   Phone, 
@@ -124,9 +125,9 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
       {/* Header */}
       <header className="bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-6 sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center cursor-pointer" onClick={onBack}>
+          <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
             <img src={logoImage} alt="Fire Guide" className="h-12" />
-          </div>
+          </Link>
           
           <nav className="hidden md:flex items-center gap-8">
             <button onClick={onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">

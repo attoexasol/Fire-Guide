@@ -35,13 +35,28 @@ export interface User {
   role: "customer" | "professional" | "admin";
 }
 
+const SELECTED_SERVICE_ID_KEY = "fireguide_selected_service_id";
+const LOCATION_SEARCH_DATA_KEY = "fireguide_location_search_data";
+
+interface LocationSearchData {
+  post_code: string;
+  search_radius: string;
+  service_id: number;
+}
+
 interface AppContextType {
   selectedService: string;
   setSelectedService: (service: string) => void;
+  selectedServiceId: number | null;
+  setSelectedServiceId: (id: number | null) => void;
+  locationSearchData: LocationSearchData | null;
+  setLocationSearchData: (data: LocationSearchData | null) => void;
   questionnaireData: {
     property_type_id: number;
     approximate_people_id: number;
     number_of_floors: string;
+    number_of_floors_id?: number;
+    duration_id?: number;
     preferred_date: string;
     access_note: string;
   } | null;
@@ -75,6 +90,32 @@ const QUESTIONNAIRE_STORAGE_KEY = "fireguide_questionnaire_data";
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedService, setSelectedService] = useState<string>("");
+  const [selectedServiceId, setSelectedServiceIdInternal] = useState<number | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(SELECTED_SERVICE_ID_KEY);
+      return stored ? parseInt(stored, 10) : null;
+    } catch { return null; }
+  });
+  const setSelectedServiceId = (id: number | null) => {
+    setSelectedServiceIdInternal(id);
+    try {
+      if (id != null) sessionStorage.setItem(SELECTED_SERVICE_ID_KEY, String(id));
+      else sessionStorage.removeItem(SELECTED_SERVICE_ID_KEY);
+    } catch (_) {}
+  };
+  const [locationSearchData, setLocationSearchDataInternal] = useState<LocationSearchData | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(LOCATION_SEARCH_DATA_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
+  const setLocationSearchData = (data: LocationSearchData | null) => {
+    setLocationSearchDataInternal(data);
+    try {
+      if (data != null) sessionStorage.setItem(LOCATION_SEARCH_DATA_KEY, JSON.stringify(data));
+      else sessionStorage.removeItem(LOCATION_SEARCH_DATA_KEY);
+    } catch (_) {}
+  };
   const [questionnaireData, setQuestionnaireDataInternal] = useState<any>(null);
   const setQuestionnaireData = (data: any) => {
     setQuestionnaireDataInternal(data);
@@ -200,6 +241,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextType = {
     selectedService,
     setSelectedService,
+    selectedServiceId,
+    setSelectedServiceId,
+    locationSearchData,
+    setLocationSearchData,
     questionnaireData,
     setQuestionnaireData,
     selectedProfessional,

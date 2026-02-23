@@ -4,7 +4,7 @@ import { LocationPage as LocationPageComponent } from "../LocationPage";
 
 export default function LocationPage() {
   const navigate = useNavigate();
-  const { selectedService, questionnaireData } = useApp();
+  const { selectedService, questionnaireData, setSelectedServiceId, setLocationSearchData } = useApp();
   const { serviceId } = useParams<{ serviceId: string }>();
   const serviceIdNum = parseInt(serviceId || selectedService) || 0;
 
@@ -14,6 +14,10 @@ export default function LocationPage() {
       questionnaireData={questionnaireData}
       onContinue={() => navigate("/professionals/compare")}
       onBack={() => navigate(`/services/${serviceId || selectedService}/questionnaire`)}
+      onStoreSuccess={(createdId, locationData) => {
+        if (createdId != null && createdId > 0) setSelectedServiceId(createdId);
+        setLocationSearchData(locationData);
+      }}
     />
   );
 }

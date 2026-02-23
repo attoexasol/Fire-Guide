@@ -140,7 +140,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: "services" as AdminView, label: "Services", icon: FileText },
     { id: "service-base-price" as AdminView, label: "Base Price", icon: DollarSign },
     { id: "consultation-rate" as AdminView, label: "Consultation Rate", icon: DollarSign },
-    { id: "fra-base-price" as AdminView, label: "FRA Base Price", icon: DollarSign },
+    { id: "fra-base-price" as AdminView, label: "Pricing", icon: DollarSign },
     { id: "rule-group" as AdminView, label: "Rule group", icon: Layers },
     { id: "pricing-rule" as AdminView, label: "Pricing Rule", icon: Calculator },
     { id: "custom-quote" as AdminView, label: "Custom Quote", icon: MessageSquare },

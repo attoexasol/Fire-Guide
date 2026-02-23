@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -209,15 +209,16 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
         {/* Header */}
         <header className="bg-[#0A1A2F] text-white py-4 px-6 sticky top-0 z-40 shadow-lg">
           <div className="flex items-center justify-between">
-            <div 
+            <Link 
+              to="/"
               className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={onBack}
+              aria-label="Go to home"
             >
               <img src={logoImage} alt="Fire Guide" className="h-10" />
               <Badge variant="secondary" className="ml-2 bg-red-600 text-white border-0">
                 Pro
               </Badge>
-            </div>
+            </Link>
 
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
@@ -288,15 +289,16 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6 sticky top-0 z-40 shadow-lg">
         <div className="flex items-center justify-between">
-          <div 
+          <Link 
+            to="/"
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={onBack}
+            aria-label="Go to home"
           >
             <img src={logoImage} alt="Fire Guide" className="h-10" />
             <Badge variant="secondary" className="ml-2 bg-red-600 text-white border-0">
               Pro
             </Badge>
-          </div>
+          </Link>
 
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">

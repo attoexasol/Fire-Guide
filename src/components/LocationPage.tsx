@@ -4,7 +4,6 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { storeSelectedService, SelectedServiceStoreRequest } from "../api/servicesService";
-import { getApiToken } from "../lib/auth";
 
 interface LocationPageProps {
   serviceId: number;
@@ -12,14 +11,17 @@ interface LocationPageProps {
     property_type_id: number;
     approximate_people_id: number;
     number_of_floors: string;
+    number_of_floors_id?: number;
     preferred_date: string;
     access_note: string;
   } | null;
   onContinue: () => void;
   onBack: () => void;
+  /** Called when store succeeds, with the created selected_service id and location data (for store call on Book Now with professional_id) */
+  onStoreSuccess?: (selectedServiceId: number, locationData: { post_code: string; search_radius: string; service_id: number }) => void;
 }
 
-export function LocationPage({ serviceId, questionnaireData, onContinue, onBack }: LocationPageProps) {
+export function LocationPage({ serviceId, questionnaireData, onContinue, onBack, onStoreSuccess }: LocationPageProps) {
   const [postcode, setPostcode] = useState("");
   const [selectedRadius, setSelectedRadius] = useState("10mi");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,36 +63,42 @@ export function LocationPage({ serviceId, questionnaireData, onContinue, onBack 
 
     try {
       const searchRadius = convertRadiusToKm(selectedRadius);
-      const token = getApiToken();
-      
+
       const requestData: SelectedServiceStoreRequest = {
         service_id: serviceId,
         property_type_id: questionnaireData.property_type_id,
         approximate_people_id: questionnaireData.approximate_people_id,
-        number_of_floors: questionnaireData.number_of_floors,
+        number_of_floors:
+          questionnaireData.number_of_floors_id != null
+            ? String(questionnaireData.number_of_floors_id)
+            : questionnaireData.number_of_floors,
         preferred_date: questionnaireData.preferred_date,
         access_note: questionnaireData.access_note,
         post_code: postcode.trim(),
-        search_radius: searchRadius
+        search_radius: searchRadius,
       };
-      if (token) {
-        requestData.api_token = token;
+      if (questionnaireData.number_of_floors_id != null) {
+        requestData.number_of_floors_id = questionnaireData.number_of_floors_id;
+      }
+      if (questionnaireData.duration_id != null) {
+        requestData.duration_id = questionnaireData.duration_id;
+      }
+      // No token required for selected_services/store (per API flow)
+
+      const response = await storeSelectedService(requestData);
+      const createdId = response?.data?.id;
+      if (onStoreSuccess) {
+        onStoreSuccess(createdId ?? 0, {
+          post_code: postcode.trim(),
+          search_radius: searchRadius,
+          service_id: serviceId,
+        });
       }
 
-      await storeSelectedService(requestData);
-      
-      // If successful, continue to next page
       onContinue();
     } catch (err: any) {
       console.error("Error submitting form:", err);
-      const errorMessage = err.message || err.error || "Failed to submit. Please try again.";
-      
-      // Check if error is related to invalid token
-      if (errorMessage.toLowerCase().includes("invalid token") || errorMessage.toLowerCase().includes("unauthorized")) {
-        setError("Your session has expired. Please log in again to continue.");
-      } else {
-        setError(errorMessage);
-      }
+      setError(err?.message || err?.error || "Failed to submit. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -101,8 +109,10 @@ export function LocationPage({ serviceId, questionnaireData, onContinue, onBack 
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <Flame className="w-8 h-8 text-red-500" />
-          <span className="text-xl">Fire Guide</span>
+          <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
+            <Flame className="w-8 h-8 text-red-500" />
+            <span className="text-xl">Fire Guide</span>
+          </a>
         </div>
       </header>
 

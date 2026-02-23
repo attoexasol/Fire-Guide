@@ -79,6 +79,101 @@ export const getAdminRecentBookings = async (
   return response.data;
 };
 
+// FRA all prices (all professionals) – Admin FRA Base Price page
+export interface FraAllPricesPropertyType {
+  id: number;
+  property_type_name: string;
+  price: string;
+}
+
+export interface FraAllPricesFloor {
+  id: number;
+  floor: string;
+  price: string;
+}
+
+export interface FraAllPricesPeople {
+  id: number;
+  people_name: string | null;
+  price: string;
+}
+
+export interface FraAllPricesDuration {
+  id: number;
+  duration_name: string;
+  price: string;
+}
+
+export interface FraAllPricesProfessionalItem {
+  professional_id: number;
+  professional_name: string;
+  property_types: FraAllPricesPropertyType[];
+  floors: FraAllPricesFloor[];
+  people: FraAllPricesPeople[];
+  durations: FraAllPricesDuration[];
+}
+
+export interface FraAllPricesResponse {
+  status: boolean;
+  message: string;
+  data: FraAllPricesProfessionalItem[];
+}
+
+/**
+ * Fetch all professionals' FRA prices (property types, floors, people, durations).
+ * POST https://fireguide.attoexasolutions.com/api/professional-wise/fra-all-prices
+ * Body: { api_token } — admin token for dynamic login
+ */
+export const getFraAllPrices = async (apiToken: string): Promise<FraAllPricesResponse> => {
+  const response = await apiClient.post<FraAllPricesResponse>(
+    '/professional-wise/fra-all-prices',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+// Fire Alarm all prices (all professionals) – Admin Pricing > Fire Alarm tab
+export interface AlarmAllPricesBasePrice {
+  price: string;
+}
+
+export interface AlarmAllPricesOption {
+  id: number;
+  value: string;
+  price: string;
+}
+
+export interface AlarmAllPricesProfessionalItem {
+  professional_id: number;
+  professional_name: string;
+  base_prices: AlarmAllPricesBasePrice[];
+  smoke_detectors: AlarmAllPricesOption[];
+  call_points: AlarmAllPricesOption[];
+  floors: AlarmAllPricesOption[];
+  panels: AlarmAllPricesOption[];
+  last_services: AlarmAllPricesOption[];
+  system_types: AlarmAllPricesOption[];
+}
+
+export interface AlarmAllPricesResponse {
+  status: boolean;
+  message: string;
+  data: AlarmAllPricesProfessionalItem[];
+}
+
+/**
+ * Fetch all professionals' Fire Alarm prices.
+ * POST https://fireguide.attoexasolutions.com/api/professional-wise/Alarm-all-prices
+ * Body: { api_token }
+ */
+export const getAlarmAllPrices = async (apiToken: string): Promise<AlarmAllPricesResponse> => {
+  const response = await apiClient.post<AlarmAllPricesResponse>(
+    '/professional-wise/Alarm-all-prices',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
 // Admin customer summary (Customer Management page)
 export interface AdminCustomerSummaryData {
   total_customers: number;

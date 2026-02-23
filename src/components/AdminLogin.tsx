@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { Mail, Lock, ArrowRight, Shield, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -111,9 +112,9 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
         {/* Header - EXACT SAME STRUCTURE as Professional Page */}
         <header className="bg-transparent backdrop-blur-sm text-white py-4 px-6 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center cursor-pointer" onClick={onBack}>
+            <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
               <img src={logoImage} alt="Fire Guide" className="h-12" />
-            </div>
+            </Link>
 
             <div className="hidden md:flex items-center gap-4">
               <button

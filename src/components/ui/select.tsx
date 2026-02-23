@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "./utils";
 
@@ -7,6 +8,7 @@ interface SelectContextValue {
   onValueChange: (value: string) => void;
   open: boolean;
   setOpen: (open: boolean) => void;
+  triggerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const SelectContext = React.createContext<SelectContextValue | undefined>(undefined);
@@ -21,6 +23,7 @@ interface SelectProps {
 const Select = ({ value: controlledValue, onValueChange, defaultValue, children }: SelectProps) => {
   const [internalValue, setInternalValue] = React.useState(defaultValue || "");
   const [open, setOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLDivElement>(null);
   const value = controlledValue !== undefined ? controlledValue : internalValue;
 
   const handleValueChange = (newValue: string) => {
@@ -32,8 +35,8 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
   };
 
   return (
-    <SelectContext.Provider value={{ value, onValueChange: handleValueChange, open, setOpen }}>
-      <div className="relative w-full">
+    <SelectContext.Provider value={{ value, onValueChange: handleValueChange, open, setOpen, triggerRef }}>
+      <div ref={triggerRef} className="relative w-full">
         {children}
       </div>
     </SelectContext.Provider>
@@ -71,10 +74,50 @@ const SelectValue = ({ placeholder }: { placeholder?: string }) => {
 const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, children, ...props }, ref) => {
     const context = React.useContext(SelectContext);
+    const [position, setPosition] = React.useState({ top: 0, left: 0, width: 0 });
+
+    React.useLayoutEffect(() => {
+      if (context?.open && context.triggerRef.current) {
+        const rect = context.triggerRef.current.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width,
+        });
+      }
+    }, [context?.open]);
+
+    React.useEffect(() => {
+      if (!context?.open) return;
+      const updatePosition = () => {
+        if (context.triggerRef.current) {
+          const rect = context.triggerRef.current.getBoundingClientRect();
+          setPosition({
+            top: rect.bottom + 4,
+            left: rect.left,
+            width: rect.width,
+          });
+        }
+      };
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }, [context?.open]);
 
     if (!context?.open) return null;
+    if (!context.triggerRef.current) return null;
 
-    return (
+    const rect = context.triggerRef.current.getBoundingClientRect();
+    const pos = position.width > 0 ? position : {
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    };
+
+    const content = (
       <>
         <div
           className="fixed inset-0 z-40"
@@ -83,15 +126,22 @@ const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
         <div
           ref={ref}
           className={cn(
-            "absolute z-50 top-full left-0 mt-1 max-h-96 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg",
+            "fixed z-50 max-h-52 overflow-y-auto overflow-x-hidden rounded-md border border-gray-200 bg-white shadow-lg py-1",
             className
           )}
+          style={{
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
+          }}
           {...props}
         >
           {children}
         </div>
       </>
     );
+
+    return createPortal(content, document.body);
   }
 );
 SelectContent.displayName = "SelectContent";

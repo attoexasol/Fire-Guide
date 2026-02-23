@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, MoreVertical, Eye, Pencil, Trash2, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
@@ -31,6 +32,7 @@ import {
   storeProfessionalFraBasePrice,
   ProfessionalFraBasePriceItem,
 } from "../api/professionalFraBasePricesService";
+import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem } from "../api/adminService";
 import { fetchPropertyTypes } from "../api/servicesService";
 import { toast } from "sonner";
 import { getApiToken, getProfessionalId } from "../lib/auth";
@@ -42,6 +44,13 @@ interface FRABasePriceContentProps {
 
 export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
   const [records, setRecords] = useState<ProfessionalFraBasePriceItem[]>([]);
+  const [fraAllPrices, setFraAllPrices] = useState<FraAllPricesProfessionalItem[] | null>(null);
+  const [selectedSystemByPro, setSelectedSystemByPro] = useState<Record<number, string>>({});
+  const [alarmAllPrices, setAlarmAllPrices] = useState<AlarmAllPricesProfessionalItem[] | null>(null);
+  const [selectedAlarmSystemByPro, setSelectedAlarmSystemByPro] = useState<Record<number, string>>({});
+  const [loadingAlarmPrices, setLoadingAlarmPrices] = useState(false);
+  const [errorAlarm, setErrorAlarm] = useState<string | null>(null);
+  const [alarmFetchKey, setAlarmFetchKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoverRecordId, setHoverRecordId] = useState<number | null>(null);
@@ -65,6 +74,8 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   const [addError, setAddError] = useState<string | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const HOVER_CLOSE_DELAY_MS = 400;
+
+  const [fraPriceTab, setFraPriceTab] = useState<string>("fra-price");
 
   const scheduleClose = useCallback(() => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
@@ -218,21 +229,26 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
         return;
       }
 
+      if (isAdmin) {
+        const response = await getFraAllPrices(apiToken);
+        if (response.status && Array.isArray(response.data)) {
+          setFraAllPrices(response.data);
+        } else {
+          setFraAllPrices([]);
+        }
+        return;
+      }
+
       const response = await getProfessionalFraBasePricesAll(apiToken);
       if (response.status && Array.isArray(response.data)) {
         let data = response.data;
-
-        if (!isAdmin) {
-          const professionalId = getProfessionalId();
-          if (professionalId != null) {
-            const numericId = Number(professionalId);
-            const filtered = data.filter(
-              (r) => Number(r.professional_id) === numericId
-            );
-            setRecords(filtered.length > 0 ? filtered : data);
-          } else {
-            setRecords(data);
-          }
+        const professionalId = getProfessionalId();
+        if (professionalId != null) {
+          const numericId = Number(professionalId);
+          const filtered = data.filter(
+            (r) => Number(r.professional_id) === numericId
+          );
+          setRecords(filtered.length > 0 ? filtered : data);
         } else {
           setRecords(data);
         }
@@ -242,6 +258,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch FRA base price records");
       setRecords([]);
+      if (isAdmin) setFraAllPrices(null);
     } finally {
       setIsLoading(false);
     }
@@ -250,6 +267,34 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!isAdmin || fraPriceTab !== "fire-alarm") return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+    let cancelled = false;
+    setLoadingAlarmPrices(true);
+    setErrorAlarm(null);
+    getAlarmAllPrices(apiToken)
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.status && Array.isArray(res.data)) {
+          setAlarmAllPrices(res.data);
+        } else {
+          setAlarmAllPrices([]);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setErrorAlarm(err instanceof Error ? err.message : "Failed to fetch Fire Alarm prices");
+          setAlarmAllPrices(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAlarmPrices(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin, fraPriceTab, alarmFetchKey]);
 
   useEffect(() => {
     if (!addModalOpen) return;
@@ -286,20 +331,67 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   return (
     <div className="space-y-6 px-4 md:px-6 pb-20 md:pb-6">
       <div>
-        <h1 className="text-[#0A1A2F] text-xl font-semibold mb-1">FRA Base Price</h1>
+        <h1 className="text-[#0A1A2F] text-xl font-semibold mb-1">Pricing</h1>
         <p className="text-sm text-gray-500">
-          Fire Risk Assessment base prices by property type
+          {isAdmin
+            ? "Property types, floors, people and durations by professional"
+            : "Fire Risk Assessment base prices by property type"}
         </p>
       </div>
 
+      <Tabs value={fraPriceTab} onValueChange={setFraPriceTab} className="w-full">
+        <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 bg-gray-100 rounded-lg mb-6">
+          <TabsTrigger
+            value="fra-price"
+            className="flex-1 min-w-[120px] py-3 px-4 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600 cursor-pointer hover:bg-gray-200 data-[state=inactive]:text-gray-700"
+          >
+            FRA Price
+          </TabsTrigger>
+          <TabsTrigger
+            value="fire-alarm"
+            className="flex-1 min-w-[120px] py-3 px-4 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600 cursor-pointer hover:bg-gray-200 data-[state=inactive]:text-gray-700"
+          >
+            Fire Alarm
+          </TabsTrigger>
+          <TabsTrigger
+            value="extinguishers"
+            className="flex-1 min-w-[120px] py-3 px-4 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600 cursor-pointer hover:bg-gray-200 data-[state=inactive]:text-gray-700"
+          >
+            Extinguishers
+          </TabsTrigger>
+          <TabsTrigger
+            value="emergency-lighting"
+            className="flex-1 min-w-[120px] py-3 px-4 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600 cursor-pointer hover:bg-gray-200 data-[state=inactive]:text-gray-700"
+          >
+            Emergency Lighting
+          </TabsTrigger>
+          <TabsTrigger
+            value="training"
+            className="flex-1 min-w-[120px] py-3 px-4 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600 cursor-pointer hover:bg-gray-200 data-[state=inactive]:text-gray-700"
+          >
+            Training
+          </TabsTrigger>
+          <TabsTrigger
+            value="consultancy"
+            className="flex-1 min-w-[120px] py-3 px-4 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600 cursor-pointer hover:bg-gray-200 data-[state=inactive]:text-gray-700"
+          >
+            Consultancy
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="fra-price" className="mt-0">
       <Card className="border border-gray-200 shadow-sm">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <CardTitle className="text-[#0A1A2F]">FRA Base Prices</CardTitle>
-            <Button size="sm" className="shrink-0 w-fit" onClick={handleAddFraPrice}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add FRA Price
-            </Button>
+            <CardTitle className="text-[#0A1A2F]">
+              {isAdmin ? "All professionals' FRA prices" : "FRA Base Prices"}
+            </CardTitle>
+            {!isAdmin && (
+              <Button size="sm" className="shrink-0 w-fit" onClick={handleAddFraPrice}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add FRA Price
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -323,7 +415,141 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
             </div>
           )}
 
-          {!isLoading && !error && records.length > 0 && (
+          {!isLoading && !error && isAdmin && fraAllPrices !== null && (
+            <>
+              {fraAllPrices.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">No professionals' FRA prices found.</div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="w-full table-fixed">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left p-4 text-sm font-medium text-gray-700 w-24">Reference</th>
+                        <th className="text-left p-4 text-sm font-medium text-gray-700 min-w-0">Professional</th>
+                        <th className="text-left p-4 text-sm font-medium text-gray-700">Systems</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {fraAllPrices.map((pro) => {
+                        const selectedSystem = selectedSystemByPro[pro.professional_id] ?? "";
+                        return (
+                          <React.Fragment key={pro.professional_id}>
+                            <tr className="bg-red-50 hover:bg-red-100/60 transition-colors">
+                              <td className="p-4">
+                                <p className="font-medium text-gray-900">BS-{pro.professional_id}</p>
+                              </td>
+                              <td className="p-4">
+                                <p className="text-gray-900 font-normal">{pro.professional_name}</p>
+                              </td>
+                              <td className="p-4 min-w-0">
+                                <Select
+                                  value={selectedSystem}
+                                  onValueChange={(value) =>
+                                    setSelectedSystemByPro((prev) => ({
+                                      ...prev,
+                                      [pro.professional_id]: value,
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-full min-w-0 h-9 text-sm border-gray-200">
+                                    <SelectValue placeholder="Select system" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="property_type">Property type</SelectItem>
+                                    <SelectItem value="floor">Floor</SelectItem>
+                                    <SelectItem value="people">People</SelectItem>
+                                    <SelectItem value="duration">Duration</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                            </tr>
+                            {selectedSystem && (
+                              <tr className="bg-white">
+                                <td colSpan={3} className="p-0 align-top">
+                                  <div className="bg-white px-4 pb-4 pt-1 w-full">
+                                    <div className="rounded border border-gray-200 bg-white overflow-hidden w-full">
+                                      <table className="w-full text-sm">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                          <tr>
+                                            <th className="text-left py-2 px-3 font-medium text-gray-600">Option</th>
+                                            <th className="text-right py-2 px-3 font-medium text-gray-600">Base Price</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                          {selectedSystem === "property_type" &&
+                                            pro.property_types.map((pt) => (
+                                              <tr key={pt.id}>
+                                                <td className="py-2 px-3 text-gray-900">{pt.property_type_name}</td>
+                                                <td className="py-2 px-3 text-right font-medium">{formatPrice(pt.price)}</td>
+                                              </tr>
+                                            ))}
+                                          {selectedSystem === "floor" &&
+                                            pro.floors.map((f) => (
+                                              <tr key={f.id}>
+                                                <td className="py-2 px-3 text-gray-900">{f.floor}</td>
+                                                <td className="py-2 px-3 text-right font-medium">{formatPrice(f.price)}</td>
+                                              </tr>
+                                            ))}
+                                          {selectedSystem === "people" &&
+                                            pro.people.map((p) => (
+                                              <tr key={p.id}>
+                                                <td className="py-2 px-3 text-gray-900">{p.people_name ?? `People #${p.id}`}</td>
+                                                <td className="py-2 px-3 text-right font-medium">{formatPrice(p.price)}</td>
+                                              </tr>
+                                            ))}
+                                          {selectedSystem === "duration" &&
+                                            pro.durations.map((d) => (
+                                              <tr key={d.id}>
+                                                <td className="py-2 px-3 text-gray-900">{d.duration_name}</td>
+                                                <td className="py-2 px-3 text-right font-medium">{formatPrice(d.price)}</td>
+                                              </tr>
+                                            ))}
+                                          {selectedSystem === "property_type" && pro.property_types.length === 0 && (
+                                            <tr>
+                                              <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">
+                                                No property types configured
+                                              </td>
+                                            </tr>
+                                          )}
+                                          {selectedSystem === "floor" && pro.floors.length === 0 && (
+                                            <tr>
+                                              <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">
+                                                No floors configured
+                                              </td>
+                                            </tr>
+                                          )}
+                                          {selectedSystem === "people" && pro.people.length === 0 && (
+                                            <tr>
+                                              <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">
+                                                No people options configured
+                                              </td>
+                                            </tr>
+                                          )}
+                                          {selectedSystem === "duration" && pro.durations.length === 0 && (
+                                            <tr>
+                                              <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">
+                                                No durations configured
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
+          {!isLoading && !error && !isAdmin && records.length > 0 && (
             <>
               {/* Desktop table */}
               <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
@@ -513,13 +739,247 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
             </>
           )}
 
-          {!isLoading && !error && records.length === 0 && (
+          {!isLoading && !error && !isAdmin && records.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500">No FRA base price records found</p>
             </div>
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="fire-alarm" className="mt-0">
+          <Card className="border border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-[#0A1A2F]">
+                All professionals' Fire Alarm prices
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingAlarmPrices && (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                  <p className="text-gray-500">Loading Fire Alarm prices...</p>
+                </div>
+              )}
+              {!loadingAlarmPrices && errorAlarm && (
+                <div className="text-center py-12">
+                  <p className="text-red-500 mb-2">{errorAlarm}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorAlarm(null);
+                      setAlarmFetchKey((k) => k + 1);
+                    }}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!loadingAlarmPrices && !errorAlarm && isAdmin && alarmAllPrices !== null && (
+                <>
+                  {alarmAllPrices.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No Fire Alarm prices found.</div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <table className="w-full table-fixed">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 w-24">Reference</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 min-w-0">Professional</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700">Systems</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {alarmAllPrices.map((pro) => {
+                            const selectedSystem = selectedAlarmSystemByPro[pro.professional_id] ?? "";
+                            return (
+                              <React.Fragment key={pro.professional_id}>
+                                <tr className="bg-red-50 hover:bg-red-100/60 transition-colors">
+                                  <td className="p-4">
+                                    <p className="font-medium text-gray-900">BS-{pro.professional_id}</p>
+                                  </td>
+                                  <td className="p-4">
+                                    <p className="text-gray-900 font-normal">{pro.professional_name}</p>
+                                  </td>
+                                  <td className="p-4 min-w-0">
+                                    <Select
+                                      value={selectedSystem}
+                                      onValueChange={(value) =>
+                                        setSelectedAlarmSystemByPro((prev) => ({
+                                          ...prev,
+                                          [pro.professional_id]: value,
+                                        }))
+                                      }
+                                    >
+                                      <SelectTrigger className="w-full min-w-0 h-9 text-sm border-gray-200">
+                                        <SelectValue placeholder="Select system" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="base_price">Base price</SelectItem>
+                                        <SelectItem value="smoke_detectors">Smoke detectors</SelectItem>
+                                        <SelectItem value="call_points">Call points</SelectItem>
+                                        <SelectItem value="floors">Floors</SelectItem>
+                                        <SelectItem value="panels">Panels</SelectItem>
+                                        <SelectItem value="last_services">Last services</SelectItem>
+                                        <SelectItem value="system_types">System types</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </td>
+                                </tr>
+                                {selectedSystem && (
+                                  <tr className="bg-white">
+                                    <td colSpan={3} className="p-0 align-top">
+                                      <div className="bg-white px-4 pb-4 pt-1 w-full">
+                                        <div className="rounded border border-gray-200 bg-white overflow-hidden w-full">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 border-b border-gray-200">
+                                              <tr>
+                                                <th className="text-left py-2 px-3 font-medium text-gray-600">Option</th>
+                                                <th className="text-right py-2 px-3 font-medium text-gray-600">Base Price</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                              {selectedSystem === "base_price" &&
+                                                (pro.base_prices?.length
+                                                  ? pro.base_prices.map((bp, idx) => (
+                                                      <tr key={idx}>
+                                                        <td className="py-2 px-3 text-gray-900">Base price</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(bp.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No base price configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "smoke_detectors" &&
+                                                (pro.smoke_detectors?.length
+                                                  ? pro.smoke_detectors.map((s) => (
+                                                      <tr key={s.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{s.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(s.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No smoke detectors configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "call_points" &&
+                                                (pro.call_points?.length
+                                                  ? pro.call_points.map((c) => (
+                                                      <tr key={c.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{c.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(c.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No call points configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "floors" &&
+                                                (pro.floors?.length
+                                                  ? pro.floors.map((f) => (
+                                                      <tr key={f.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{f.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(f.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No floors configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "panels" &&
+                                                (pro.panels?.length
+                                                  ? pro.panels.map((p) => (
+                                                      <tr key={p.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{p.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(p.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No panels configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "last_services" &&
+                                                (pro.last_services?.length
+                                                  ? pro.last_services.map((l) => (
+                                                      <tr key={l.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{l.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(l.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No last services configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "system_types" &&
+                                                (pro.system_types?.length
+                                                  ? pro.system_types.map((st) => (
+                                                      <tr key={st.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{st.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(st.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No system types configured</td>
+                                                      </tr>
+                                                    ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="extinguishers" className="mt-0">
+          <Card className="border border-gray-200 shadow-sm">
+            <CardContent className="py-12 text-center text-gray-500">
+              Extinguishers pricing content coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="emergency-lighting" className="mt-0">
+          <Card className="border border-gray-200 shadow-sm">
+            <CardContent className="py-12 text-center text-gray-500">
+              Emergency Lighting pricing content coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="training" className="mt-0">
+          <Card className="border border-gray-200 shadow-sm">
+            <CardContent className="py-12 text-center text-gray-500">
+              Training pricing content coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="consultancy" className="mt-0">
+          <Card className="border border-gray-200 shadow-sm">
+            <CardContent className="py-12 text-center text-gray-500">
+              Consultancy pricing content coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* View Details Modal */}
       <Dialog

@@ -241,8 +241,10 @@ export const getUserEmail = (): string | null => {
 };
 
 /**
- * Get API token - returns stored token
- * @returns The API token to use for requests, or null if not available
+ * Get API token for the currently logged-in user (dynamic per session).
+ * Returns whatever token was stored at login; when a different user logs in,
+ * setAuthToken() overwrites it, so this always reflects the active user's token.
+ * @returns The API token for the current session, or null if not logged in
  */
 export const getApiToken = (): string | null => {
   return getAuthToken();

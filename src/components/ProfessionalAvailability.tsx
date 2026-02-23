@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { 
   Flame, 
   Calendar as CalendarIcon, 
@@ -150,7 +151,9 @@ export function ProfessionalAvailability({ onSave, onBack, onNavigateToProfile, 
             >
               <Menu className="w-6 h-6" />
             </button>
-            <img src={logoImage} alt="Fire Guide" className="h-10" />
+            <Link to="/" className="cursor-pointer hover:opacity-80 transition-opacity" aria-label="Go to home">
+              <img src={logoImage} alt="Fire Guide" className="h-10" />
+            </Link>
             <Badge variant="secondary" className="bg-red-600 text-white border-0 text-sm px-2 py-0.5">
               Pro
             </Badge>

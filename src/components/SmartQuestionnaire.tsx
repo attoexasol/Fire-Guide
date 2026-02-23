@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Flame, ChevronRight, Building2, Users, Layers, Calendar, FileText, ChevronLeft, Loader2, HelpCircle } from "lucide-react";
+import { Flame, ChevronRight, Building2, Users, Layers, Calendar, FileText, ChevronLeft, Loader2, HelpCircle, Clock } from "lucide-react";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
-import { fetchPropertyTypes, PropertyTypeResponse, fetchApproximatePeople, ApproximatePeopleResponse, fetchFloorPricing, FloorPricingItem } from "../api/servicesService";
+import { fetchPropertyTypes, PropertyTypeResponse, fetchApproximatePeople, ApproximatePeopleResponse, formatPeopleOptionLabel, getPeopleOptionSortKey, fetchFloorPricing, FloorPricingItem, fetchFraDurations, FraDurationItem } from "../api/servicesService";
 import { storeCustomQuoteRequest } from "../api/customQuoteRequestsService";
 import { getApiToken, getUserFullName, getUserEmail, getUserPhone } from "../lib/auth";
 import { toast } from "sonner";
@@ -20,8 +20,10 @@ interface SmartQuestionnaireProps {
     property_type_id: number;
     approximate_people_id: number;
     number_of_floors: string;
+    number_of_floors_id?: number;
     preferred_date: string;
     access_note: string;
+    duration_id?: number;
     detector_count?: string;
     isCustomQuote?: boolean;
     request_data?: { building_type: string; people_count: string; floors: number; assessment_type: string; notes?: string; detectors?: string };
@@ -39,7 +41,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   const isEmergencyLightingService = (serviceName?.toLowerCase().includes("lighting") ?? false);
   const isFireSafetyConsultationService = (serviceName?.toLowerCase().includes("consultation") ?? false);
   const isFireMarshalTrainingService = ((serviceName?.toLowerCase().includes("marshal") || serviceName?.toLowerCase().includes("warden") || serviceName?.toLowerCase().includes("training")) ?? false);
-  const totalSteps = isFireAlarmService ? 8 : isFireExtinguisherService ? 6 : isEmergencyLightingService ? 6 : isFireSafetyConsultationService ? 4 : isFireMarshalTrainingService ? 6 : isFireRiskAssessmentService ? 6 : 5;
+  const totalSteps = isFireAlarmService ? 8 : isFireExtinguisherService ? 6 : isEmergencyLightingService ? 6 : isFireSafetyConsultationService ? 4 : isFireMarshalTrainingService ? 6 : isFireRiskAssessmentService ? 6 : 6;
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -82,7 +84,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     staffTrainingBefore: "",
     fraAssessmentType: "",
     assessmentDate: "",
-    accessNotes: ""
+    accessNotes: "",
+    durationId: ""
   });
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeResponse[]>([]);
   const [loadingPropertyTypes, setLoadingPropertyTypes] = useState<boolean>(true);
@@ -90,6 +93,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   const [loadingApproximatePeople, setLoadingApproximatePeople] = useState<boolean>(true);
   const [floorPricing, setFloorPricing] = useState<FloorPricingItem[]>([]);
   const [loadingFloorPricing, setLoadingFloorPricing] = useState<boolean>(true);
+  const [fraDurations, setFraDurations] = useState<FraDurationItem[]>([]);
+  const [loadingFraDurations, setLoadingFraDurations] = useState<boolean>(true);
   const [submittingCustomQuote, setSubmittingCustomQuote] = useState(false);
 
   const CUSTOM_PEOPLE_OPTION_VALUE = "More than 500 people";
@@ -175,8 +180,10 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       try {
         setLoadingApproximatePeople(true);
         const data = await fetchApproximatePeople();
-        // Sort by ID in ascending order (1, 2, 3, ...)
-        const sortedData = data.sort((a, b) => a.id - b.id);
+        // Sort by serial range: 1–10, 11–25, 26–50, 51–100, 100+, then More than 500
+        const sortedData = [...data].sort(
+          (a, b) => getPeopleOptionSortKey(a.number_of_people) - getPeopleOptionSortKey(b.number_of_people)
+        );
         setApproximatePeople(sortedData);
       } catch (err: any) {
         console.error("Error loading approximate people:", err);
@@ -204,6 +211,22 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       }
     };
     loadFloorPricing();
+  }, []);
+
+  useEffect(() => {
+    const loadFraDurations = async () => {
+      try {
+        setLoadingFraDurations(true);
+        const data = await fetchFraDurations();
+        setFraDurations(data);
+      } catch (err: any) {
+        console.error("Error loading FRA durations:", err);
+        setFraDurations([]);
+      } finally {
+        setLoadingFraDurations(false);
+      }
+    };
+    loadFraDurations();
   }, []);
 
   const updateFormData = (field: string, value: string) => {
@@ -343,10 +366,10 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     }
     if (isFireRiskAssessmentService) {
       switch (currentStep) {
-        case 1: return formData.fraAssessmentType !== "";
-        case 2: return formData.propertyTypeId === "__custom__" ? formData.customPropertyType.trim() !== "" : formData.propertyTypeId !== "";
-        case 3: return formData.approximatePeopleId !== "";
-        case 4: return formData.numberOfFloors === "7+" ? formData.customFloorsCount.trim() !== "" : formData.numberOfFloors !== "";
+        case 1: return formData.propertyTypeId === "__custom__" ? formData.customPropertyType.trim() !== "" : formData.propertyTypeId !== "";
+        case 2: return formData.approximatePeopleId !== "";
+        case 3: return formData.numberOfFloors === "7+" ? formData.customFloorsCount.trim() !== "" : formData.numberOfFloors !== "";
+        case 4: return formData.durationId !== "";
         case 5: return formData.assessmentDate !== "";
         case 6: return true; // Access notes optional
         default: return false;
@@ -362,8 +385,10 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
         if (formData.numberOfFloors === "7+") return formData.customFloorsCount.trim() !== "";
         return formData.numberOfFloors !== "";
       case 4:
-        return formData.assessmentDate !== "";
+        return formData.durationId !== "";
       case 5:
+        return formData.assessmentDate !== "";
+      case 6:
         return true; // Access notes optional
       default:
         return false;
@@ -514,13 +539,20 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
             : isFireMarshalTrainingService
               ? "1"
               : (floorsDisplay || formData.numberOfFloors);
+    const selectedFloorOption = floorOptions.find((o) => o.floor === formData.numberOfFloors);
+    const number_of_floors_id = selectedFloorOption?.id;
+
+    const durationIdNum = formData.durationId ? parseInt(formData.durationId, 10) : undefined;
+    const hasDurationStep = isFireRiskAssessmentService || (!isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService);
 
     onComplete({
       property_type_id: propertyTypeId,
       approximate_people_id: approximatePeopleIdResolved,
       number_of_floors,
+      ...(number_of_floors_id != null && { number_of_floors_id }),
       preferred_date: formData.assessmentDate,
       access_note: accessNote,
+      ...(hasDurationStep && durationIdNum != null && !isNaN(durationIdNum) && { duration_id: durationIdNum }),
       ...(isFireAlarmService && detectorDisplay && { detector_count: detectorDisplay }),
       ...(isFireExtinguisherService && extinguisherCountDisplay && { extinguisher_count: extinguisherCountDisplay }),
       ...(isEmergencyLightingService && emergencyLightsCountDisplay && { emergency_lights_count: emergencyLightsCountDisplay }),
@@ -572,8 +604,10 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       {/* Header */}
       <header className="bg-[#0A1A2F] text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <Flame className="w-8 h-8 text-red-500" />
-          <span className="text-xl">Fire Guide</span>
+          <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
+            <Flame className="w-8 h-8 text-red-500" />
+            <span className="text-xl">Fire Guide</span>
+          </a>
         </div>
       </header>
 
@@ -609,53 +643,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
 
           {/* Question Container */}
           <div className="bg-white border rounded-lg p-8 mb-8 min-h-[400px]">
-            {/* Step 1: Assessment type (Fire Risk Assessment) - Non-Intrusive vs Intrusive */}
-            {currentStep === 1 && isFireRiskAssessmentService && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-                    <HelpCircle className="w-8 h-8 text-red-600" />
-                  </div>
-                  <h2 className="text-[#0A1A2F]">Choose your Fire Risk Assessment type</h2>
-                </div>
-                <p className="text-gray-600 mb-4">The customer must pick one:</p>
-                <div className="space-y-4">
-                  <label
-                    className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-red-200 ${
-                      formData.fraAssessmentType === "Non-Intrusive Fire Risk Assessment" ? "border-green-500 bg-green-50" : "border-gray-200"
-                    }`}
-                    onClick={() => updateFormData("fraAssessmentType", "Non-Intrusive Fire Risk Assessment")}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-green-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Non-Intrusive Fire Risk Assessment</p>
-                      <ul className="list-disc list-inside text-gray-600 mt-1 space-y-0.5">
-                        <li>Visual inspection only</li>
-                        <li>No opening walls, ceilings, or floors</li>
-                      </ul>
-                    </div>
-                  </label>
-                  <label
-                    className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-red-200 ${
-                      formData.fraAssessmentType === "Intrusive Fire Risk Assessment" ? "border-red-500 bg-red-50" : "border-gray-200"
-                    }`}
-                    onClick={() => updateFormData("fraAssessmentType", "Intrusive Fire Risk Assessment")}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-red-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Intrusive Fire Risk Assessment</p>
-                      <ul className="list-disc list-inside text-gray-600 mt-1 space-y-0.5">
-                        <li>More detailed</li>
-                        <li>Includes opening up and sampling</li>
-                      </ul>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* Step 1: Property Type (generic flow only), Step 2 for Fire Risk Assessment */}
-            {((currentStep === 1 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService) || (currentStep === 2 && isFireRiskAssessmentService)) && (
+            {/* Step 1: Property Type (generic flow only), Step 1 for Fire Risk Assessment */}
+            {((currentStep === 1 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService) || (currentStep === 1 && isFireRiskAssessmentService)) && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
@@ -709,8 +698,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
               </div>
             )}
 
-            {/* Step 2: Number of People (generic flow only), Step 3 for Fire Risk Assessment */}
-            {((currentStep === 2 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService) || (currentStep === 3 && isFireRiskAssessmentService)) && (
+            {/* Step 2: Number of People (generic flow only), Step 2 for Fire Risk Assessment */}
+            {((currentStep === 2 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService) || (currentStep === 2 && isFireRiskAssessmentService)) && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
@@ -738,11 +727,11 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                         ) : null}
                         {approximatePeople.map((option) => (
                           <SelectItem key={option.id} value={option.number_of_people}>
-                            {option.number_of_people}
+                            {formatPeopleOptionLabel(option.number_of_people)}
                           </SelectItem>
                         ))}
                         <SelectItem value={CUSTOM_PEOPLE_OPTION_VALUE}>
-                          {CUSTOM_PEOPLE_OPTION_VALUE}
+                          {formatPeopleOptionLabel(CUSTOM_PEOPLE_OPTION_VALUE)}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1366,8 +1355,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
               </div>
             )}
 
-            {/* Step 3: Number of Floors (generic flow only), Step 4 for Fire Risk Assessment */}
-            {((currentStep === 3 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService) || (currentStep === 4 && isFireRiskAssessmentService)) && (
+            {/* Step 3: Number of Floors (generic flow only), Step 3 for Fire Risk Assessment */}
+            {((currentStep === 3 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService) || (currentStep === 3 && isFireRiskAssessmentService)) && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
@@ -1421,6 +1410,51 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     </div>
                   )}
                   <p className="text-sm text-gray-500">Include all levels, basements, and ground floor</p>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Preferred turnaround / duration (generic + FRA only) */}
+            {currentStep === 4 && (isFireRiskAssessmentService || (!isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService)) && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-red-600" />
+                  </div>
+                  <h2 className="text-[#0A1A2F]">When do you need it?</h2>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="durationId">Select preferred turnaround</Label>
+                  {loadingFraDurations ? (
+                    <div className="w-full p-3 border rounded-md bg-gray-50 text-gray-500 text-center">
+                      Loading options...
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.durationId}
+                      onValueChange={(value) => updateFormData("durationId", value)}
+                    >
+                      <SelectTrigger id="durationId" className="w-full">
+                        <span>
+                          {formData.durationId
+                            ? fraDurations.find((d) => String(d.id) === formData.durationId)?.duration ?? formData.durationId
+                            : "Choose turnaround time"}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fraDurations.length === 0 ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fraDurations.map((opt) => (
+                            <SelectItem key={opt.id} value={String(opt.id)}>
+                              {opt.duration}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-sm text-gray-500">e.g. Same / next day, 1–2 days, 3–6 days, 7+ days</p>
                 </div>
               </div>
             )}
@@ -1567,8 +1601,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
               </div>
             )}
 
-            {/* Step 7: Assessment Date (Fire Alarm), Step 5 (Fire Extinguisher / Emergency Lighting / Fire Marshal), Step 5 (Fire Risk Assessment), Step 3 (Consultation), Step 4 (generic) */}
-            {currentStep === (isFireAlarmService ? 7 : isFireExtinguisherService || isEmergencyLightingService || isFireMarshalTrainingService ? 5 : isFireRiskAssessmentService ? 5 : isFireSafetyConsultationService ? 3 : 4) && (
+            {/* Step 7: Assessment Date (Fire Alarm), Step 5 (Fire Extinguisher / Emergency Lighting / Fire Marshal), Step 5 (Fire Risk Assessment / generic with duration), Step 3 (Consultation) */}
+            {currentStep === (isFireAlarmService ? 7 : isFireExtinguisherService || isEmergencyLightingService || isFireMarshalTrainingService ? 5 : isFireRiskAssessmentService ? 5 : isFireSafetyConsultationService ? 3 : 5) && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
@@ -1591,8 +1625,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
               </div>
             )}
 
-            {/* Step 8: Access Notes (Fire Alarm), Step 6 (Fire Extinguisher / Emergency Lighting / Fire Marshal / Fire Risk Assessment), Step 4 (Consultation), Step 5 (generic) */}
-            {currentStep === (isFireAlarmService ? 8 : isFireExtinguisherService || isEmergencyLightingService || isFireMarshalTrainingService || isFireRiskAssessmentService ? 6 : isFireSafetyConsultationService ? 4 : 5) && (
+            {/* Step 8: Access Notes (Fire Alarm), Step 6 (Fire Extinguisher / Emergency Lighting / Fire Marshal), Step 6 (Fire Risk Assessment / generic), Step 4 (Consultation) */}
+            {currentStep === (isFireAlarmService ? 8 : isFireExtinguisherService || isEmergencyLightingService || isFireMarshalTrainingService ? 6 : isFireRiskAssessmentService ? 6 : isFireSafetyConsultationService ? 4 : 6) && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
@@ -1619,9 +1653,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
           <div className="flex justify-end gap-4">
             <Button
               onClick={handleBack}
-              disabled={currentStep === 1}
               variant="outline"
-              className="px-8 py-6 text-lg disabled:opacity-50"
+              className="px-8 py-6 text-lg"
             >
               <ChevronLeft className="w-5 h-5 mr-2" />
               Back

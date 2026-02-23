@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Mail, ArrowRight, Shield, Briefcase, CheckCircle, Calendar, TrendingUp, Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -314,9 +315,9 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
         {/* Header - Exact Same Structure as Home Page */}
         <header className="bg-transparent backdrop-blur-sm text-white py-4 px-6 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center cursor-pointer" onClick={onNavigateHome}>
+            <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
               <img src={logoImage} alt="Fire Guide" className="h-12" />
-            </div>
+            </Link>
             
             <nav className="hidden md:flex items-center gap-8">
               <button onClick={onNavigateHome} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">

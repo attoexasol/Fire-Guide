@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -342,9 +343,9 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
       {/* Header - Fully Transparent */}
       <header className="bg-transparent text-white py-3 md:py-4 px-4 md:px-6 sticky top-0 z-50 w-full">
         <div className="max-w-7xl mx-auto flex items-center justify-between w-full">
-          <div className="flex items-center cursor-pointer" onClick={onBack}>
+          <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
             <img src={logoImage} alt="Fire Guide" className="h-7 md:h-12 w-auto flex-shrink-0" />
-          </div>
+          </Link>
           
           <nav className="hidden md:flex items-center gap-8">
             <button onClick={onBack} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">

@@ -120,17 +120,36 @@ export const storeProfessionalBooking = async (
 };
 
 /**
+ * Request body for calculate price for booking
+ * POST /calculate-price/for-booking
+ */
+export interface CalculatePriceForBookingRequest {
+  professional_id: number;
+  /** From selected_services/store response (number or string depending on API) */
+  session_id: number | string;
+  service_id: number;
+}
+
+/**
  * Calculate price for booking (service + platform fee)
  * POST /calculate-price/for-booking
- * Body: { professional_id }
+ * Body: { professional_id, session_id, service_id }
+ * - professional_id: from selected professional
+ * - session_id: from selected_services/store response (auto-generated)
+ * - service_id: from flow when user selects service / clicks book
  */
 export const calculatePriceForBooking = async (
-  professionalId: number
+  data: CalculatePriceForBookingRequest
 ): Promise<CalculatePriceForBookingResponse> => {
   try {
+    const body: Record<string, number | string> = {
+      professional_id: data.professional_id,
+      session_id: data.session_id,
+      service_id: data.service_id,
+    };
     const response = await apiClient.post<CalculatePriceForBookingResponse>(
       '/calculate-price/for-booking',
-      { professional_id: professionalId }
+      body
     );
     return response.data;
   } catch (error) {

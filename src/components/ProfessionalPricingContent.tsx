@@ -1,568 +1,1589 @@
-import { useState, useEffect, startTransition } from "react";
-import { 
-  DollarSign, 
-  Info,
-  TrendingUp,
-  CheckCircle2,
-  Loader2,
-  AlertCircle
-} from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { fetchServices, ServiceResponse } from "../api/servicesService";
-import { getSelectedServices, SelectedServiceItem, storeServicePrices } from "../api/professionalsService";
-import { getApiToken, getProfessionalId } from "../lib/auth";
-import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Loader2 } from "lucide-react";
+import {
+  fetchPropertyTypes,
+  fetchApproximatePeople,
+  fetchFloorPricing,
+  fetchFraDurations,
+  fetchFireAlarmOptions,
+  FireAlarmOptionItem,
+  createProfessionalFireAlarmCallPointPrice,
+  createProfessionalFireAlarmFloorPrice,
+  createProfessionalFireAlarmLastServicePrice,
+  createProfessionalFireAlarmPanelPrice,
+  createProfessionalFireAlarmSmokeDetectorPrice,
+  createProfessionalFireAlarmSystemTypePrice,
+  getProfessionalFireAlarmBasePrice,
+  getProfessionalFireAlarmSinglePrices,
+  saveProfessionalFireAlarmBasePrice,
+  storeUpdateFraPrice,
+  getFraPriceProfessional,
+  saveFraPropertyTypePrice,
+  saveFraPeoplePrice,
+  saveFraFloorPrice,
+  saveFraDurationPrice,
+  PropertyTypeResponse,
+  ApproximatePeopleResponse,
+  formatPeopleOptionLabel,
+  getPeopleOptionSortKey,
+  FloorPricingItem,
+  FraDurationItem,
+} from "../api/servicesService";
+import { getProfessionalId, getApiToken } from "../lib/auth";
 
-interface ServicePrice {
-  id: number;
-  name: string;
-  description: string;
-  price: string;
-  suggested: string;
-  hasPricing: boolean; // Flag to indicate if pricing is set from API
-}
+const TAB_IDS = {
+  FRA_SERVICE: "fra-service",
+  FIRE_ALARM: "fire-alarm",
+  EXTINGUISHERS: "extinguishers",
+  EMERGENCY_LIGHTING: "emergency-lighting",
+  TRAINING: "training",
+  CONSULTANCY: "consultancy",
+} as const;
+
+
+
+const TAB_LABELS: Record<string, string> = {
+  [TAB_IDS.FRA_SERVICE]: "FRA Service",
+  [TAB_IDS.FIRE_ALARM]: "Fire Alarm",
+  [TAB_IDS.EXTINGUISHERS]: "Extinguishers",
+  [TAB_IDS.EMERGENCY_LIGHTING]: "Emergency Lighting",
+  [TAB_IDS.TRAINING]: "Training",
+  [TAB_IDS.CONSULTANCY]: "Consultancy",
+};
 
 export function ProfessionalPricingContent() {
-  const [services, setServices] = useState<ServicePrice[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingError, setLoadingError] = useState<string | null>(null);
-  const [validServiceIds, setValidServiceIds] = useState<Set<number>>(new Set()); // Store valid service IDs for this professional
+  const [activeTab, setActiveTab] = useState<string>(TAB_IDS.FRA_SERVICE);
+  const [loading, setLoading] = useState(false);
 
-  // Fetch services and pricing data on mount
+  // Fetched options (dynamically from GET APIs based on selected service)
+  const [propertyTypes, setPropertyTypes] = useState<PropertyTypeResponse[]>([]);
+  const [approximatePeople, setApproximatePeople] = useState<ApproximatePeopleResponse[]>([]);
+  const [floorOptions, setFloorOptions] = useState<FloorPricingItem[]>([]);
+  const [urgencyOptions, setUrgencyOptions] = useState<FraDurationItem[]>([]);
+
+  // Form state
+  const [propertyTypeId, setPropertyTypeId] = useState("");
+  const [propertyTypePrice, setPropertyTypePrice] = useState("");
+  const [approximatePeopleId, setApproximatePeopleId] = useState("");
+  const [approximatePeoplePrice, setApproximatePeoplePrice] = useState("");
+  const [floorValue, setFloorValue] = useState("");
+  const [numberOfFloorsPrice, setNumberOfFloorsPrice] = useState("");
+  const [urgencyId, setUrgencyId] = useState("");
+  const [urgencyPrice, setUrgencyPrice] = useState("");
+
+  /** Total price from API (total_price) — set when options change via POST /fra-price/store-update response */
+  const [estimatePrice, setEstimatePrice] = useState<string>("");
+
+  // Fire Alarm tab state (same layout as FRA, different field names)
+  const [fireAlarmBasePrice, setFireAlarmBasePrice] = useState("");
+  const [fireAlarmSmokeDetectorsValue, setFireAlarmSmokeDetectorsValue] = useState("");
+  const [fireAlarmSmokeDetectorsPrice, setFireAlarmSmokeDetectorsPrice] = useState("");
+  const [fireAlarmManualCallPointsValue, setFireAlarmManualCallPointsValue] = useState("");
+  const [fireAlarmManualCallPointsPrice, setFireAlarmManualCallPointsPrice] = useState("");
+  const [fireAlarmFloorValue, setFireAlarmFloorValue] = useState("");
+  const [fireAlarmFloorPrice, setFireAlarmFloorPrice] = useState("");
+  const [fireAlarmPanelsValue, setFireAlarmPanelsValue] = useState("");
+  const [fireAlarmPanelsPrice, setFireAlarmPanelsPrice] = useState("");
+  const [fireAlarmSystemTypeValue, setFireAlarmSystemTypeValue] = useState("");
+  const [fireAlarmSystemTypePrice, setFireAlarmSystemTypePrice] = useState("");
+  const [fireAlarmLastServiceValue, setFireAlarmLastServiceValue] = useState("");
+  const [fireAlarmLastServicePrice, setFireAlarmLastServicePrice] = useState("");
+  const [updatingFireAlarmPrice, setUpdatingFireAlarmPrice] = useState(false);
+  const [fireAlarmUpdateMessage, setFireAlarmUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Fire Alarm dropdown options from API (fire-alarm/get-alarm by type)
+  const [fireAlarmDetectorsOptions, setFireAlarmDetectorsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmCallPointsOptions, setFireAlarmCallPointsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmFloorsOptions, setFireAlarmFloorsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmPanelsOptions, setFireAlarmPanelsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmSystemTypeOptions, setFireAlarmSystemTypeOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmLastServiceOptions, setFireAlarmLastServiceOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [loadingFireAlarmOptions, setLoadingFireAlarmOptions] = useState(false);
+
+  const [updatingPrice, setUpdatingPrice] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [savingBasePrice, setSavingBasePrice] = useState(false);
+  const [savingPeoplePrice, setSavingPeoplePrice] = useState(false);
+  const [savingFloorPrice, setSavingFloorPrice] = useState(false);
+  const [savingDurationPrice, setSavingDurationPrice] = useState(false);
+  const [fetchingPrices, setFetchingPrices] = useState(false);
+
+  // Estimated Price = sum of the four price inputs; updates when any input changes (increase/decrease)
   useEffect(() => {
-    let isMounted = true;
+    const p1 = parseFloat(propertyTypePrice) || 0;
+    const p2 = parseFloat(approximatePeoplePrice) || 0;
+    const p3 = parseFloat(numberOfFloorsPrice) || 0;
+    const p4 = parseFloat(urgencyPrice) || 0;
+    const total = p1 + p2 + p3 + p4;
+    setEstimatePrice(total.toFixed(2));
+  }, [propertyTypePrice, approximatePeoplePrice, numberOfFloorsPrice, urgencyPrice]);
 
-    const loadServicesAndPricing = async () => {
-      try {
-        setLoading(true);
-        setLoadingError(null);
+  // Fire Alarm estimated price = base + 6 addon prices
+  const fireAlarmEstimatePrice = (
+    (parseFloat(fireAlarmBasePrice) || 0) +
+    (parseFloat(fireAlarmSmokeDetectorsPrice) || 0) +
+    (parseFloat(fireAlarmManualCallPointsPrice) || 0) +
+    (parseFloat(fireAlarmFloorPrice) || 0) +
+    (parseFloat(fireAlarmPanelsPrice) || 0) +
+    (parseFloat(fireAlarmSystemTypePrice) || 0) +
+    (parseFloat(fireAlarmLastServicePrice) || 0)
+  ).toFixed(2);
 
-        // Fetch all available services
-        const allServices = await fetchServices();
-        
-        if (!isMounted) return;
+  // When any option is selected, call POST /fra-price/professional and fill price inputs from response (no other logic changed)
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
 
-        // Filter only ACTIVE services
-        const activeServices = allServices.filter(service => service.status === "ACTIVE");
+    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
+    const peopleOption = approximatePeople.find((a) => a.number_of_people === approximatePeopleId);
+    const floorOption = floorOptions.find((f) => f.floor === floorValue);
+    const property_type_id = propertyType?.id;
+    const people_id = peopleOption?.id;
+    const floor_id = floorOption?.id ?? (floorOption?.floor ? parseInt(floorOption.floor, 10) : undefined);
+    const duration_id = urgencyId ? parseInt(urgencyId, 10) : NaN;
+    const duration_id_ok = !Number.isNaN(duration_id) ? duration_id : undefined;
+    const hasAny = property_type_id != null || people_id != null || floor_id != null || duration_id_ok != null;
+    if (!hasAny) return;
 
-        // Get professional_id to fetch pricing
-        const professionalId = getProfessionalId();
-        
-        // If professional_id doesn't exist, keep UI blank
-        // Professional must complete professional/create process before pricing data is displayed
-        if (!professionalId || isNaN(professionalId)) {
-          // No professional_id - keep services array empty (blank UI)
-          if (isMounted) {
-            startTransition(() => {
-              setServices([]);
-              setLoading(false);
-            });
-          }
-          return;
+    let cancelled = false;
+    setFetchingPrices(true);
+    getFraPriceProfessional({
+      api_token,
+      property_type_id: property_type_id ?? undefined,
+      people_id: people_id ?? undefined,
+      floor_id: floor_id ?? undefined,
+      duration_id: duration_id_ok,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const d = res.data as Record<string, unknown> | unknown[];
+        if (d && typeof d === "object" && !Array.isArray(d) && "property_type" in d) {
+          const data = d as {
+            property_type?: { price?: string } | null;
+            people?: { price?: string } | null;
+            floor?: { price?: string } | null;
+            duration?: { price?: string } | null;
+            total_price?: number | null;
+          };
+          // When API returns null for a section, show 0 so UI reflects response instead of keeping previous value
+          setPropertyTypePrice(data.property_type?.price != null ? String(data.property_type.price) : "0");
+          setApproximatePeoplePrice(data.people?.price != null ? String(data.people.price) : "0");
+          setNumberOfFloorsPrice(data.floor?.price != null ? String(data.floor.price) : "0");
+          setUrgencyPrice(data.duration?.price != null ? String(data.duration.price) : "0");
+          // Total is derived from sum of the four inputs (see effect below)
+        } else if (Array.isArray(d) && d.length > 0) {
+          const item = d[0] as {
+            property_type?: { property_type_price?: string };
+            people?: Array<{ id: number; people_price: string }>;
+            floors?: Array<{ id: number; floor_price: string }>;
+            durations?: Array<{ id: number; duration_price: string }>;
+          };
+          if (item.property_type?.property_type_price != null) setPropertyTypePrice(item.property_type.property_type_price);
+          const peopleMatch = people_id != null ? item.people?.find((p) => p.id === people_id) : item.people?.[0];
+          if (peopleMatch?.people_price != null) setApproximatePeoplePrice(peopleMatch.people_price);
+          const floorMatch = floor_id != null ? item.floors?.find((f) => f.id === floor_id) : item.floors?.[0];
+          if (floorMatch?.floor_price != null) setNumberOfFloorsPrice(floorMatch.floor_price);
+          const durationMatch = duration_id_ok != null && item.durations?.length ? item.durations.find((x) => x.id === duration_id_ok) : null;
+          if (durationMatch?.duration_price != null) setUrgencyPrice(durationMatch.duration_price);
         }
-
-        // professional_id exists - fetch pricing data
-        const token = getApiToken();
-        const pricingResponse = await getSelectedServices({
-          professional_id: professionalId,
-          api_token: token || undefined
-        });
-
-        if (!isMounted) return;
-
-        if (pricingResponse.status === true && pricingResponse.data && Array.isArray(pricingResponse.data)) {
-          // Create a map of service_id -> pricing data for quick lookup
-          // API returns service ID nested in service.id, not at top level service_id
-          const pricingMap = new Map<number, SelectedServiceItem>();
-          const validIds = new Set<number>();
-          pricingResponse.data.forEach((item) => {
-            // Use service.id from nested object if service_id doesn't exist at top level
-            // API response structure: { ..., "service": { "id": 34, "service_name": "...", ... } }
-            // In the API response, service_id may not exist - use nested service.id instead
-            const serviceId = item.service_id ?? item.service?.id;
-            if (serviceId && !isNaN(serviceId) && serviceId > 0) {
-              pricingMap.set(serviceId, item);
-              validIds.add(serviceId); // Track valid service IDs for this professional
-            }
-          });
-          
-          // Store valid service IDs to filter when saving
-          if (isMounted) {
-            setValidServiceIds(validIds);
-          }
-          
-          console.log('Pricing Map Created:', Array.from(pricingMap.entries()).map(([id, item]) => ({
-            serviceId: id,
-            price: item.price,
-            serviceName: item.service?.service_name
-          })));
-
-          // Map services to include pricing data
-          const servicesWithPricing: ServicePrice[] = activeServices.map((service) => {
-            const pricingData = pricingMap.get(service.id);
-            
-            // Extract price value directly from API response
-            // API returns price as string like "800", "250", "300" (or null if not set)
-            // Ensure priceValue is always a string (never null/undefined)
-            let priceValue: string = "";
-            
-            if (pricingData) {
-              // Get the raw price value from API response
-              // API returns price as string like "800", "250", "300" (or null if not set)
-              const rawPrice = pricingData.price;
-              
-              // Extract and use the price value directly from API
-              // The price field is a string value (e.g., "price": "800")
-              // Handle null, undefined, or empty string cases
-              if (rawPrice !== null && rawPrice !== undefined && rawPrice !== "") {
-                // Convert to string explicitly to ensure consistent handling
-                // API returns as string (e.g., "800"), but handle edge cases
-                const priceStr = String(rawPrice).trim();
-                
-                // Use the value if it's a valid non-empty numeric string
-                // This correctly extracts "800", "250", "300", etc. from the API
-                if (priceStr.length > 0 && priceStr !== "null" && priceStr !== "undefined" && !isNaN(parseFloat(priceStr))) {
-                  priceValue = priceStr;
-                }
-              }
-            }
-            
-            // Check if pricing is set (has a valid non-empty price value)
-            // If priceValue is extracted from API (e.g., "800"), hasPricing will be true
-            const hasPricing = priceValue !== "" && parseInt(priceValue) > 0;
-            
-            // Calculate suggested range from service base price if available
-            let suggestedRange = "£100-300";
-            if (service.price) {
-              const basePrice = parseInt(service.price);
-              if (!isNaN(basePrice) && basePrice > 0) {
-                const min = Math.max(50, basePrice - 50);
-                const max = basePrice + 100;
-                suggestedRange = `£${min}-${max}`;
-              }
-            }
-            
-            // Ensure price is always a string (never null/undefined)
-            const finalPrice: string = priceValue || "";
-            
-            return {
-              id: service.id,
-              name: service.service_name,
-              description: service.description || "",
-              price: finalPrice, // This will be the price from API (e.g., "250", "300") or empty string ""
-              suggested: suggestedRange,
-              hasPricing: hasPricing
-            };
-          });
-
-          startTransition(() => {
-            if (isMounted) {
-              setServices(servicesWithPricing);
-            }
-          });
-        } else {
-          // No pricing data, just show all services without pricing
-          const servicesWithoutPricing: ServicePrice[] = activeServices.map((service) => {
-            let suggestedRange = "£100-300";
-            if (service.price) {
-              const basePrice = parseInt(service.price);
-              if (!isNaN(basePrice)) {
-                const min = Math.max(50, basePrice - 50);
-                const max = basePrice + 100;
-                suggestedRange = `£${min}-${max}`;
-              }
-            }
-            
-            return {
-              id: service.id,
-              name: service.service_name,
-              description: service.description || "",
-              price: "",
-              suggested: suggestedRange,
-              hasPricing: false
-            };
-          });
-
-          startTransition(() => {
-            if (isMounted) {
-              setServices(servicesWithoutPricing);
-            }
-          });
-        }
-      } catch (error: any) {
-        console.error("Error loading services and pricing:", error);
-        if (isMounted) {
-          setLoadingError("Failed to load services and pricing. Please try again later.");
-        }
-      } finally {
-        if (isMounted) {
-          startTransition(() => {
-            setLoading(false);
-          });
-        }
-      }
-    };
-
-    loadServicesAndPricing();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const updatePrice = (id: number, value: string) => {
-    // Only allow numbers
-    if (value && !/^\d*$/.test(value)) return;
-    
-    setServices(services.map(service => 
-      service.id === id ? { ...service, price: value, hasPricing: !!value && parseInt(value) > 0 } : service
-    ));
-  };
-
-  const handleSave = async () => {
-    // Get services with valid prices (price > 0) AND valid service_ids for this professional
-    // Only send service_ids that belong to this professional (from getSelectedServices)
-    const servicesWithPrices = services
-      .filter(service => 
-        service.price && 
-        parseInt(service.price) > 0 && 
-        validServiceIds.has(service.id) // Only include services that are valid for this professional
-      )
-      .map(service => ({
-        service_id: service.id,
-        price: parseInt(service.price) // Convert to number as API expects
-      }));
-
-    if (servicesWithPrices.length === 0) {
-      toast.error("Please set at least one service price before saving.");
-      return;
-    }
-
-    // Get API token
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Authentication required. Please log in again.");
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Call the API to store service prices
-      const response = await storeServicePrices({
-        api_token: token,
-        services: servicesWithPrices
+      })
+      .catch(() => {
+        if (!cancelled) return;
+      })
+      .finally(() => {
+        if (!cancelled) setFetchingPrices(false);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    propertyTypeId,
+    approximatePeopleId,
+    floorValue,
+    urgencyId,
+    propertyTypes,
+    approximatePeople,
+    floorOptions,
+  ]);
 
-      if (response.status === true || response.success || (response.message && !response.error)) {
-        toast.success(response.message || "Service prices saved successfully!");
-        
-        // Refresh pricing data to get updated values from API
-        const professionalId = getProfessionalId();
-        if (professionalId && !isNaN(professionalId)) {
-          const pricingResponse = await getSelectedServices({
-            professional_id: professionalId,
-            api_token: token || undefined
-          });
-
-          if (pricingResponse.status === true && pricingResponse.data && Array.isArray(pricingResponse.data)) {
-            // Create a map of service_id -> pricing data for quick lookup
-            const pricingMap = new Map<number, SelectedServiceItem>();
-            pricingResponse.data.forEach((item) => {
-              const serviceId = item.service_id ?? item.service?.id;
-              if (serviceId && !isNaN(serviceId) && serviceId > 0) {
-                pricingMap.set(serviceId, item);
-              }
-            });
-
-            // Refresh the services state with updated pricing data
-            const allServices = await fetchServices();
-            const activeServices = allServices.filter(service => service.status === "ACTIVE");
-
-            const updatedServices: ServicePrice[] = activeServices.map((service) => {
-              const pricingData = pricingMap.get(service.id);
-              
-              let priceValue: string = "";
-              
-              if (pricingData) {
-                const rawPrice = pricingData.price;
-                if (rawPrice !== null && rawPrice !== undefined && rawPrice !== "") {
-                  const priceStr = String(rawPrice).trim();
-                  if (priceStr.length > 0 && priceStr !== "null" && priceStr !== "undefined" && !isNaN(parseFloat(priceStr))) {
-                    priceValue = priceStr;
-                  }
-                }
-              }
-              
-              const hasPricing = priceValue !== "" && parseInt(priceValue) > 0;
-              
-              let suggestedRange = "£100-300";
-              if (service.price) {
-                const basePrice = parseInt(service.price);
-                if (!isNaN(basePrice) && basePrice > 0) {
-                  const min = Math.max(50, basePrice - 50);
-                  const max = basePrice + 100;
-                  suggestedRange = `£${min}-${max}`;
-                }
-              }
-              
-              return {
-                id: service.id,
-                name: service.service_name,
-                description: service.description || "",
-                price: priceValue || "",
-                suggested: suggestedRange,
-                hasPricing: hasPricing
-              };
-            });
-
-            startTransition(() => {
-              setServices(updatedServices);
-            });
-          }
-        }
-      } else {
-        toast.error(response.message || response.error || "Failed to save service prices. Please try again.");
-      }
-    } catch (error: any) {
-      console.error("Error saving service prices:", error);
-      const errorMessage = error?.message || error?.error || "An error occurred while saving service prices. Please try again.";
-      toast.error(errorMessage);
+  // Save base price for selected property type (POST /professional/fra-property-type) — user-friendly: on blur of Base Price field
+  const handleSaveBasePrice = async () => {
+    const api_token = getApiToken();
+    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
+    const priceNum = parseFloat(propertyTypePrice);
+    if (!api_token) {
+      setUpdateMessage({ type: "error", text: "Please log in to save the base price." });
+      return;
+    }
+    if (!propertyType) {
+      setUpdateMessage({ type: "error", text: "Please select a property type." });
+      return;
+    }
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      setUpdateMessage({ type: "error", text: "Please enter a valid base price." });
+      return;
+    }
+    setSavingBasePrice(true);
+    setUpdateMessage(null);
+    try {
+      await saveFraPropertyTypePrice({
+        api_token,
+        property_type_id: propertyType.id,
+        price: priceNum,
+      });
+      setUpdateMessage({ type: "success", text: "Base price saved." });
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to save base price. Please try again.";
+      setUpdateMessage({ type: "error", text: message });
     } finally {
-      setIsSaving(false);
+      setSavingBasePrice(false);
     }
   };
 
-  const isFormValid = services.every(service => service.price && parseInt(service.price) > 0);
-  const totalServices = services.filter(s => s.price && parseInt(s.price) > 0).length;
-  const averagePrice = services.reduce((sum, s) => sum + (parseInt(s.price) || 0), 0) / services.length;
+  // Save people price (POST /professional/fra-people) — on blur of Approximate People price field
+  const handleSavePeoplePrice = async () => {
+    const api_token = getApiToken();
+    const peopleOption = approximatePeople.find((a) => a.number_of_people === approximatePeopleId);
+    const priceNum = parseFloat(approximatePeoplePrice);
+    if (!api_token) {
+      setUpdateMessage({ type: "error", text: "Please log in to save the people price." });
+      return;
+    }
+    if (!peopleOption) {
+      setUpdateMessage({ type: "error", text: "Please select approximate people." });
+      return;
+    }
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      setUpdateMessage({ type: "error", text: "Please enter a valid price." });
+      return;
+    }
+    setSavingPeoplePrice(true);
+    setUpdateMessage(null);
+    try {
+      await saveFraPeoplePrice({
+        api_token,
+        people_id: peopleOption.id,
+        price: priceNum,
+      });
+      setUpdateMessage({ type: "success", text: "People price saved." });
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to save people price. Please try again.";
+      setUpdateMessage({ type: "error", text: message });
+    } finally {
+      setSavingPeoplePrice(false);
+    }
+  };
+
+  // Save floor price (POST /professional-fra-floor) — on blur of Number of Floors price field
+  const handleSaveFloorPrice = async () => {
+    const api_token = getApiToken();
+    const floorOption = floorOptions.find((f) => f.floor === floorValue);
+    const priceNum = parseFloat(numberOfFloorsPrice);
+    if (!api_token) {
+      setUpdateMessage({ type: "error", text: "Please log in to save the floor price." });
+      return;
+    }
+    if (!floorOption) {
+      setUpdateMessage({ type: "error", text: "Please select number of floors." });
+      return;
+    }
+    const floorId = floorOption.id ?? (floorOption.floor ? parseInt(floorOption.floor, 10) : NaN);
+    if (Number.isNaN(floorId)) {
+      setUpdateMessage({ type: "error", text: "Invalid floor option. Please refresh and try again." });
+      return;
+    }
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      setUpdateMessage({ type: "error", text: "Please enter a valid price." });
+      return;
+    }
+    setSavingFloorPrice(true);
+    setUpdateMessage(null);
+    try {
+      await saveFraFloorPrice({
+        api_token,
+        floor_id: floorId,
+        price: priceNum,
+      });
+      setUpdateMessage({ type: "success", text: "Floor price saved." });
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to save floor price. Please try again.";
+      setUpdateMessage({ type: "error", text: message });
+    } finally {
+      setSavingFloorPrice(false);
+    }
+  };
+
+  // Save duration/urgency price (POST /professional-fra-duration) — on blur of Select Urgency price field
+  const handleSaveDurationPrice = async () => {
+    const api_token = getApiToken();
+    const durationId = urgencyId ? parseInt(urgencyId, 10) : NaN;
+    const priceNum = parseFloat(urgencyPrice);
+    if (!api_token) {
+      setUpdateMessage({ type: "error", text: "Please log in to save the duration price." });
+      return;
+    }
+    if (!urgencyId || Number.isNaN(durationId)) {
+      setUpdateMessage({ type: "error", text: "Please select urgency." });
+      return;
+    }
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      setUpdateMessage({ type: "error", text: "Please enter a valid price." });
+      return;
+    }
+    setSavingDurationPrice(true);
+    setUpdateMessage(null);
+    try {
+      await saveFraDurationPrice({
+        api_token,
+        duration_id: durationId,
+        price: priceNum,
+      });
+      setUpdateMessage({ type: "success", text: "Duration price saved." });
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to save duration price. Please try again.";
+      setUpdateMessage({ type: "error", text: message });
+    } finally {
+      setSavingDurationPrice(false);
+    }
+  };
+
+  // Fetch Property Type, Approximate People, Number of Floors from GET APIs when FRA Service tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE) return;
+
+    const fetchOptions = async () => {
+      setLoading(true);
+      try {
+        const [propTypes, people, floors, durations] = await Promise.all([
+          fetchPropertyTypes(),
+          fetchApproximatePeople(),
+          fetchFloorPricing(),
+          fetchFraDurations(),
+        ]);
+        const pt = Array.isArray(propTypes) ? propTypes : [];
+        const ap = Array.isArray(people) ? people : [];
+        const fp = Array.isArray(floors) ? floors : [];
+        const durationsList = Array.isArray(durations) ? durations : [];
+        setPropertyTypes(pt);
+        setApproximatePeople(ap);
+        setUrgencyOptions(durationsList);
+        // Deduplicate by id when present so all API floor records display; otherwise by label
+        const seen = new Set<string | number>();
+        const uniqueFloors = fp.filter((item) => {
+          const key = item.id != null ? item.id : (item.label || item.floor);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setFloorOptions(uniqueFloors);
+        if (pt.length > 0) setPropertyTypeId(pt[0].property_type_name);
+        if (ap.length > 0) setApproximatePeopleId(ap[0].number_of_people);
+        if (uniqueFloors.length > 0) setFloorValue(uniqueFloors[0].floor);
+        if (durationsList.length > 0) setUrgencyId(String(durationsList[0].id));
+      } catch (err) {
+        console.error("Failed to fetch pricing options:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOptions();
+  }, [activeTab]);
+
+  // Fetch Fire Alarm dropdown options when Fire Alarm tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FIRE_ALARM) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      setLoadingFireAlarmOptions(true);
+      try {
+        const [detectors, callPoints, floors, panels, systemType, lastService, basePriceRes] = await Promise.all([
+          fetchFireAlarmOptions(api_token, "ditectors"),
+          fetchFireAlarmOptions(api_token, "call_points"),
+          fetchFireAlarmOptions(api_token, "floors"),
+          fetchFireAlarmOptions(api_token, "alarm_panels"),
+          fetchFireAlarmOptions(api_token, "system_type"),
+          fetchFireAlarmOptions(api_token, "last_service"),
+          getProfessionalFireAlarmBasePrice(api_token),
+        ]);
+        const detectorsList = Array.isArray(detectors) ? detectors : [];
+        const callPointsList = Array.isArray(callPoints) ? callPoints : [];
+        const floorsList = Array.isArray(floors) ? floors : [];
+        const panelsList = Array.isArray(panels) ? panels : [];
+        const systemTypeList = Array.isArray(systemType) ? systemType : [];
+        const lastServiceList = Array.isArray(lastService) ? lastService : [];
+
+        setFireAlarmDetectorsOptions(detectorsList);
+        setFireAlarmCallPointsOptions(callPointsList);
+        setFireAlarmFloorsOptions(floorsList);
+        setFireAlarmPanelsOptions(panelsList);
+        setFireAlarmSystemTypeOptions(systemTypeList);
+        setFireAlarmLastServiceOptions(lastServiceList);
+
+        if (basePriceRes?.status && basePriceRes?.data?.price != null) {
+          const p = String(basePriceRes.data.price).trim();
+          if (p !== "") setFireAlarmBasePrice(p);
+        }
+
+        const firstVal = (item: { value?: string; id?: number } | undefined) =>
+          item ? (String(item.value ?? "").trim() || String(item.id ?? "")) : "";
+
+        setFireAlarmSmokeDetectorsValue((prev) => prev || firstVal(detectorsList[0]));
+        setFireAlarmManualCallPointsValue((prev) => prev || firstVal(callPointsList[0]));
+        setFireAlarmFloorValue((prev) => prev || firstVal(floorsList[0]));
+        setFireAlarmPanelsValue((prev) => prev || firstVal(panelsList[0]));
+        setFireAlarmSystemTypeValue((prev) => prev || firstVal(systemTypeList[0]));
+        setFireAlarmLastServiceValue((prev) => prev || firstVal(lastServiceList[0]));
+      } catch (err) {
+        console.error("Failed to fetch Fire Alarm options:", err);
+      } finally {
+        setLoadingFireAlarmOptions(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // When Fire Alarm selections change, fetch prices for the selected IDs and display them
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FIRE_ALARM || loadingFireAlarmOptions) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const findId = (val: string, opts: FireAlarmOptionItem[]) => {
+      const v = (val ?? "").trim();
+      if (!v || v === "no-data") return 0;
+      const opt = opts.find((o) => (String(o.value ?? "").trim() || String(o.id)) === v);
+      return opt?.id ?? 0;
+    };
+
+    const smoke_detectors_id = findId(fireAlarmSmokeDetectorsValue, fireAlarmDetectorsOptions);
+    const call_point_id = findId(fireAlarmManualCallPointsValue, fireAlarmCallPointsOptions);
+    const floor_id = findId(fireAlarmFloorValue, fireAlarmFloorsOptions);
+    const panel_id = findId(fireAlarmPanelsValue, fireAlarmPanelsOptions);
+    const system_type_id = findId(fireAlarmSystemTypeValue, fireAlarmSystemTypeOptions);
+    const last_service_id = findId(fireAlarmLastServiceValue, fireAlarmLastServiceOptions);
+
+    if (!smoke_detectors_id && !call_point_id && !floor_id && !panel_id && !system_type_id && !last_service_id) {
+      return;
+    }
+
+    const fetchPrices = async () => {
+      try {
+        const res = await getProfessionalFireAlarmSinglePrices(api_token, {
+          smoke_detectors_id: smoke_detectors_id || 0,
+          call_point_id: call_point_id || 0,
+          floor_id: floor_id || 0,
+          panel_id: panel_id || 0,
+          system_type_id: system_type_id || 0,
+          last_service_id: last_service_id || 0,
+        });
+        if (!res?.status || !res.data) return;
+        const d = res.data;
+        const priceStr = (v: string | null | undefined) =>
+          v != null && String(v).trim() !== "" ? String(v).trim() : "0.00";
+        setFireAlarmSmokeDetectorsPrice(priceStr(d.smoke_detector?.price));
+        setFireAlarmManualCallPointsPrice(priceStr(d.call_point?.price));
+        setFireAlarmFloorPrice(priceStr(d.floor?.price));
+        setFireAlarmPanelsPrice(priceStr(d.panel?.price));
+        setFireAlarmSystemTypePrice(priceStr(d.system_type?.price));
+        setFireAlarmLastServicePrice(priceStr(d.last_service?.price));
+      } catch (err) {
+        console.error("Failed to fetch Fire Alarm single prices:", err);
+      }
+    };
+
+    fetchPrices();
+  }, [
+    activeTab,
+    loadingFireAlarmOptions,
+    fireAlarmSmokeDetectorsValue,
+    fireAlarmManualCallPointsValue,
+    fireAlarmFloorValue,
+    fireAlarmPanelsValue,
+    fireAlarmSystemTypeValue,
+    fireAlarmLastServiceValue,
+    fireAlarmDetectorsOptions,
+    fireAlarmCallPointsOptions,
+    fireAlarmFloorsOptions,
+    fireAlarmPanelsOptions,
+    fireAlarmSystemTypeOptions,
+    fireAlarmLastServiceOptions,
+  ]);
+
+  const handleUpdatePrice = async () => {
+    const professionalId = getProfessionalId();
+    if (!professionalId) {
+      setUpdateMessage({ type: "error", text: "You must be logged in as a professional to update pricing." });
+      return;
+    }
+
+    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
+    const peopleOption = approximatePeople.find((a) => a.number_of_people === approximatePeopleId);
+    const floorOption = floorOptions.find((f) => f.floor === floorValue);
+
+    if (!propertyType) {
+      setUpdateMessage({ type: "error", text: "Please select a property type." });
+      return;
+    }
+    if (!peopleOption) {
+      setUpdateMessage({ type: "error", text: "Please select approximate people." });
+      return;
+    }
+    if (!floorOption) {
+      setUpdateMessage({ type: "error", text: "Please select number of floors." });
+      return;
+    }
+    if (!urgencyId) {
+      setUpdateMessage({ type: "error", text: "Please select urgency." });
+      return;
+    }
+
+    const floorId = floorOption.id ?? (floorOption.floor ? parseInt(floorOption.floor, 10) : NaN);
+    if (Number.isNaN(floorId)) {
+      setUpdateMessage({ type: "error", text: "Invalid floor option. Please refresh and try again." });
+      return;
+    }
+    const durationId = parseInt(urgencyId, 10);
+    if (Number.isNaN(durationId)) {
+      setUpdateMessage({ type: "error", text: "Invalid urgency. Please refresh and try again." });
+      return;
+    }
+
+    const propertyTypePriceNum = parseFloat(propertyTypePrice) || 0;
+    const peoplePriceNum = parseFloat(approximatePeoplePrice) || 0;
+    const floorPriceNum = parseFloat(numberOfFloorsPrice) || 0;
+    const durationPriceNum = parseFloat(urgencyPrice) || 0;
+
+    setUpdateMessage(null);
+    setUpdatingPrice(true);
+    try {
+      const response = await storeUpdateFraPrice({
+        professional_id: professionalId,
+        property_type_id: propertyType.id,
+        people_id: peopleOption.id,
+        floor_id: floorId,
+        duration_id: durationId,
+        property_type_price: propertyTypePriceNum,
+        people_price: peoplePriceNum,
+        floor_price: floorPriceNum,
+        duration_price: durationPriceNum,
+      });
+      if (response.status && response.message) {
+        setUpdateMessage({ type: "success", text: response.message });
+      } else {
+        setUpdateMessage({ type: "success", text: "Price updated successfully." });
+      }
+      // Total stays as sum of the four inputs (no refresh)
+      // Keep current input values visible after update (do not refresh/clear)
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to update price. Please try again.";
+      setUpdateMessage({ type: "error", text: message });
+    } finally {
+      setUpdatingPrice(false);
+    }
+  };
+
+  const handleUpdateFireAlarmPrice = async () => {
+    const api_token = getApiToken();
+    if (!api_token) {
+      setFireAlarmUpdateMessage({ type: "error", text: "You must be logged in to update pricing." });
+      return;
+    }
+    const priceNum = parseFloat(fireAlarmBasePrice) || 0;
+    if (priceNum < 0) {
+      setFireAlarmUpdateMessage({ type: "error", text: "Please enter a valid base price." });
+      return;
+    }
+    setFireAlarmUpdateMessage(null);
+    setUpdatingFireAlarmPrice(true);
+    try {
+      await saveProfessionalFireAlarmBasePrice(api_token, priceNum);
+
+      const selectedDetectorVal = (fireAlarmSmokeDetectorsValue ?? "").trim();
+      if (selectedDetectorVal && selectedDetectorVal !== "no-data") {
+        const selectedOpt = fireAlarmDetectorsOptions.find(
+          (opt) => (String(opt.value ?? "").trim() || String(opt.id)) === selectedDetectorVal
+        );
+        if (selectedOpt != null) {
+          const detectorPrice = parseFloat(fireAlarmSmokeDetectorsPrice) || 0;
+          await createProfessionalFireAlarmSmokeDetectorPrice(
+            api_token,
+            selectedOpt.id,
+            detectorPrice
+          );
+        }
+      }
+
+      const selectedCallPointVal = (fireAlarmManualCallPointsValue ?? "").trim();
+      if (selectedCallPointVal && selectedCallPointVal !== "no-data") {
+        const selectedCallPoint = fireAlarmCallPointsOptions.find(
+          (opt) => (String(opt.value ?? "").trim() || String(opt.id)) === selectedCallPointVal
+        );
+        if (selectedCallPoint != null) {
+          const callPointPrice = parseFloat(fireAlarmManualCallPointsPrice) || 0;
+          await createProfessionalFireAlarmCallPointPrice(
+            api_token,
+            selectedCallPoint.id,
+            callPointPrice
+          );
+        }
+      }
+
+      const selectedFloorVal = (fireAlarmFloorValue ?? "").trim();
+      if (selectedFloorVal && selectedFloorVal !== "no-data") {
+        const selectedFloor = fireAlarmFloorsOptions.find(
+          (opt) => (String(opt.value ?? "").trim() || String(opt.id)) === selectedFloorVal
+        );
+        if (selectedFloor != null) {
+          const floorPrice = parseFloat(fireAlarmFloorPrice) || 0;
+          await createProfessionalFireAlarmFloorPrice(
+            api_token,
+            selectedFloor.id,
+            floorPrice
+          );
+        }
+      }
+
+      const selectedPanelVal = (fireAlarmPanelsValue ?? "").trim();
+      if (selectedPanelVal && selectedPanelVal !== "no-data") {
+        const selectedPanel = fireAlarmPanelsOptions.find(
+          (opt) => (String(opt.value ?? "").trim() || String(opt.id)) === selectedPanelVal
+        );
+        if (selectedPanel != null) {
+          const panelPrice = parseFloat(fireAlarmPanelsPrice) || 0;
+          await createProfessionalFireAlarmPanelPrice(
+            api_token,
+            selectedPanel.id,
+            panelPrice
+          );
+        }
+      }
+
+      const selectedSystemTypeVal = (fireAlarmSystemTypeValue ?? "").trim();
+      if (selectedSystemTypeVal && selectedSystemTypeVal !== "no-data") {
+        const selectedSystemType = fireAlarmSystemTypeOptions.find(
+          (opt) => (String(opt.value ?? "").trim() || String(opt.id)) === selectedSystemTypeVal
+        );
+        if (selectedSystemType != null) {
+          const systemTypePrice = parseFloat(fireAlarmSystemTypePrice) || 0;
+          await createProfessionalFireAlarmSystemTypePrice(
+            api_token,
+            selectedSystemType.id,
+            systemTypePrice
+          );
+        }
+      }
+
+      const selectedLastServiceVal = (fireAlarmLastServiceValue ?? "").trim();
+      if (selectedLastServiceVal && selectedLastServiceVal !== "no-data") {
+        const selectedLastService = fireAlarmLastServiceOptions.find(
+          (opt) => (String(opt.value ?? "").trim() || String(opt.id)) === selectedLastServiceVal
+        );
+        if (selectedLastService != null) {
+          const lastServicePrice = parseFloat(fireAlarmLastServicePrice) || 0;
+          await createProfessionalFireAlarmLastServicePrice(
+            api_token,
+            selectedLastService.id,
+            lastServicePrice
+          );
+        }
+      }
+
+      setFireAlarmUpdateMessage({
+        type: "success",
+        text: "Price updated successfully.",
+      });
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to update price. Please try again.";
+      setFireAlarmUpdateMessage({ type: "error", text: message });
+    } finally {
+      setUpdatingFireAlarmPrice(false);
+    }
+  };
+
+  const saveFireAlarmBasePriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const priceNum = parseFloat(fireAlarmBasePrice) || 0;
+    if (priceNum < 0) return;
+    try {
+      await saveProfessionalFireAlarmBasePrice(api_token, priceNum);
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save base price." });
+    }
+  };
+
+  const saveFireAlarmSmokeDetectorPriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const val = (fireAlarmSmokeDetectorsValue ?? "").trim();
+    if (!val || val === "no-data") return;
+    const opt = fireAlarmDetectorsOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === val
+    );
+    if (!opt) return;
+    try {
+      await createProfessionalFireAlarmSmokeDetectorPrice(
+        api_token,
+        opt.id,
+        parseFloat(fireAlarmSmokeDetectorsPrice) || 0
+      );
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save price." });
+    }
+  };
+
+  const saveFireAlarmCallPointPriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const val = (fireAlarmManualCallPointsValue ?? "").trim();
+    if (!val || val === "no-data") return;
+    const opt = fireAlarmCallPointsOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === val
+    );
+    if (!opt) return;
+    try {
+      await createProfessionalFireAlarmCallPointPrice(
+        api_token,
+        opt.id,
+        parseFloat(fireAlarmManualCallPointsPrice) || 0
+      );
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save price." });
+    }
+  };
+
+  const saveFireAlarmFloorPriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const val = (fireAlarmFloorValue ?? "").trim();
+    if (!val || val === "no-data") return;
+    const opt = fireAlarmFloorsOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === val
+    );
+    if (!opt) return;
+    try {
+      await createProfessionalFireAlarmFloorPrice(
+        api_token,
+        opt.id,
+        parseFloat(fireAlarmFloorPrice) || 0
+      );
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save price." });
+    }
+  };
+
+  const saveFireAlarmPanelPriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const val = (fireAlarmPanelsValue ?? "").trim();
+    if (!val || val === "no-data") return;
+    const opt = fireAlarmPanelsOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === val
+    );
+    if (!opt) return;
+    try {
+      await createProfessionalFireAlarmPanelPrice(
+        api_token,
+        opt.id,
+        parseFloat(fireAlarmPanelsPrice) || 0
+      );
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save price." });
+    }
+  };
+
+  const saveFireAlarmSystemTypePriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const val = (fireAlarmSystemTypeValue ?? "").trim();
+    if (!val || val === "no-data") return;
+    const opt = fireAlarmSystemTypeOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === val
+    );
+    if (!opt) return;
+    try {
+      await createProfessionalFireAlarmSystemTypePrice(
+        api_token,
+        opt.id,
+        parseFloat(fireAlarmSystemTypePrice) || 0
+      );
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save price." });
+    }
+  };
+
+  const saveFireAlarmLastServicePriceOnBlur = async () => {
+    const api_token = getApiToken();
+    if (!api_token) return;
+    const val = (fireAlarmLastServiceValue ?? "").trim();
+    if (!val || val === "no-data") return;
+    const opt = fireAlarmLastServiceOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === val
+    );
+    if (!opt) return;
+    try {
+      await createProfessionalFireAlarmLastServicePrice(
+        api_token,
+        opt.id,
+        parseFloat(fireAlarmLastServicePrice) || 0
+      );
+      setFireAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+    } catch {
+      setFireAlarmUpdateMessage({ type: "error", text: "Failed to save price." });
+    }
+  };
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-[#0A1A2F] mb-2">
-          Set Your Service Pricing
+    <div className="min-w-0 overflow-x-hidden">
+      {/* Page Header — compact on mobile, unchanged on desktop (md+) */}
+      <div className="mb-4 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-bold text-[#0A1A2F] mb-1 md:mb-2">
+          Service Pricing
         </h1>
-        <p className="text-gray-600">
-          Configure your prices for each service you offer
+        <p className="text-sm md:text-base text-gray-600">
+          Configure your prices for each service category
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Main Pricing Form - Takes 2 columns on desktop */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Pricing Cards */}
-          {loading ? (
-            <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-gray-400" />
-              <p className="text-gray-500">Loading services and pricing...</p>
-            </div>
-          ) : loadingError ? (
-            <div className="text-center py-12">
-              <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-              <p className="text-red-600">{loadingError}</p>
-            </div>
-          ) : services.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No services available</p>
-            </div>
-          ) : (
-            services.map((service) => {
-              const currentPrice = parseInt(service.price) || 0;
-              const [minSuggested, maxSuggested] = service.suggested
-                .replace(/£/g, "")
-                .split("-")
-                .map(s => parseInt(s.trim()));
-              
-              const isAboveSuggested = currentPrice > maxSuggested;
-              const isBelowSuggested = currentPrice < minSuggested && currentPrice > 0;
-              const isInRange = currentPrice >= minSuggested && currentPrice <= maxSuggested;
-
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)}>
+        <TabsList className="w-full flex flex-wrap h-auto gap-1.5 p-1.5 md:gap-1 md:p-1 bg-gray-100 rounded-lg mb-4 md:mb-6">
+          {(Object.entries(TAB_LABELS) as [string, string][]).map(
+            ([id, label]) => {
+              const isActive = activeTab === id;
+              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM;
               return (
-                <Card key={service.id} className={`border-0 shadow-md hover:shadow-lg transition-all ${service.hasPricing ? 'bg-green-50/30 border-green-200' : ''}`}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CardTitle className="text-lg">{service.name}</CardTitle>
-                          
-                          {/* {service.hasPricing && (
-                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                          )} */}
-                        </div>
-                        <CardDescription>{service.description}</CardDescription>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm text-gray-500 mb-1">Market Range</p>
-                        <p className="font-semibold text-gray-700">{service.suggested}</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-                      <div className="flex-1 w-full">
-                        <Label htmlFor={`price-${service.id}`} className="mb-2 block">
-                          Your Price
-                        </Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                            £
-                          </span>
-                          <Input
-                            id={`price-${service.id}`}
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="0"
-                            value={service.price || ""}
-                            onChange={(e) => updatePrice(service.id, e.target.value)}
-                            className="pl-7 text-lg h-12"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Price Indicator */}
-                      <div className="w-full md:w-auto">
-                        {service.hasPricing && (
-                          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg mb-2">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Competitive</span>
-                          </div>
-                        )}
-                        {isInRange && currentPrice > 0 && !service.hasPricing && (
-                          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Competitive</span>
-                          </div>
-                        )}
-                        {/* {isAboveSuggested && (
-                          <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
-                            <TrendingUp className="w-4 h-4" />
-                            <span>Above market</span>
-                          </div>
-                        )} */}
-                        {/* {isBelowSuggested && (
-                          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
-                            <TrendingUp className="w-4 h-4 rotate-180" />
-                            <span>Below market</span>
-                          </div>
-                        )} */}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  disabled={isDisabled}
+                  className={`
+                    flex-1 min-w-0 md:min-w-[120px] py-2.5 md:py-3 px-3 md:px-4 text-sm md:text-base rounded-md font-medium transition-all
+                    ${isActive ? "bg-white shadow-sm text-red-600" : ""}
+                    ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-200"}
+                  `}
+                >
+                  {label}
+                </TabsTrigger>
               );
-            })
+            }
           )}
-        </div>
+        </TabsList>
 
-        {/* Sidebar - Takes 1 column on desktop */}
-        <div className="space-y-6">
-          {/* Pricing Summary - Sticky on desktop */}
-          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-indigo-50 sticky top-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-blue-600" />
-                Pricing Summary
+        <TabsContent value={TAB_IDS.FRA_SERVICE} className="mt-0">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+              <CardTitle className="text-lg text-[#0A1A2F]">
+                Fire Risk Assessment Pricing
               </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for FRA services
+              </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Services Priced</span>
-                <span className="text-2xl font-semibold text-gray-900">{totalServices}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Average Price</span>
-                <span className="text-2xl font-semibold text-gray-900">£{averagePrice.toFixed(0)}</span>
-              </div>
-              <div className="pt-4 border-t border-blue-200">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Completion</span>
-                    <span className="font-semibold text-gray-900">
-                      {((totalServices / services.length) * 100).toFixed(0)}%
-                    </span>
+            <CardContent className="p-4 md:p-8">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Loader2 className="w-10 h-10 animate-spin text-red-600 mb-4" />
+                  <p className="text-gray-500">Loading options...</p>
+                </div>
+              ) : (
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+                {/* Row 1: Property Type (left, Select + Price) | Base Price (right, smaller) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                    Select Property Type 
+                    </Label>
+                    
+                    <Select value={propertyTypeId} onValueChange={setPropertyTypeId}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder="Select property type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyTypes.length === 0 ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          propertyTypes.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.property_type_name}>
+                              {opt.property_type_name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  
                   </div>
-                  <div className="w-full bg-white rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${(totalServices / services.length) * 100}%` }}
-                    ></div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="base-price-1" className="text-gray-700 font-medium">
+                      Base Price (£) {savingBasePrice && <span className="text-gray-400 font-normal">Saving...</span>}
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="base-price-1"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={propertyTypePrice}
+                        onChange={(e) =>
+                          setPropertyTypePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={handleSaveBasePrice}
+                        disabled={savingBasePrice}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
                   </div>
+                </div>
+
+                {/* Addon Price divider: left border, center text, right border */}
+                <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                  <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    Addon Price
+                  </span>
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                </div>
+
+                {/* Row 2: Approximate People (left, Select + Price) | Base Price (right, smaller) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Select Approximate People 
+                    </Label>
+                    <Select value={approximatePeopleId} onValueChange={setApproximatePeopleId}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder="Select approximate number" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {approximatePeople.length === 0 ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          [...approximatePeople]
+                            .sort(
+                              (a, b) =>
+                                getPeopleOptionSortKey(a.number_of_people) -
+                                getPeopleOptionSortKey(b.number_of_people)
+                            )
+                            .map((opt) => (
+                              <SelectItem key={opt.id} value={opt.number_of_people}>
+                                {formatPeopleOptionLabel(opt.number_of_people)}
+                              </SelectItem>
+                            ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                   
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="base-price-2" className="text-gray-700 font-medium">
+                      Price (£) {savingPeoplePrice && <span className="text-gray-400 font-normal">Saving...</span>}
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="base-price-2"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={approximatePeoplePrice}
+                        onChange={(e) =>
+                          setApproximatePeoplePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={handleSavePeoplePrice}
+                        disabled={savingPeoplePrice}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Number of Floors (left, Select + Price) | Base Price (right, smaller) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                    Select Number of Floors 
+                    </Label>
+                    <Select value={floorValue} onValueChange={setFloorValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <span
+                          className={`flex-1 min-w-0 truncate text-left ${floorValue ? "" : "text-gray-500"}`}
+                          title={floorOptions.find((o) => o.floor === floorValue)?.label ?? floorValue}
+                        >
+                          {floorOptions.find((o) => o.floor === floorValue)?.label ??
+                            (floorValue || "Select number of floors")}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {floorOptions.length === 0 ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          floorOptions.map((opt) => (
+                            <SelectItem key={opt.id ?? opt.floor} value={opt.floor}>
+                              {opt.label || opt.floor}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="base-price-3" className="text-gray-700 font-medium">
+                      Price (£) {savingFloorPrice && <span className="text-gray-400 font-normal">Saving...</span>}
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="base-price-3"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={numberOfFloorsPrice}
+                        onChange={(e) =>
+                          setNumberOfFloorsPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={handleSaveFloorPrice}
+                        disabled={savingFloorPrice}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: Select Urgency (duration from GET /fra-durations) + Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Select Urgency
+                    </Label>
+                    <Select value={urgencyId} onValueChange={setUrgencyId}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <span
+                          className={`flex-1 min-w-0 text-left ${urgencyId ? "" : "text-gray-500"}`}
+                          title={urgencyOptions.find((o) => String(o.id) === urgencyId)?.duration}
+                        >
+                          {urgencyId
+                            ? (urgencyOptions.find((o) => String(o.id) === urgencyId)?.duration ?? urgencyId)
+                            : (loading ? "Loading..." : "Select urgency")}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {urgencyOptions.length === 0 ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          urgencyOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={String(opt.id)}>
+                              {opt.duration}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="urgency-price" className="text-gray-700 font-medium">
+                      Price (£) {savingDurationPrice && <span className="text-gray-400 font-normal">Saving...</span>}
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="urgency-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={urgencyPrice}
+                        onChange={(e) =>
+                          setUrgencyPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={handleSaveDurationPrice}
+                        disabled={savingDurationPrice}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Price: total_price from API when any option is selected */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label htmlFor="total-price" className="text-gray-700 font-medium">
+                      Estimated Price(£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                      <Input
+                        id="total-price"
+                        type="text"
+                        readOnly
+                        placeholder="Select options to see total"
+                        value={estimatePrice ? (Number(estimatePrice) ? Number(estimatePrice).toFixed(2) : estimatePrice) : ""}
+                        className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+                </div>
+
+                {updateMessage && (
+                  <p
+                    className={`text-sm ${
+                      updateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {updateMessage.text}
+                  </p>
+                )}
+                <div className="pt-4">
+                  <Button
+                    type="button"
+                    onClick={handleUpdatePrice}
+                    disabled={updatingPrice}
+                    className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                  >
+                    {updatingPrice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Price"
+                    )}
+                  </Button>
+                </div>
+              </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value={TAB_IDS.FIRE_ALARM} className="mt-0">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+              <CardTitle className="text-lg text-[#0A1A2F]">
+                Fire Alarm Pricing
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Fire Alarm services
+              </p>
+            </CardHeader>
+            <CardContent className="p-4 md:p-8">
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+                {/* Row 1: Fire Alarm - Base Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Fire Alarm Service 
+                    </Label>
+                    <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                    Fire Alarm Service
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-base-price" className="text-gray-700 font-medium">
+                      Base Price (£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-base-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmBasePrice}
+                        onChange={(e) =>
+                          setFireAlarmBasePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmBasePriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                  <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    Addon Price
+                  </span>
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                </div>
+
+                {/* Row 2: Select smoke/heat detectors – price (API: POST /fire-alarm/get-alarm, type: "ditectors", display data[].value e.g. "1-10 ditectors", "11-25 ditectors") */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select smoke/heat detectors</Label>
+                    <Select value={fireAlarmSmokeDetectorsValue} onValueChange={setFireAlarmSmokeDetectorsValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select smoke/heat detectors"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fireAlarmDetectorsOptions.length === 0 && !loadingFireAlarmOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fireAlarmDetectorsOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-smoke-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-smoke-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmSmokeDetectorsPrice}
+                        onChange={(e) =>
+                          setFireAlarmSmokeDetectorsPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmSmokeDetectorPriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Select manual call points – price (API: POST /fire-alarm/get-alarm, type: "call_points", display data[].value e.g. "6-10 call points", "11-20 call points") */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select manual call points</Label>
+                    <Select value={fireAlarmManualCallPointsValue} onValueChange={setFireAlarmManualCallPointsValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select manual call points"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fireAlarmCallPointsOptions.length === 0 && !loadingFireAlarmOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fireAlarmCallPointsOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-callpoints-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-callpoints-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmManualCallPointsPrice}
+                        onChange={(e) =>
+                          setFireAlarmManualCallPointsPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmCallPointPriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: Select number of floor – price (API: POST /fire-alarm/get-alarm, type: "floors", display data[].value e.g. "1 floor", "2-3 floors") */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select number of floor</Label>
+                    <Select value={fireAlarmFloorValue} onValueChange={setFireAlarmFloorValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select number of floor"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fireAlarmFloorsOptions.length === 0 && !loadingFireAlarmOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fireAlarmFloorsOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-floor-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-floor-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmFloorPrice}
+                        onChange={(e) =>
+                          setFireAlarmFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmFloorPriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 5: Select fire alarm panels – price (API: POST /fire-alarm/get-alarm, type: "alarm_panels", display data[].value e.g. "1 panel", "2 panels") */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select fire alarm panels</Label>
+                    <Select value={fireAlarmPanelsValue} onValueChange={setFireAlarmPanelsValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select fire alarm panel"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fireAlarmPanelsOptions.length === 0 && !loadingFireAlarmOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fireAlarmPanelsOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.value}>
+                              {opt.value}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-panels-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-panels-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmPanelsPrice}
+                        onChange={(e) =>
+                          setFireAlarmPanelsPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmPanelPriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 6: Select type of alarm system – price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select type of alarm system</Label>
+                    <Select value={fireAlarmSystemTypeValue} onValueChange={setFireAlarmSystemTypeValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select option"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fireAlarmSystemTypeOptions.length === 0 && !loadingFireAlarmOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fireAlarmSystemTypeOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.value}>
+                              {opt.value}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-system-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-system-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmSystemTypePrice}
+                        onChange={(e) =>
+                          setFireAlarmSystemTypePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmSystemTypePriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 7: Select last Service – price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select last Service</Label>
+                    <Select value={fireAlarmLastServiceValue} onValueChange={setFireAlarmLastServiceValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select option"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fireAlarmLastServiceOptions.length === 0 && !loadingFireAlarmOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          fireAlarmLastServiceOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.value}>
+                              {opt.value}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="fire-alarm-last-service-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="fire-alarm-last-service-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fireAlarmLastServicePrice}
+                        onChange={(e) =>
+                          setFireAlarmLastServicePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={saveFireAlarmLastServicePriceOnBlur}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 8: Estimated Price(£) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label htmlFor="fire-alarm-estimate-price" className="text-gray-700 font-medium">
+                      Estimated Price(£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                      <Input
+                        id="fire-alarm-estimate-price"
+                        type="text"
+                        readOnly
+                        placeholder="0.00"
+                        value={fireAlarmEstimatePrice}
+                        className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+                </div>
+
+                {fireAlarmUpdateMessage && (
+                  <p
+                    className={`text-sm ${
+                      fireAlarmUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {fireAlarmUpdateMessage.text}
+                  </p>
+                )}
+                <div className="pt-4">
+                  <Button
+                    type="button"
+                    onClick={handleUpdateFireAlarmPrice}
+                    disabled={updatingFireAlarmPrice}
+                    className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                  >
+                    {updatingFireAlarmPrice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Price"
+                    )}
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Commission Info */}
-          <Card className="border-0 shadow-md bg-yellow-50 border-yellow-200">
-            <CardContent className="p-4">
-              <div className="flex gap-3">
-                <Info className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-yellow-900 mb-2">Platform Commission</p>
-                  <p className="text-sm text-yellow-800 mb-2">
-                    Fire Guide charges a 15% commission on each booking. Your listed prices are what customers pay, and you receive 85%.
-                  </p>
-                  <p className="text-sm text-yellow-900 font-medium">
-                    Example: £100 booking = £85 for you
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Pricing Tips */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-                Pricing Tips
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li className="flex gap-2">
-                  <span className="text-blue-600 flex-shrink-0">•</span>
-                  <span>Stay within market range for more bookings</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-blue-600 flex-shrink-0">•</span>
-                  <span>Higher prices may reduce booking frequency</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-blue-600 flex-shrink-0">•</span>
-                  <span>Lower prices attract more customers</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-blue-600 flex-shrink-0">•</span>
-                  <span>You can adjust prices anytime</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Save Button - Fixed at bottom on mobile, inline on desktop */}
-      <div className="sticky bottom-0 left-0 right-0 bg-white border-t shadow-lg mt-6 p-4 lg:static lg:border-0 lg:shadow-none lg:mt-6">
-        <div className="flex flex-col md:flex-row gap-3 max-w-7xl mx-auto">
-          <Button 
-            onClick={handleSave}
-            disabled={!isFormValid || isSaving}
-            className="flex-1 bg-red-600 hover:bg-red-700 h-12 disabled:opacity-50"
-          >
-            {isSaving ? "Saving..." : "Save Pricing"}
-          </Button>
-          <Button variant="outline" className="md:w-auto h-12">
-            Reset to Defaults
-          </Button>
-        </div>
-      </div>
+        </TabsContent>
+        <TabsContent value={TAB_IDS.EXTINGUISHERS} className="mt-0">
+          <ComingSoonCard title="Extinguishers" />
+        </TabsContent>
+        <TabsContent value={TAB_IDS.EMERGENCY_LIGHTING} className="mt-0">
+          <ComingSoonCard title="Emergency Lighting" />
+        </TabsContent>
+        <TabsContent value={TAB_IDS.TRAINING} className="mt-0">
+          <ComingSoonCard title="Training" />
+        </TabsContent>
+        <TabsContent value={TAB_IDS.CONSULTANCY} className="mt-0">
+          <ComingSoonCard title="Consultancy" />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function ComingSoonCard({ title }: { title: string }) {
+  return (
+    <Card className="border-0 shadow-lg overflow-hidden">
+      <CardContent className="p-12 text-center">
+        <p className="text-gray-500 text-lg">{title} pricing coming soon.</p>
+        <p className="text-gray-400 text-sm mt-2">This tab is currently disabled.</p>
+      </CardContent>
+    </Card>
   );
 }
