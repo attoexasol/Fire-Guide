@@ -1,10 +1,25 @@
 import axios from 'axios';
+import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 });
+
+// On 401 (expired/invalid token), log out and redirect to home so user must log in again
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = error?.config?.url || '';
+    const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register') || requestUrl.includes('/send_otp') || requestUrl.includes('/verify_otp') || requestUrl.includes('/reset_password');
+    if (!isAuthEndpoint && isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export interface AdminOverviewSummaryRequest {
   api_token: string;
@@ -169,6 +184,46 @@ export interface AlarmAllPricesResponse {
 export const getAlarmAllPrices = async (apiToken: string): Promise<AlarmAllPricesResponse> => {
   const response = await apiClient.post<AlarmAllPricesResponse>(
     '/professional-wise/Alarm-all-prices',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+// Extinguisher all prices (all professionals) – Admin Pricing > Extinguishers tab
+export interface ExtinguisherAllPricesBasePrice {
+  price: string;
+}
+
+export interface ExtinguisherAllPricesOption {
+  id: number;
+  value: string;
+  price: string;
+}
+
+export interface ExtinguisherAllPricesProfessionalItem {
+  professional_id: number;
+  professional_name: string;
+  base_prices: ExtinguisherAllPricesBasePrice[];
+  extinguishers: ExtinguisherAllPricesOption[];
+  floors: ExtinguisherAllPricesOption[];
+  last_services: ExtinguisherAllPricesOption[];
+  extinguisher_types: ExtinguisherAllPricesOption[];
+}
+
+export interface ExtinguisherAllPricesResponse {
+  status: boolean;
+  message: string;
+  data: ExtinguisherAllPricesProfessionalItem[];
+}
+
+/**
+ * Fetch all professionals' Extinguisher prices.
+ * POST https://fireguide.attoexasolutions.com/api/professional-wise/Extingusher-all-prices
+ * Body: { api_token }
+ */
+export const getExtinguisherAllPrices = async (apiToken: string): Promise<ExtinguisherAllPricesResponse> => {
+  const response = await apiClient.post<ExtinguisherAllPricesResponse>(
+    '/professional-wise/Extingusher-all-prices',
     { api_token: apiToken }
   );
   return response.data;

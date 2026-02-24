@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, MoreVertical, Eye, Pencil, Trash2, Plus } from "lucide-react";
+import { Loader2, MoreVertical, Eye, Pencil, Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import {
@@ -32,7 +32,7 @@ import {
   storeProfessionalFraBasePrice,
   ProfessionalFraBasePriceItem,
 } from "../api/professionalFraBasePricesService";
-import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem } from "../api/adminService";
+import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem } from "../api/adminService";
 import { fetchPropertyTypes } from "../api/servicesService";
 import { toast } from "sonner";
 import { getApiToken, getProfessionalId } from "../lib/auth";
@@ -46,8 +46,16 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   const [records, setRecords] = useState<ProfessionalFraBasePriceItem[]>([]);
   const [fraAllPrices, setFraAllPrices] = useState<FraAllPricesProfessionalItem[] | null>(null);
   const [selectedSystemByPro, setSelectedSystemByPro] = useState<Record<number, string>>({});
+  const [fraExpandedByPro, setFraExpandedByPro] = useState<Record<number, boolean>>({});
   const [alarmAllPrices, setAlarmAllPrices] = useState<AlarmAllPricesProfessionalItem[] | null>(null);
   const [selectedAlarmSystemByPro, setSelectedAlarmSystemByPro] = useState<Record<number, string>>({});
+  const [alarmExpandedByPro, setAlarmExpandedByPro] = useState<Record<number, boolean>>({});
+  const [extinguisherAllPrices, setExtinguisherAllPrices] = useState<ExtinguisherAllPricesProfessionalItem[] | null>(null);
+  const [selectedExtinguisherSystemByPro, setSelectedExtinguisherSystemByPro] = useState<Record<number, string>>({});
+  const [extinguisherExpandedByPro, setExtinguisherExpandedByPro] = useState<Record<number, boolean>>({});
+  const [loadingExtinguisherPrices, setLoadingExtinguisherPrices] = useState(false);
+  const [errorExtinguisher, setErrorExtinguisher] = useState<string | null>(null);
+  const [extinguisherFetchKey, setExtinguisherFetchKey] = useState(0);
   const [loadingAlarmPrices, setLoadingAlarmPrices] = useState(false);
   const [errorAlarm, setErrorAlarm] = useState<string | null>(null);
   const [alarmFetchKey, setAlarmFetchKey] = useState(0);
@@ -297,6 +305,34 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   }, [isAdmin, fraPriceTab, alarmFetchKey]);
 
   useEffect(() => {
+    if (!isAdmin || fraPriceTab !== "extinguishers") return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+    let cancelled = false;
+    setLoadingExtinguisherPrices(true);
+    setErrorExtinguisher(null);
+    getExtinguisherAllPrices(apiToken)
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.status && Array.isArray(res.data)) {
+          setExtinguisherAllPrices(res.data);
+        } else {
+          setExtinguisherAllPrices([]);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setErrorExtinguisher(err instanceof Error ? err.message : "Failed to fetch Extinguisher prices");
+          setExtinguisherAllPrices(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingExtinguisherPrices(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin, fraPriceTab, extinguisherFetchKey]);
+
+  useEffect(() => {
     if (!addModalOpen) return;
     let cancelled = false;
     fetchPropertyTypes()
@@ -442,28 +478,50 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                 <p className="text-gray-900 font-normal">{pro.professional_name}</p>
                               </td>
                               <td className="p-4 min-w-0">
-                                <Select
-                                  value={selectedSystem}
-                                  onValueChange={(value) =>
-                                    setSelectedSystemByPro((prev) => ({
-                                      ...prev,
-                                      [pro.professional_id]: value,
-                                    }))
-                                  }
-                                >
-                                  <SelectTrigger className="w-full min-w-0 h-9 text-sm border-gray-200">
-                                    <SelectValue placeholder="Select system" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="property_type">Property type</SelectItem>
-                                    <SelectItem value="floor">Floor</SelectItem>
-                                    <SelectItem value="people">People</SelectItem>
-                                    <SelectItem value="duration">Duration</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                <div className="flex items-center gap-1 w-full">
+                                  <Select
+                                    value={selectedSystem}
+                                    onValueChange={(value) => {
+                                      setSelectedSystemByPro((prev) => ({
+                                        ...prev,
+                                        [pro.professional_id]: value,
+                                      }));
+                                      setFraExpandedByPro((prev) => ({ ...prev, [pro.professional_id]: true }));
+                                    }}
+                                  >
+                                    <SelectTrigger className="flex-1 min-w-0 h-9 text-sm border-gray-200">
+                                      <SelectValue placeholder="Select system" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="property_type">Property type</SelectItem>
+                                      <SelectItem value="floor">Floor</SelectItem>
+                                      <SelectItem value="people">People</SelectItem>
+                                      <SelectItem value="duration">Duration</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-9 w-9 shrink-0 border-gray-200"
+                                    onClick={() =>
+                                      setFraExpandedByPro((prev) => ({
+                                        ...prev,
+                                        [pro.professional_id]: !(prev[pro.professional_id] !== false),
+                                      }))
+                                    }
+                                    aria-label={fraExpandedByPro[pro.professional_id] !== false ? "Minimize" : "Expand"}
+                                  >
+                                    {fraExpandedByPro[pro.professional_id] !== false ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronUp className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
-                            {selectedSystem && (
+                            {selectedSystem && fraExpandedByPro[pro.professional_id] !== false && (
                               <tr className="bg-white">
                                 <td colSpan={3} className="p-0 align-top">
                                   <div className="bg-white px-4 pb-4 pt-1 w-full">
@@ -804,31 +862,53 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                     <p className="text-gray-900 font-normal">{pro.professional_name}</p>
                                   </td>
                                   <td className="p-4 min-w-0">
-                                    <Select
-                                      value={selectedSystem}
-                                      onValueChange={(value) =>
-                                        setSelectedAlarmSystemByPro((prev) => ({
-                                          ...prev,
-                                          [pro.professional_id]: value,
-                                        }))
-                                      }
-                                    >
-                                      <SelectTrigger className="w-full min-w-0 h-9 text-sm border-gray-200">
-                                        <SelectValue placeholder="Select system" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="base_price">Base price</SelectItem>
-                                        <SelectItem value="smoke_detectors">Smoke detectors</SelectItem>
-                                        <SelectItem value="call_points">Call points</SelectItem>
-                                        <SelectItem value="floors">Floors</SelectItem>
-                                        <SelectItem value="panels">Panels</SelectItem>
-                                        <SelectItem value="last_services">Last services</SelectItem>
-                                        <SelectItem value="system_types">System types</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    <div className="flex items-center gap-1 w-full">
+                                      <Select
+                                        value={selectedSystem}
+                                        onValueChange={(value) => {
+                                          setSelectedAlarmSystemByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: value,
+                                          }));
+                                          setAlarmExpandedByPro((prev) => ({ ...prev, [pro.professional_id]: true }));
+                                        }}
+                                      >
+                                        <SelectTrigger className="flex-1 min-w-0 h-9 text-sm border-gray-200">
+                                          <SelectValue placeholder="Select system" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="base_price">Base price</SelectItem>
+                                          <SelectItem value="smoke_detectors">Smoke detectors</SelectItem>
+                                          <SelectItem value="call_points">Call points</SelectItem>
+                                          <SelectItem value="floors">Floors</SelectItem>
+                                          <SelectItem value="panels">Panels</SelectItem>
+                                          <SelectItem value="last_services">Last services</SelectItem>
+                                          <SelectItem value="system_types">System types</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 border-gray-200"
+                                        onClick={() =>
+                                          setAlarmExpandedByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: !(prev[pro.professional_id] !== false),
+                                          }))
+                                        }
+                                        aria-label={alarmExpandedByPro[pro.professional_id] !== false ? "Minimize" : "Expand"}
+                                      >
+                                        {alarmExpandedByPro[pro.professional_id] !== false ? (
+                                          <ChevronDown className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronUp className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
                                   </td>
                                 </tr>
-                                {selectedSystem && (
+                                {selectedSystem && alarmExpandedByPro[pro.professional_id] !== false && (
                                   <tr className="bg-white">
                                     <td colSpan={3} className="p-0 align-top">
                                       <div className="bg-white px-4 pb-4 pt-1 w-full">
@@ -953,8 +1033,196 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
         </TabsContent>
         <TabsContent value="extinguishers" className="mt-0">
           <Card className="border border-gray-200 shadow-sm">
-            <CardContent className="py-12 text-center text-gray-500">
-              Extinguishers pricing content coming soon.
+            <CardHeader>
+              <CardTitle className="text-[#0A1A2F]">All professionals' Extinguisher prices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingExtinguisherPrices && (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                  <p className="text-gray-500">Loading Extinguisher prices...</p>
+                </div>
+              )}
+              {!loadingExtinguisherPrices && errorExtinguisher && (
+                <div className="text-center py-12">
+                  <p className="text-red-500 mb-2">{errorExtinguisher}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorExtinguisher(null);
+                      setExtinguisherFetchKey((k) => k + 1);
+                    }}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!loadingExtinguisherPrices && !errorExtinguisher && isAdmin && extinguisherAllPrices !== null && (
+                <>
+                  {extinguisherAllPrices.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No Extinguisher prices found.</div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <table className="w-full table-fixed">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 w-24">Reference</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 min-w-0">Professional</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700">Systems</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {extinguisherAllPrices.map((pro) => {
+                            const selectedSystem = selectedExtinguisherSystemByPro[pro.professional_id] ?? "";
+                            return (
+                              <React.Fragment key={pro.professional_id}>
+                                <tr className="bg-red-50 hover:bg-red-100/60 transition-colors">
+                                  <td className="p-4">
+                                    <p className="font-medium text-gray-900">BS-{pro.professional_id}</p>
+                                  </td>
+                                  <td className="p-4">
+                                    <p className="text-gray-900 font-normal">{pro.professional_name}</p>
+                                  </td>
+                                  <td className="p-4 min-w-0">
+                                    <div className="flex items-center gap-1 w-full">
+                                      <Select
+                                        value={selectedSystem}
+                                        onValueChange={(value) => {
+                                          setSelectedExtinguisherSystemByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: value,
+                                          }));
+                                          setExtinguisherExpandedByPro((prev) => ({ ...prev, [pro.professional_id]: true }));
+                                        }}
+                                      >
+                                        <SelectTrigger className="flex-1 min-w-0 h-9 text-sm border-gray-200">
+                                          <SelectValue placeholder="Select system" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="base_price">Base price</SelectItem>
+                                          <SelectItem value="extinguishers">Extinguishers</SelectItem>
+                                          <SelectItem value="floors">Floors</SelectItem>
+                                          <SelectItem value="last_services">Last services</SelectItem>
+                                          <SelectItem value="extinguisher_types">Extinguisher types</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 border-gray-200"
+                                        onClick={() =>
+                                          setExtinguisherExpandedByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: !(prev[pro.professional_id] !== false),
+                                          }))
+                                        }
+                                        aria-label={extinguisherExpandedByPro[pro.professional_id] !== false ? "Minimize" : "Expand"}
+                                      >
+                                        {extinguisherExpandedByPro[pro.professional_id] !== false ? (
+                                          <ChevronDown className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronUp className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {selectedSystem && extinguisherExpandedByPro[pro.professional_id] !== false && (
+                                  <tr className="bg-white">
+                                    <td colSpan={3} className="p-0 align-top">
+                                      <div className="bg-white px-4 pb-4 pt-1 w-full">
+                                        <div className="rounded border border-gray-200 bg-white overflow-hidden w-full">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 border-b border-gray-200">
+                                              <tr>
+                                                <th className="text-left py-2 px-3 font-medium text-gray-600">Option</th>
+                                                <th className="text-right py-2 px-3 font-medium text-gray-600">Base Price</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                              {selectedSystem === "base_price" &&
+                                                (pro.base_prices?.length
+                                                  ? pro.base_prices.map((bp, idx) => (
+                                                      <tr key={idx}>
+                                                        <td className="py-2 px-3 text-gray-900">Base price</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(bp.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No base price configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "extinguishers" &&
+                                                (pro.extinguishers?.length
+                                                  ? pro.extinguishers.map((e) => (
+                                                      <tr key={e.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{e.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(e.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No extinguishers configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "floors" &&
+                                                (pro.floors?.length
+                                                  ? pro.floors.map((f) => (
+                                                      <tr key={f.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{f.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(f.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No floors configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "last_services" &&
+                                                (pro.last_services?.length
+                                                  ? pro.last_services.map((l) => (
+                                                      <tr key={l.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{l.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(l.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No last services configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "extinguisher_types" &&
+                                                (pro.extinguisher_types?.length
+                                                  ? pro.extinguisher_types.map((et) => (
+                                                      <tr key={et.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{et.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(et.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No extinguisher types configured</td>
+                                                      </tr>
+                                                    ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

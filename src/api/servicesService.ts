@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // TypeScript types for API response
 export interface ServiceResponse {
@@ -361,6 +362,20 @@ const apiClient = axios.create({
   timeout: 10000, // 10 seconds timeout
 });
 
+// On 401 (expired/invalid token), log out and redirect to home so user must log in again
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = error?.config?.url || '';
+    const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register') || requestUrl.includes('/send_otp') || requestUrl.includes('/verify_otp') || requestUrl.includes('/reset_password');
+    if (!isAuthEndpoint && isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
+
 /**
  * Fire Alarm: fetch options for dropdowns (detectors, call_points, floors, alarm_panels, system_type, last_service).
  * POST /fire-alarm/get-alarm  Body: { api_token, type }
@@ -385,6 +400,254 @@ export const fetchFireAlarmOptions = async (
   } catch (_err) {
     return [];
   }
+};
+
+/**
+ * Fire Extinguisher Service: fetch options for dropdowns.
+ * POST /fire-extinguisher-service/get-extinguisher-service  Body: { api_token, type }
+ * type: "extinguisher" | "floor" | "metarials" | "last_service"
+ * Response: { status, message, data: [{ id, type, value, ... }] }
+ */
+export interface ExtinguisherServiceOptionItem {
+  id: number;
+  value: string;
+  type?: string;
+}
+
+export const fetchExtinguisherServiceOptions = async (
+  apiToken: string,
+  type: string
+): Promise<ExtinguisherServiceOptionItem[]> => {
+  try {
+    const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
+      '/fire-extinguisher-service/get-extinguisher-service',
+      { api_token: apiToken, type }
+    );
+    const raw = response.data;
+    const list = Array.isArray(raw?.data) ? raw.data : [];
+    return list.map((item) => ({
+      id: Number(item.id),
+      value: String(item.value ?? '').trim() || String(item.id),
+    }));
+  } catch (_err) {
+    return [];
+  }
+};
+
+/** Response for POST /professional-extinguisher/base-price-create */
+export interface ProfessionalExtinguisherBasePriceResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/** Response for POST /professional-extinguisher/base-price-get */
+export interface ProfessionalExtinguisherBasePriceGetResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number | string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get professional Extinguisher base price.
+ * POST /professional-extinguisher/base-price-get  Body: { api_token }
+ */
+export const getProfessionalExtinguisherBasePrice = async (
+  apiToken: string
+): Promise<ProfessionalExtinguisherBasePriceGetResponse> => {
+  const response = await apiClient.post<ProfessionalExtinguisherBasePriceGetResponse>(
+    '/professional-extinguisher/base-price-get',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+/**
+ * Create/update professional Extinguisher base price.
+ * POST /professional-extinguisher/base-price-create  Body: { api_token, price }
+ */
+export const saveProfessionalExtinguisherBasePrice = async (
+  apiToken: string,
+  price: number
+): Promise<ProfessionalExtinguisherBasePriceResponse> => {
+  const response = await apiClient.post<ProfessionalExtinguisherBasePriceResponse>(
+    '/professional-extinguisher/base-price-create',
+    { api_token: apiToken, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher-wise/price-create */
+export interface ProfessionalExtinguisherWisePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    extinguisher_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional extinguisher-wise price (e.g. Select Extinguisher, Floor, Type, Last Service).
+ * POST /professional-extinguisher-wise/price-create  Body: { api_token, extinguisher_id, type, price }
+ * @param type One of: "extinguisher" | "floor" | "metarials" | "last_service"
+ */
+export const createProfessionalExtinguisherWisePrice = async (
+  apiToken: string,
+  extinguisher_id: number,
+  type: string,
+  price: number
+): Promise<ProfessionalExtinguisherWisePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalExtinguisherWisePriceCreateResponse>(
+    '/professional-extinguisher-wise/price-create',
+    { api_token: apiToken, extinguisher_id, type, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher/floor-price-create */
+export interface ProfessionalExtinguisherFloorPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    floor_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional extinguisher floor price.
+ * POST /professional-extinguisher/floor-price-create  Body: { api_token, floor_id, type: "floor", price }
+ */
+export const saveProfessionalExtinguisherFloorPrice = async (
+  apiToken: string,
+  floor_id: number,
+  price: number
+): Promise<ProfessionalExtinguisherFloorPriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalExtinguisherFloorPriceCreateResponse>(
+    '/professional-extinguisher/floor-price-create',
+    { api_token: apiToken, floor_id, type: "floor", price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher/type-price-create */
+export interface ProfessionalExtinguisherTypePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    extinguisher_type_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional extinguisher type price (Select Extinguisher Type).
+ * POST /professional-extinguisher/type-price-create  Body: { api_token, extinguisher_type_id, type: "metarials", price }
+ */
+export const saveProfessionalExtinguisherTypePrice = async (
+  apiToken: string,
+  extinguisher_type_id: number,
+  price: number
+): Promise<ProfessionalExtinguisherTypePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalExtinguisherTypePriceCreateResponse>(
+    '/professional-extinguisher/type-price-create',
+    { api_token: apiToken, extinguisher_type_id, type: "metarials", price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher/last-service-price-create */
+export interface ProfessionalExtinguisherLastServicePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    last_service_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional extinguisher last service price.
+ * POST /professional-extinguisher/last-service-price-create  Body: { api_token, last_service_id, type: "last_service", price }
+ */
+export const saveProfessionalExtinguisherLastServicePrice = async (
+  apiToken: string,
+  last_service_id: number,
+  price: number
+): Promise<ProfessionalExtinguisherLastServicePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalExtinguisherLastServicePriceCreateResponse>(
+    '/professional-extinguisher/last-service-price-create',
+    { api_token: apiToken, last_service_id, type: "last_service", price }
+  );
+  return response.data;
+};
+
+/** Request body for POST /professional-fire-Extingusher/get-single/prices */
+export interface GetProfessionalExtinguisherSinglePricesRequest {
+  api_token: string;
+  extinguisher_id: number;
+  floor_id: number;
+  last_service_id: number;
+  extinguisher_type_id: number;
+}
+
+/** Response for POST /professional-fire-Extingusher/get-single/prices */
+export interface GetProfessionalExtinguisherSinglePricesResponse {
+  message?: string;
+  status?: boolean;
+  data?: {
+    professional?: { id: number; name: string };
+    extinguisher?: { id: number; smoke_detector?: string; price?: string };
+    floor?: { id: number; floor?: string; price?: string };
+    last_service?: { id: number; last_service?: string; price?: string };
+    extinguisher_type?: { id: number; system_type?: string; price?: string };
+    total_price?: number;
+  };
+}
+
+/**
+ * Get prices for selected Extinguisher options (single combo).
+ * POST /professional-fire-Extingusher/get-single/prices
+ * Body: { api_token, extinguisher_id, floor_id, last_service_id, extinguisher_type_id }
+ */
+export const getProfessionalExtinguisherSinglePrices = async (
+  apiToken: string,
+  ids: Omit<GetProfessionalExtinguisherSinglePricesRequest, 'api_token'>
+): Promise<GetProfessionalExtinguisherSinglePricesResponse> => {
+  const response = await apiClient.post<GetProfessionalExtinguisherSinglePricesResponse>(
+    '/professional-fire-Extingusher/get-single/prices',
+    { api_token: apiToken, ...ids }
+  );
+  return response.data;
 };
 
 /** Response for POST /professional-fire-alarm-base-price */

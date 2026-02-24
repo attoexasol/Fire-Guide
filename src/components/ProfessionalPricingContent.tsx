@@ -34,6 +34,15 @@ import {
   getPeopleOptionSortKey,
   FloorPricingItem,
   FraDurationItem,
+  fetchExtinguisherServiceOptions,
+  ExtinguisherServiceOptionItem,
+  saveProfessionalExtinguisherBasePrice,
+  getProfessionalExtinguisherBasePrice,
+  createProfessionalExtinguisherWisePrice,
+  saveProfessionalExtinguisherFloorPrice,
+  saveProfessionalExtinguisherTypePrice,
+  saveProfessionalExtinguisherLastServicePrice,
+  getProfessionalExtinguisherSinglePrices,
 } from "../api/servicesService";
 import { getProfessionalId, getApiToken } from "../lib/auth";
 
@@ -106,6 +115,24 @@ export function ProfessionalPricingContent() {
   const [fireAlarmLastServiceOptions, setFireAlarmLastServiceOptions] = useState<FireAlarmOptionItem[]>([]);
   const [loadingFireAlarmOptions, setLoadingFireAlarmOptions] = useState(false);
 
+  // Extinguishers tab state (same table design as Fire Alarm)
+  const [extinguisherBasePrice, setExtinguisherBasePrice] = useState("");
+  const [extinguisherValue, setExtinguisherValue] = useState("");
+  const [extinguisherPrice, setExtinguisherPrice] = useState("");
+  const [extinguisherFloorValue, setExtinguisherFloorValue] = useState("");
+  const [extinguisherFloorPrice, setExtinguisherFloorPrice] = useState("");
+  const [extinguisherTypeValue, setExtinguisherTypeValue] = useState("");
+  const [extinguisherTypePrice, setExtinguisherTypePrice] = useState("");
+  const [extinguisherLastServiceValue, setExtinguisherLastServiceValue] = useState("");
+  const [extinguisherLastServicePrice, setExtinguisherLastServicePrice] = useState("");
+  const [updatingExtinguisherPrice, setUpdatingExtinguisherPrice] = useState(false);
+  const [extinguisherUpdateMessage, setExtinguisherUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [extinguisherOptions, setExtinguisherOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [extinguisherFloorOptions, setExtinguisherFloorOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [extinguisherTypeOptions, setExtinguisherTypeOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [extinguisherLastServiceOptions, setExtinguisherLastServiceOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [loadingExtinguisherOptions, setLoadingExtinguisherOptions] = useState(false);
+
   const [updatingPrice, setUpdatingPrice] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [savingBasePrice, setSavingBasePrice] = useState(false);
@@ -133,6 +160,15 @@ export function ProfessionalPricingContent() {
     (parseFloat(fireAlarmPanelsPrice) || 0) +
     (parseFloat(fireAlarmSystemTypePrice) || 0) +
     (parseFloat(fireAlarmLastServicePrice) || 0)
+  ).toFixed(2);
+
+  // Extinguishers estimated price = base + 4 addon prices
+  const extinguisherEstimatePrice = (
+    (parseFloat(extinguisherBasePrice) || 0) +
+    (parseFloat(extinguisherPrice) || 0) +
+    (parseFloat(extinguisherFloorPrice) || 0) +
+    (parseFloat(extinguisherTypePrice) || 0) +
+    (parseFloat(extinguisherLastServicePrice) || 0)
   ).toFixed(2);
 
   // When any option is selected, call POST /fra-price/professional and fill price inputs from response (no other logic changed)
@@ -465,6 +501,53 @@ export function ProfessionalPricingContent() {
     load();
   }, [activeTab]);
 
+  // Fetch Extinguisher dropdown options when Extinguishers tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.EXTINGUISHERS) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      setLoadingExtinguisherOptions(true);
+      try {
+        const [extinguisher, floor, extinguisherType, lastService, basePriceRes] = await Promise.all([
+          fetchExtinguisherServiceOptions(api_token, "extinguisher"),
+          fetchExtinguisherServiceOptions(api_token, "floor"),
+          fetchExtinguisherServiceOptions(api_token, "metarials"),
+          fetchExtinguisherServiceOptions(api_token, "last_service"),
+          getProfessionalExtinguisherBasePrice(api_token),
+        ]);
+        const extinguisherList = Array.isArray(extinguisher) ? extinguisher : [];
+        const floorList = Array.isArray(floor) ? floor : [];
+        const typeList = Array.isArray(extinguisherType) ? extinguisherType : [];
+        const lastServiceList = Array.isArray(lastService) ? lastService : [];
+
+        setExtinguisherOptions(extinguisherList);
+        setExtinguisherFloorOptions(floorList);
+        setExtinguisherTypeOptions(typeList);
+        setExtinguisherLastServiceOptions(lastServiceList);
+
+        if (basePriceRes?.data != null && basePriceRes.data.price !== undefined) {
+          const p = basePriceRes.data.price;
+          setExtinguisherBasePrice(typeof p === "string" ? p : String(p));
+        }
+
+        const firstVal = (item: ExtinguisherServiceOptionItem | undefined) =>
+          item ? (String(item.value ?? "").trim() || String(item.id ?? "")) : "";
+
+        setExtinguisherValue((prev) => prev || firstVal(extinguisherList[0]));
+        setExtinguisherFloorValue((prev) => prev || firstVal(floorList[0]));
+        setExtinguisherTypeValue((prev) => prev || firstVal(typeList[0]));
+        setExtinguisherLastServiceValue((prev) => prev || firstVal(lastServiceList[0]));
+      } catch (err) {
+        console.error("Failed to fetch Extinguisher options:", err);
+      } finally {
+        setLoadingExtinguisherOptions(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
   // When Fire Alarm selections change, fetch prices for the selected IDs and display them
   useEffect(() => {
     if (activeTab !== TAB_IDS.FIRE_ALARM || loadingFireAlarmOptions) return;
@@ -530,6 +613,63 @@ export function ProfessionalPricingContent() {
     fireAlarmPanelsOptions,
     fireAlarmSystemTypeOptions,
     fireAlarmLastServiceOptions,
+  ]);
+
+  // When Extinguisher selections change, fetch prices for the selected IDs and display them
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.EXTINGUISHERS || loadingExtinguisherOptions) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const findId = (val: string, opts: ExtinguisherServiceOptionItem[]) => {
+      const v = (val ?? "").trim();
+      if (!v || v === "no-data") return 0;
+      const opt = opts.find((o) => (String(o.value ?? "").trim() || String(o.id)) === v);
+      return opt?.id ?? 0;
+    };
+
+    const extinguisher_id = findId(extinguisherValue, extinguisherOptions);
+    const floor_id = findId(extinguisherFloorValue, extinguisherFloorOptions);
+    const last_service_id = findId(extinguisherLastServiceValue, extinguisherLastServiceOptions);
+    const extinguisher_type_id = findId(extinguisherTypeValue, extinguisherTypeOptions);
+
+    if (!extinguisher_id && !floor_id && !last_service_id && !extinguisher_type_id) {
+      return;
+    }
+
+    const fetchPrices = async () => {
+      try {
+        const res = await getProfessionalExtinguisherSinglePrices(api_token, {
+          extinguisher_id: extinguisher_id || 0,
+          floor_id: floor_id || 0,
+          last_service_id: last_service_id || 0,
+          extinguisher_type_id: extinguisher_type_id || 0,
+        });
+        if (!res?.data) return;
+        const d = res.data;
+        const priceStr = (v: string | null | undefined) =>
+          v != null && String(v).trim() !== "" ? String(v).trim() : "0.00";
+        setExtinguisherPrice(priceStr(d.extinguisher?.price));
+        setExtinguisherFloorPrice(priceStr(d.floor?.price));
+        setExtinguisherLastServicePrice(priceStr(d.last_service?.price));
+        setExtinguisherTypePrice(priceStr(d.extinguisher_type?.price));
+      } catch (err) {
+        console.error("Failed to fetch Extinguisher single prices:", err);
+      }
+    };
+
+    fetchPrices();
+  }, [
+    activeTab,
+    loadingExtinguisherOptions,
+    extinguisherValue,
+    extinguisherFloorValue,
+    extinguisherLastServiceValue,
+    extinguisherTypeValue,
+    extinguisherOptions,
+    extinguisherFloorOptions,
+    extinguisherLastServiceOptions,
+    extinguisherTypeOptions,
   ]);
 
   const handleUpdatePrice = async () => {
@@ -885,7 +1025,7 @@ export function ProfessionalPricingContent() {
           {(Object.entries(TAB_LABELS) as [string, string][]).map(
             ([id, label]) => {
               const isActive = activeTab === id;
-              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM;
+              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM && id !== TAB_IDS.EXTINGUISHERS;
               return (
                 <TabsTrigger
                   key={id}
@@ -1561,7 +1701,435 @@ export function ProfessionalPricingContent() {
           </Card>
         </TabsContent>
         <TabsContent value={TAB_IDS.EXTINGUISHERS} className="mt-0">
-          <ComingSoonCard title="Extinguishers" />
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+              <CardTitle className="text-lg text-[#0A1A2F]">
+                Fire Extinguisher Pricing
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Fire Extinguisher services
+              </p>
+            </CardHeader>
+            <CardContent className="p-4 md:p-8">
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+                {/* Row 1: Fire Extinguisher Service – Base price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Fire Extinguisher Service
+                    </Label>
+                    <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                      Fire Extinguisher Service
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="extinguisher-base-price" className="text-gray-700 font-medium">
+                      Base Price (£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="extinguisher-base-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={extinguisherBasePrice}
+                        onChange={(e) =>
+                          setExtinguisherBasePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const price = parseFloat(extinguisherBasePrice) || 0;
+                          try {
+                            await saveProfessionalExtinguisherBasePrice(token, price);
+                            setExtinguisherUpdateMessage({ type: "success", text: "Base price saved successfully." });
+                          } catch {
+                            setExtinguisherUpdateMessage({ type: "error", text: "Failed to save base price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                  <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    Addon Price
+                  </span>
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                </div>
+
+                {/* Row 2: Select Extinguisher – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select Extinguisher</Label>
+                    <Select value={extinguisherValue} onValueChange={setExtinguisherValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select extinguisher"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {extinguisherOptions.length === 0 && !loadingExtinguisherOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          extinguisherOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="extinguisher-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="extinguisher-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={extinguisherPrice}
+                        onChange={(e) =>
+                          setExtinguisherPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (extinguisherValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = extinguisherOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const extinguisherId = opt?.id ?? 0;
+                          if (!extinguisherId) return;
+                          const price = parseFloat(extinguisherPrice) || 0;
+                          try {
+                            await createProfessionalExtinguisherWisePrice(token, extinguisherId, "extinguisher", price);
+                            setExtinguisherUpdateMessage({ type: "success", text: "Extinguisher price saved successfully." });
+                          } catch {
+                            setExtinguisherUpdateMessage({ type: "error", text: "Failed to save extinguisher price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Select Floor – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Floor</Label>
+                    <Select value={extinguisherFloorValue} onValueChange={setExtinguisherFloorValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select floor"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {extinguisherFloorOptions.length === 0 && !loadingExtinguisherOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          extinguisherFloorOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="extinguisher-floor-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="extinguisher-floor-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={extinguisherFloorPrice}
+                        onChange={(e) =>
+                          setExtinguisherFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (extinguisherFloorValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = extinguisherFloorOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const floorId = opt?.id ?? 0;
+                          if (!floorId) return;
+                          const price = parseFloat(extinguisherFloorPrice) || 0;
+                          try {
+                            await saveProfessionalExtinguisherFloorPrice(token, floorId, price);
+                            setExtinguisherUpdateMessage({ type: "success", text: "Floor price saved successfully." });
+                          } catch {
+                            setExtinguisherUpdateMessage({ type: "error", text: "Failed to save floor price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: Select Extinguisher Type – Price (same structure as Select Floor) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Extinguisher Type</Label>
+                    <Select value={extinguisherTypeValue} onValueChange={setExtinguisherTypeValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select extinguisher type"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {extinguisherTypeOptions.length === 0 && !loadingExtinguisherOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          extinguisherTypeOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="extinguisher-type-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="extinguisher-type-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={extinguisherTypePrice}
+                        onChange={(e) =>
+                          setExtinguisherTypePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (extinguisherTypeValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = extinguisherTypeOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const typeId = opt?.id ?? 0;
+                          if (!typeId) return;
+                          const price = parseFloat(extinguisherTypePrice) || 0;
+                          try {
+                            await saveProfessionalExtinguisherTypePrice(token, typeId, price);
+                            setExtinguisherUpdateMessage({ type: "success", text: "Extinguisher type price saved successfully." });
+                          } catch {
+                            setExtinguisherUpdateMessage({ type: "error", text: "Failed to save extinguisher type price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 5: Select Last Service – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select Last Service</Label>
+                    <Select value={extinguisherLastServiceValue} onValueChange={setExtinguisherLastServiceValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select last service"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {extinguisherLastServiceOptions.length === 0 && !loadingExtinguisherOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          extinguisherLastServiceOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="extinguisher-last-service-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="extinguisher-last-service-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={extinguisherLastServicePrice}
+                        onChange={(e) =>
+                          setExtinguisherLastServicePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (extinguisherLastServiceValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = extinguisherLastServiceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const lastServiceId = opt?.id ?? 0;
+                          if (!lastServiceId) return;
+                          const price = parseFloat(extinguisherLastServicePrice) || 0;
+                          try {
+                            await saveProfessionalExtinguisherLastServicePrice(token, lastServiceId, price);
+                            setExtinguisherUpdateMessage({ type: "success", text: "Last service price saved successfully." });
+                          } catch {
+                            setExtinguisherUpdateMessage({ type: "error", text: "Failed to save last service price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimated Price(£) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label htmlFor="extinguisher-estimate-price" className="text-gray-700 font-medium">
+                      Estimated Price(£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                      <Input
+                        id="extinguisher-estimate-price"
+                        type="text"
+                        readOnly
+                        placeholder="0.00"
+                        value={extinguisherEstimatePrice}
+                        className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+                </div>
+
+                {extinguisherUpdateMessage && (
+                  <p
+                    className={`text-sm ${
+                      extinguisherUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {extinguisherUpdateMessage.text}
+                  </p>
+                )}
+                <div className="pt-4">
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setExtinguisherUpdateMessage(null);
+                      const token = getApiToken();
+                      if (!token) {
+                        setExtinguisherUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                        return;
+                      }
+                      setUpdatingExtinguisherPrice(true);
+                      try {
+                        const basePrice = parseFloat(extinguisherBasePrice) || 0;
+                        await saveProfessionalExtinguisherBasePrice(token, basePrice);
+                        const extinguisherId =
+                          (() => {
+                            const v = (extinguisherValue ?? "").trim();
+                            if (!v || v === "no-data") return 0;
+                            const opt = extinguisherOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                            );
+                            return opt?.id ?? 0;
+                          })();
+                        if (extinguisherId) {
+                          const price = parseFloat(extinguisherPrice) || 0;
+                          await createProfessionalExtinguisherWisePrice(token, extinguisherId, "extinguisher", price);
+                        }
+                        const floorId =
+                          (() => {
+                            const v = (extinguisherFloorValue ?? "").trim();
+                            if (!v || v === "no-data") return 0;
+                            const opt = extinguisherFloorOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                            );
+                            return opt?.id ?? 0;
+                          })();
+                        if (floorId) {
+                          const floorPrice = parseFloat(extinguisherFloorPrice) || 0;
+                          await saveProfessionalExtinguisherFloorPrice(token, floorId, floorPrice);
+                        }
+                        const extinguisherTypeId =
+                          (() => {
+                            const v = (extinguisherTypeValue ?? "").trim();
+                            if (!v || v === "no-data") return 0;
+                            const opt = extinguisherTypeOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                            );
+                            return opt?.id ?? 0;
+                          })();
+                        if (extinguisherTypeId) {
+                          const typePrice = parseFloat(extinguisherTypePrice) || 0;
+                          await saveProfessionalExtinguisherTypePrice(token, extinguisherTypeId, typePrice);
+                        }
+                        const lastServiceId =
+                          (() => {
+                            const v = (extinguisherLastServiceValue ?? "").trim();
+                            if (!v || v === "no-data") return 0;
+                            const opt = extinguisherLastServiceOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                            );
+                            return opt?.id ?? 0;
+                          })();
+                        if (lastServiceId) {
+                          const lastServicePrice = parseFloat(extinguisherLastServicePrice) || 0;
+                          await saveProfessionalExtinguisherLastServicePrice(token, lastServiceId, lastServicePrice);
+                        }
+                        setExtinguisherUpdateMessage({ type: "success", text: "Price updated successfully." });
+                      } catch {
+                        setExtinguisherUpdateMessage({ type: "error", text: "Failed to update price." });
+                      } finally {
+                        setUpdatingExtinguisherPrice(false);
+                      }
+                    }}
+                    disabled={updatingExtinguisherPrice}
+                    className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                  >
+                    {updatingExtinguisherPrice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Price"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value={TAB_IDS.EMERGENCY_LIGHTING} className="mt-0">
           <ComingSoonCard title="Emergency Lighting" />

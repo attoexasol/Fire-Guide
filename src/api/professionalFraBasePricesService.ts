@@ -1,10 +1,25 @@
 import axios from 'axios';
+import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 });
+
+// On 401 (expired/invalid token), log out and redirect to home so user must log in again
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = error?.config?.url || '';
+    const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register') || requestUrl.includes('/send_otp') || requestUrl.includes('/verify_otp') || requestUrl.includes('/reset_password');
+    if (!isAuthEndpoint && isTokenExpiredError(error)) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export interface ProfessionalFraBasePriceItem {
   id: number;
