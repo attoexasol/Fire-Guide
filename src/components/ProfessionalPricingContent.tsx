@@ -2993,6 +2993,7 @@ export function ProfessionalPricingContent() {
                   </div>
                 </div>
 
+
                 {/* Row 3: Select Place – Price */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
                   <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
