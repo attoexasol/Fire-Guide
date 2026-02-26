@@ -434,6 +434,68 @@ export const fetchExtinguisherServiceOptions = async (
   }
 };
 
+/**
+ * Emergency Light Service: fetch options for dropdowns.
+ * POST /emergency-lighting-testing/get-emergency-light  Body: { api_token, type }
+ * type: "light" | "floor" | "light_type" | "light_test"
+ * Response: { status, message, data: [{ id, type, value, ... }] }
+ */
+export interface EmergencyLightServiceOptionItem {
+  id: number;
+  value: string;
+}
+
+export const fetchEmergencyLightOptions = async (
+  apiToken: string,
+  type: string
+): Promise<EmergencyLightServiceOptionItem[]> => {
+  try {
+    const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
+      '/emergency-lighting-testing/get-emergency-light',
+      { api_token: apiToken, type }
+    );
+    const raw = response.data;
+    const list = Array.isArray(raw?.data) ? raw.data : [];
+    return list.map((item) => ({
+      id: Number(item.id),
+      value: String(item.value ?? '').trim() || String(item.id),
+    }));
+  } catch (_err) {
+    return [];
+  }
+};
+
+/**
+ * Fire Marshal (Training): fetch options for dropdowns.
+ * POST /fire-marshal/get-marshal  Body: { api_token, type }
+ * type: "people" | "training_place" | "building_type" | "experience"
+ * Response: { status, message, data: [{ id, type, value, ... }] }
+ */
+export interface MarshalServiceOptionItem {
+  id: number;
+  value: string;
+}
+
+export const fetchMarshalOptions = async (
+  apiToken: string,
+  type: string
+): Promise<MarshalServiceOptionItem[]> => {
+  try {
+    const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
+      '/fire-marshal/get-marshal',
+      { api_token: apiToken, type }
+    );
+    const raw = response.data;
+    const list = Array.isArray(raw?.data) ? raw.data : [];
+    return list.map((item) => ({
+      id: Number(item.id),
+      value: String(item.value ?? '').trim() || String(item.id),
+    }));
+  } catch (_err) {
+    return [];
+  }
+};
+
 /** Response for POST /professional-extinguisher/base-price-create */
 export interface ProfessionalExtinguisherBasePriceResponse {
   status: boolean;
@@ -485,6 +547,396 @@ export const saveProfessionalExtinguisherBasePrice = async (
   const response = await apiClient.post<ProfessionalExtinguisherBasePriceResponse>(
     '/professional-extinguisher/base-price-create',
     { api_token: apiToken, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal/base-price-create */
+export interface ProfessionalMarshalBasePriceResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Marshal (Training) base price.
+ * POST /professional-marshal/base-price-create  Body: { api_token, price }
+ */
+export const saveProfessionalMarshalBasePrice = async (
+  apiToken: string,
+  price: number
+): Promise<ProfessionalMarshalBasePriceResponse> => {
+  const response = await apiClient.post<ProfessionalMarshalBasePriceResponse>(
+    '/professional-marshal/base-price-create',
+    { api_token: apiToken, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal/base-price-get */
+export interface ProfessionalMarshalBasePriceGetResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number | string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get professional Marshal (Training) base price.
+ * POST /professional-marshal/base-price-get  Body: { api_token }
+ */
+export const getProfessionalMarshalBasePrice = async (
+  apiToken: string
+): Promise<ProfessionalMarshalBasePriceGetResponse> => {
+  const response = await apiClient.post<ProfessionalMarshalBasePriceGetResponse>(
+    '/professional-marshal/base-price-get',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal/people-price-create */
+export interface ProfessionalMarshalPeoplePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    people_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Marshal people price.
+ * POST /professional-marshal/people-price-create  Body: { api_token, people_id, type: "people", price }
+ */
+export const saveProfessionalMarshalPeoplePrice = async (
+  apiToken: string,
+  people_id: number,
+  price: number
+): Promise<ProfessionalMarshalPeoplePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalMarshalPeoplePriceCreateResponse>(
+    '/professional-marshal/people-price-create',
+    { api_token: apiToken, people_id, type: 'people', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal/place-price-create */
+export interface ProfessionalMarshalPlacePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    place_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Marshal place price.
+ * POST /professional-marshal/place-price-create  Body: { api_token, place_id, type: "training_place", price }
+ */
+export const saveProfessionalMarshalPlacePrice = async (
+  apiToken: string,
+  place_id: number,
+  price: number
+): Promise<ProfessionalMarshalPlacePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalMarshalPlacePriceCreateResponse>(
+    '/professional-marshal/place-price-create',
+    { api_token: apiToken, place_id, type: 'training_place', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal/training-on-price-create */
+export interface ProfessionalMarshalTrainingOnPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    training_on_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Marshal Training On price (building_type).
+ * POST /professional-marshal/training-on-price-create  Body: { api_token, training_on_id, type: "building_type", price }
+ */
+export const saveProfessionalMarshalTrainingOnPrice = async (
+  apiToken: string,
+  training_on_id: number,
+  price: number
+): Promise<ProfessionalMarshalTrainingOnPriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalMarshalTrainingOnPriceCreateResponse>(
+    '/professional-marshal/training-on-price-create',
+    { api_token: apiToken, training_on_id, type: 'building_type', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal/experience-price-create */
+export interface ProfessionalMarshalExperiencePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    experience_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Marshal experience price.
+ * POST /professional-marshal/experience-price-create  Body: { api_token, experience_id, type: "experience", price }
+ */
+export const saveProfessionalMarshalExperiencePrice = async (
+  apiToken: string,
+  experience_id: number,
+  price: number
+): Promise<ProfessionalMarshalExperiencePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalMarshalExperiencePriceCreateResponse>(
+    '/professional-marshal/experience-price-create',
+    { api_token: apiToken, experience_id, type: 'experience', price }
+  );
+  return response.data;
+};
+
+/** Request body for POST /professional-marshal/get-single/prices */
+export interface GetProfessionalMarshalSinglePricesRequest {
+  people_id: number;
+  place_id: number;
+  training_on_id: number;
+  experience_id: number;
+}
+
+/** Response for POST /professional-marshal/get-single/prices */
+export interface GetProfessionalMarshalSinglePricesResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    professional?: { id: number; name: string };
+    people?: { id: number; people?: string; price?: string };
+    place?: { id: number; place?: string; price?: string };
+    training_on?: { id: number; training_on?: string; price?: string };
+    experience?: { id: number; experience?: string; price?: string };
+    total_price?: string;
+  };
+}
+
+/**
+ * Get prices for selected Training (Marshal) options.
+ * POST /professional-marshal/get-single/prices
+ * Body: { api_token, people_id, place_id, training_on_id, experience_id }
+ */
+export const getProfessionalMarshalSinglePrices = async (
+  apiToken: string,
+  ids: GetProfessionalMarshalSinglePricesRequest
+): Promise<GetProfessionalMarshalSinglePricesResponse> => {
+  const response = await apiClient.post<GetProfessionalMarshalSinglePricesResponse>(
+    '/professional-marshal/get-single/prices',
+    { api_token: apiToken, ...ids }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light/base-price-create */
+export interface ProfessionalEmergencyLightBasePriceResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Emergency Light base price.
+ * POST /professional-emergency-light/base-price-create  Body: { api_token, price }
+ */
+export const saveProfessionalEmergencyLightBasePrice = async (
+  apiToken: string,
+  price: number
+): Promise<ProfessionalEmergencyLightBasePriceResponse> => {
+  const response = await apiClient.post<ProfessionalEmergencyLightBasePriceResponse>(
+    '/professional-emergency-light/base-price-create',
+    { api_token: apiToken, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light/base-price-get */
+export interface ProfessionalEmergencyLightBasePriceGetResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number | string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get professional Emergency Light base price.
+ * POST /professional-emergency-light/base-price-get  Body: { api_token }
+ */
+export const getProfessionalEmergencyLightBasePrice = async (
+  apiToken: string
+): Promise<ProfessionalEmergencyLightBasePriceGetResponse> => {
+  const response = await apiClient.post<ProfessionalEmergencyLightBasePriceGetResponse>(
+    '/professional-emergency-light/base-price-get',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light/price-create */
+export interface ProfessionalEmergencyLightPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    light_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional emergency light price (e.g. Select Emergency light, floor, type, test).
+ * POST /professional-emergency-light/price-create  Body: { api_token, light_id, type, price }
+ * @param type One of: "light" | "floor" | "light_type" | "light_test"
+ */
+export const createProfessionalEmergencyLightPrice = async (
+  apiToken: string,
+  light_id: number,
+  type: string,
+  price: number
+): Promise<ProfessionalEmergencyLightPriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalEmergencyLightPriceCreateResponse>(
+    '/professional-emergency-light/price-create',
+    { api_token: apiToken, light_id, type, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light/floor-price-create */
+export interface ProfessionalEmergencyLightFloorPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    floor_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional emergency light floor price.
+ * POST /professional-emergency-light/floor-price-create  Body: { api_token, floor_id, type: "floor", price }
+ */
+export const saveProfessionalEmergencyLightFloorPrice = async (
+  apiToken: string,
+  floor_id: number,
+  price: number
+): Promise<ProfessionalEmergencyLightFloorPriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalEmergencyLightFloorPriceCreateResponse>(
+    '/professional-emergency-light/floor-price-create',
+    { api_token: apiToken, floor_id, type: "floor", price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-test/price-create */
+export interface ProfessionalEmergencyLightTestPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    light_test_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional emergency light test price.
+ * POST /professional-emergency-light-test/price-create  Body: { api_token, light_test_id, type: "light_test", price }
+ */
+export const saveProfessionalEmergencyLightTestPrice = async (
+  apiToken: string,
+  light_test_id: number,
+  price: number
+): Promise<ProfessionalEmergencyLightTestPriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalEmergencyLightTestPriceCreateResponse>(
+    '/professional-emergency-light-test/price-create',
+    { api_token: apiToken, light_test_id, type: "light_test", price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-type/price-create */
+export interface ProfessionalEmergencyLightTypePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    light_type_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional emergency light type price.
+ * POST /professional-emergency-light-type/price-create  Body: { api_token, light_type_id, type: "light_type", price }
+ */
+export const saveProfessionalEmergencyLightTypePrice = async (
+  apiToken: string,
+  light_type_id: number,
+  price: number
+): Promise<ProfessionalEmergencyLightTypePriceCreateResponse> => {
+  const response = await apiClient.post<ProfessionalEmergencyLightTypePriceCreateResponse>(
+    '/professional-emergency-light-type/price-create',
+    { api_token: apiToken, light_type_id, type: "light_type", price }
   );
   return response.data;
 };
@@ -645,6 +1097,44 @@ export const getProfessionalExtinguisherSinglePrices = async (
 ): Promise<GetProfessionalExtinguisherSinglePricesResponse> => {
   const response = await apiClient.post<GetProfessionalExtinguisherSinglePricesResponse>(
     '/professional-fire-Extingusher/get-single/prices',
+    { api_token: apiToken, ...ids }
+  );
+  return response.data;
+};
+
+/** Request body for POST /professional-fire-light-testing/get-single/prices */
+export interface GetProfessionalEmergencyLightSinglePricesRequest {
+  api_token: string;
+  light_id: number;
+  floor_id: number;
+  light_test_id: number;
+  light_type_id: number;
+}
+
+/** Response for POST /professional-fire-light-testing/get-single/prices */
+export interface GetProfessionalEmergencyLightSinglePricesResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    professional?: { id: number; name: string };
+    light?: { id: number; lights?: string; price?: string };
+    floor?: { id: number; floor?: string; price?: string };
+    light_test?: { id: number; light_test?: string; price?: string };
+    light_type?: { id: number; light_type?: string; price?: string };
+  };
+}
+
+/**
+ * Get prices for selected Emergency Light options (single combo).
+ * POST /professional-fire-light-testing/get-single/prices
+ * Body: { api_token, light_id, floor_id, light_test_id, light_type_id }
+ */
+export const getProfessionalEmergencyLightSinglePrices = async (
+  apiToken: string,
+  ids: Omit<GetProfessionalEmergencyLightSinglePricesRequest, 'api_token'>
+): Promise<GetProfessionalEmergencyLightSinglePricesResponse> => {
+  const response = await apiClient.post<GetProfessionalEmergencyLightSinglePricesResponse>(
+    '/professional-fire-light-testing/get-single/prices',
     { api_token: apiToken, ...ids }
   );
   return response.data;

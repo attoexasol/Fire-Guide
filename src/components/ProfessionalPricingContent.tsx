@@ -43,6 +43,24 @@ import {
   saveProfessionalExtinguisherTypePrice,
   saveProfessionalExtinguisherLastServicePrice,
   getProfessionalExtinguisherSinglePrices,
+  saveProfessionalEmergencyLightBasePrice,
+  getProfessionalEmergencyLightBasePrice,
+  fetchEmergencyLightOptions,
+  EmergencyLightServiceOptionItem,
+  createProfessionalEmergencyLightPrice,
+  saveProfessionalEmergencyLightFloorPrice,
+  saveProfessionalEmergencyLightTestPrice,
+  saveProfessionalEmergencyLightTypePrice,
+  getProfessionalEmergencyLightSinglePrices,
+  saveProfessionalMarshalBasePrice,
+  getProfessionalMarshalBasePrice,
+  saveProfessionalMarshalPeoplePrice,
+  saveProfessionalMarshalPlacePrice,
+  saveProfessionalMarshalTrainingOnPrice,
+  saveProfessionalMarshalExperiencePrice,
+  getProfessionalMarshalSinglePrices,
+  fetchMarshalOptions,
+  MarshalServiceOptionItem,
 } from "../api/servicesService";
 import { getProfessionalId, getApiToken } from "../lib/auth";
 
@@ -133,6 +151,43 @@ export function ProfessionalPricingContent() {
   const [extinguisherLastServiceOptions, setExtinguisherLastServiceOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
   const [loadingExtinguisherOptions, setLoadingExtinguisherOptions] = useState(false);
 
+  // Emergency Lighting tab state (same table design as Extinguishers)
+  const [emergencyLightBasePrice, setEmergencyLightBasePrice] = useState("");
+  const [emergencyLightValue, setEmergencyLightValue] = useState("");
+  const [emergencyLightPrice, setEmergencyLightPrice] = useState("");
+  const [emergencyLightFloorValue, setEmergencyLightFloorValue] = useState("");
+  const [emergencyLightFloorPrice, setEmergencyLightFloorPrice] = useState("");
+  const [emergencyLightTypeValue, setEmergencyLightTypeValue] = useState("");
+  const [emergencyLightTypePrice, setEmergencyLightTypePrice] = useState("");
+  const [emergencyLightTestValue, setEmergencyLightTestValue] = useState("");
+  const [emergencyLightTestPrice, setEmergencyLightTestPrice] = useState("");
+  const [updatingEmergencyLightPrice, setUpdatingEmergencyLightPrice] = useState(false);
+  const [emergencyLightUpdateMessage, setEmergencyLightUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [emergencyLightOptions, setEmergencyLightOptions] = useState<{ id: number; value: string }[]>([]);
+  const [emergencyLightFloorOptions, setEmergencyLightFloorOptions] = useState<{ id: number; value: string }[]>([]);
+  const [emergencyLightTypeOptions, setEmergencyLightTypeOptions] = useState<{ id: number; value: string }[]>([]);
+  const [emergencyLightTestOptions, setEmergencyLightTestOptions] = useState<{ id: number; value: string }[]>([]);
+  const [loadingEmergencyLightOptions, setLoadingEmergencyLightOptions] = useState(false);
+
+  // Training tab state (same table design as Emergency Lighting)
+  const [trainingBasePrice, setTrainingBasePrice] = useState("");
+  const [trainingPeopleValue, setTrainingPeopleValue] = useState("");
+  const [trainingPeoplePrice, setTrainingPeoplePrice] = useState("");
+  const [trainingPlaceValue, setTrainingPlaceValue] = useState("");
+  const [trainingPlacePrice, setTrainingPlacePrice] = useState("");
+  const [trainingTrainingValue, setTrainingTrainingValue] = useState("");
+  const [trainingTrainingPrice, setTrainingTrainingPrice] = useState("");
+  const [trainingExperienceValue, setTrainingExperienceValue] = useState("");
+  const [trainingExperiencePrice, setTrainingExperiencePrice] = useState("");
+  const [updatingTrainingPrice, setUpdatingTrainingPrice] = useState(false);
+  const [trainingUpdateMessage, setTrainingUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [trainingPeopleOptions, setTrainingPeopleOptions] = useState<{ id: number; value: string }[]>([]);
+  const [trainingPlaceOptions, setTrainingPlaceOptions] = useState<{ id: number; value: string }[]>([]);
+  const [trainingTrainingOptions, setTrainingTrainingOptions] = useState<{ id: number; value: string }[]>([]);
+  const [trainingExperienceOptions, setTrainingExperienceOptions] = useState<{ id: number; value: string }[]>([]);
+  const [loadingTrainingOptions, setLoadingTrainingOptions] = useState(false);
+  const [trainingTotalPriceFromApi, setTrainingTotalPriceFromApi] = useState<string | null>(null);
+
   const [updatingPrice, setUpdatingPrice] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [savingBasePrice, setSavingBasePrice] = useState(false);
@@ -169,6 +224,24 @@ export function ProfessionalPricingContent() {
     (parseFloat(extinguisherFloorPrice) || 0) +
     (parseFloat(extinguisherTypePrice) || 0) +
     (parseFloat(extinguisherLastServicePrice) || 0)
+  ).toFixed(2);
+
+  // Emergency Lighting estimated price = base + 4 addon prices
+  const emergencyLightEstimatePrice = (
+    (parseFloat(emergencyLightBasePrice) || 0) +
+    (parseFloat(emergencyLightPrice) || 0) +
+    (parseFloat(emergencyLightFloorPrice) || 0) +
+    (parseFloat(emergencyLightTypePrice) || 0) +
+    (parseFloat(emergencyLightTestPrice) || 0)
+  ).toFixed(2);
+
+  // Training estimated price = base + 4 addon prices
+  const trainingEstimatePrice = (
+    (parseFloat(trainingBasePrice) || 0) +
+    (parseFloat(trainingPeoplePrice) || 0) +
+    (parseFloat(trainingPlacePrice) || 0) +
+    (parseFloat(trainingTrainingPrice) || 0) +
+    (parseFloat(trainingExperiencePrice) || 0)
   ).toFixed(2);
 
   // When any option is selected, call POST /fra-price/professional and fill price inputs from response (no other logic changed)
@@ -615,6 +688,128 @@ export function ProfessionalPricingContent() {
     fireAlarmLastServiceOptions,
   ]);
 
+  // Fetch Emergency Light base price when Emergency Lighting tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.EMERGENCY_LIGHTING) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      try {
+        const res = await getProfessionalEmergencyLightBasePrice(api_token);
+        if (res?.data != null && res.data.price !== undefined) {
+          const p = res.data.price;
+          setEmergencyLightBasePrice(typeof p === "string" ? p : String(p));
+        }
+      } catch (err) {
+        console.error("Failed to fetch Emergency Light base price:", err);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // Fetch Professional Marshal (Training) base price when Training tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.TRAINING) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      try {
+        const res = await getProfessionalMarshalBasePrice(api_token);
+        if (res?.data != null && res.data.price !== undefined) {
+          const p = res.data.price;
+          setTrainingBasePrice(typeof p === "string" ? p : String(p));
+        }
+      } catch (err) {
+        console.error("Failed to fetch Marshal base price:", err);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // Fetch Emergency Light dropdown options when Emergency Lighting tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.EMERGENCY_LIGHTING) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      setLoadingEmergencyLightOptions(true);
+      try {
+        const [light, floor, lightType, lightTest] = await Promise.all([
+          fetchEmergencyLightOptions(api_token, "light"),
+          fetchEmergencyLightOptions(api_token, "floor"),
+          fetchEmergencyLightOptions(api_token, "light_type"),
+          fetchEmergencyLightOptions(api_token, "light_test"),
+        ]);
+        const lightList = Array.isArray(light) ? light : [];
+        const floorList = Array.isArray(floor) ? floor : [];
+        const typeList = Array.isArray(lightType) ? lightType : [];
+        const testList = Array.isArray(lightTest) ? lightTest : [];
+
+        setEmergencyLightOptions(lightList);
+        setEmergencyLightFloorOptions(floorList);
+        setEmergencyLightTypeOptions(typeList);
+        setEmergencyLightTestOptions(testList);
+
+        const firstVal = (item: EmergencyLightServiceOptionItem | undefined) =>
+          item ? (String(item.value ?? "").trim() || String(item.id ?? "")) : "";
+
+        setEmergencyLightValue((prev) => prev || firstVal(lightList[0]));
+        setEmergencyLightFloorValue((prev) => prev || firstVal(floorList[0]));
+        setEmergencyLightTypeValue((prev) => prev || firstVal(typeList[0]));
+        setEmergencyLightTestValue((prev) => prev || firstVal(testList[0]));
+      } catch (err) {
+        console.error("Failed to fetch Emergency Light options:", err);
+      } finally {
+        setLoadingEmergencyLightOptions(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // Fetch Training (Marshal) dropdown options when Training tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.TRAINING) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      setLoadingTrainingOptions(true);
+      try {
+        const [people, place, training, experience] = await Promise.all([
+          fetchMarshalOptions(api_token, "people"),
+          fetchMarshalOptions(api_token, "training_place"),
+          fetchMarshalOptions(api_token, "building_type"),
+          fetchMarshalOptions(api_token, "experience"),
+        ]);
+        const peopleList = Array.isArray(people) ? people : [];
+        const placeList = Array.isArray(place) ? place : [];
+        const trainingList = Array.isArray(training) ? training : [];
+        const experienceList = Array.isArray(experience) ? experience : [];
+
+        setTrainingPeopleOptions(peopleList);
+        setTrainingPlaceOptions(placeList);
+        setTrainingTrainingOptions(trainingList);
+        setTrainingExperienceOptions(experienceList);
+
+        const firstVal = (item: MarshalServiceOptionItem | undefined) =>
+          item ? (String(item.value ?? "").trim() || String(item.id ?? "")) : "";
+
+        setTrainingPeopleValue((prev) => prev || firstVal(peopleList[0]));
+        setTrainingPlaceValue((prev) => prev || firstVal(placeList[0]));
+        setTrainingTrainingValue((prev) => prev || firstVal(trainingList[0]));
+        setTrainingExperienceValue((prev) => prev || firstVal(experienceList[0]));
+      } catch (err) {
+        console.error("Failed to fetch Training (Marshal) options:", err);
+      } finally {
+        setLoadingTrainingOptions(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
   // When Extinguisher selections change, fetch prices for the selected IDs and display them
   useEffect(() => {
     if (activeTab !== TAB_IDS.EXTINGUISHERS || loadingExtinguisherOptions) return;
@@ -670,6 +865,123 @@ export function ProfessionalPricingContent() {
     extinguisherFloorOptions,
     extinguisherLastServiceOptions,
     extinguisherTypeOptions,
+  ]);
+
+  // When Emergency Light selections change, fetch prices for the selected IDs and display them
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.EMERGENCY_LIGHTING || loadingEmergencyLightOptions) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const findId = (val: string, opts: EmergencyLightServiceOptionItem[]) => {
+      const v = (val ?? "").trim();
+      if (!v || v === "no-data") return 0;
+      const opt = opts.find((o) => (String(o.value ?? "").trim() || String(o.id)) === v);
+      return opt?.id ?? 0;
+    };
+
+    const light_id = findId(emergencyLightValue, emergencyLightOptions);
+    const floor_id = findId(emergencyLightFloorValue, emergencyLightFloorOptions);
+    const light_test_id = findId(emergencyLightTestValue, emergencyLightTestOptions);
+    const light_type_id = findId(emergencyLightTypeValue, emergencyLightTypeOptions);
+
+    if (!light_id && !floor_id && !light_test_id && !light_type_id) {
+      return;
+    }
+
+    const fetchPrices = async () => {
+      try {
+        const res = await getProfessionalEmergencyLightSinglePrices(api_token, {
+          light_id: light_id || 0,
+          floor_id: floor_id || 0,
+          light_test_id: light_test_id || 0,
+          light_type_id: light_type_id || 0,
+        });
+        if (!res?.data) return;
+        const d = res.data;
+        const priceStr = (v: string | null | undefined) =>
+          v != null && String(v).trim() !== "" ? String(v).trim() : "0.00";
+        setEmergencyLightPrice(priceStr(d.light?.price));
+        setEmergencyLightFloorPrice(priceStr(d.floor?.price));
+        setEmergencyLightTestPrice(priceStr(d.light_test?.price));
+        setEmergencyLightTypePrice(priceStr(d.light_type?.price));
+      } catch (err) {
+        console.error("Failed to fetch Emergency Light single prices:", err);
+      }
+    };
+
+    fetchPrices();
+  }, [
+    activeTab,
+    loadingEmergencyLightOptions,
+    emergencyLightValue,
+    emergencyLightFloorValue,
+    emergencyLightTestValue,
+    emergencyLightTypeValue,
+    emergencyLightOptions,
+    emergencyLightFloorOptions,
+    emergencyLightTestOptions,
+    emergencyLightTypeOptions,
+  ]);
+
+  // When Training (Marshal) selections change, fetch prices for the selected IDs and display them
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.TRAINING || loadingTrainingOptions) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const findId = (val: string, opts: MarshalServiceOptionItem[]) => {
+      const v = (val ?? "").trim();
+      if (!v || v === "no-data") return 0;
+      const opt = opts.find((o) => (String(o.value ?? "").trim() || String(o.id)) === v);
+      return opt?.id ?? 0;
+    };
+
+    const people_id = findId(trainingPeopleValue, trainingPeopleOptions);
+    const place_id = findId(trainingPlaceValue, trainingPlaceOptions);
+    const training_on_id = findId(trainingTrainingValue, trainingTrainingOptions);
+    const experience_id = findId(trainingExperienceValue, trainingExperienceOptions);
+
+    if (!people_id && !place_id && !training_on_id && !experience_id) {
+      return;
+    }
+
+    const fetchPrices = async () => {
+      try {
+        const res = await getProfessionalMarshalSinglePrices(api_token, {
+          people_id: people_id || 0,
+          place_id: place_id || 0,
+          training_on_id: training_on_id || 0,
+          experience_id: experience_id || 0,
+        });
+        if (!res?.data) return;
+        const d = res.data;
+        const priceStr = (v: string | null | undefined) =>
+          v != null && String(v).trim() !== "" ? String(v).trim() : "0.00";
+        setTrainingPeoplePrice(priceStr(d.people?.price));
+        setTrainingPlacePrice(priceStr(d.place?.price));
+        setTrainingTrainingPrice(priceStr(d.training_on?.price));
+        setTrainingExperiencePrice(priceStr(d.experience?.price));
+        setTrainingTotalPriceFromApi(
+          d.total_price != null && String(d.total_price).trim() !== "" ? String(d.total_price).trim() : null
+        );
+      } catch (err) {
+        console.error("Failed to fetch Training single prices:", err);
+      }
+    };
+
+    fetchPrices();
+  }, [
+    activeTab,
+    loadingTrainingOptions,
+    trainingPeopleValue,
+    trainingPlaceValue,
+    trainingTrainingValue,
+    trainingExperienceValue,
+    trainingPeopleOptions,
+    trainingPlaceOptions,
+    trainingTrainingOptions,
+    trainingExperienceOptions,
   ]);
 
   const handleUpdatePrice = async () => {
@@ -1025,7 +1337,7 @@ export function ProfessionalPricingContent() {
           {(Object.entries(TAB_LABELS) as [string, string][]).map(
             ([id, label]) => {
               const isActive = activeTab === id;
-              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM && id !== TAB_IDS.EXTINGUISHERS;
+              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM && id !== TAB_IDS.EXTINGUISHERS && id !== TAB_IDS.EMERGENCY_LIGHTING && id !== TAB_IDS.TRAINING;
               return (
                 <TabsTrigger
                   key={id}
@@ -2132,10 +2444,830 @@ export function ProfessionalPricingContent() {
           </Card>
         </TabsContent>
         <TabsContent value={TAB_IDS.EMERGENCY_LIGHTING} className="mt-0">
-          <ComingSoonCard title="Emergency Lighting" />
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+              <CardTitle className="text-lg text-[#0A1A2F]">
+                Emergency Lighting Pricing
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Emergency Lighting services
+              </p>
+            </CardHeader>
+            <CardContent className="p-4 md:p-8">
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+                {/* Row 1: Emergency Light Service – Base price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Emergency Light Service
+                    </Label>
+                    <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                      Emergency Light Service
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="emergency-light-base-price" className="text-gray-700 font-medium">
+                      Base Price (£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="emergency-light-base-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={emergencyLightBasePrice}
+                        onChange={(e) =>
+                          setEmergencyLightBasePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const price = parseFloat(emergencyLightBasePrice) || 0;
+                          try {
+                            await saveProfessionalEmergencyLightBasePrice(token, price);
+                            setEmergencyLightUpdateMessage({ type: "success", text: "Base price saved successfully." });
+                          } catch {
+                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save base price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                  <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    Addon Price
+                  </span>
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                </div>
+
+                {/* Row 2: Select emergency light – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select Emergency light</Label>
+                    <Select value={emergencyLightValue} onValueChange={setEmergencyLightValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select Emergency light"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emergencyLightOptions.length === 0 && !loadingEmergencyLightOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          emergencyLightOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="emergency-light-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="emergency-light-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={emergencyLightPrice}
+                        onChange={(e) =>
+                          setEmergencyLightPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (emergencyLightValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = emergencyLightOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const lightId = opt?.id ?? 0;
+                          if (!lightId) return;
+                          const price = parseFloat(emergencyLightPrice) || 0;
+                          try {
+                            await createProfessionalEmergencyLightPrice(token, lightId, "light", price);
+                            setEmergencyLightUpdateMessage({ type: "success", text: "Emergency light price saved successfully." });
+                          } catch {
+                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save Emergency light price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Select emergency light floor – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Emergency light floor</Label>
+                    <Select value={emergencyLightFloorValue} onValueChange={setEmergencyLightFloorValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select floor"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emergencyLightFloorOptions.length === 0 && !loadingEmergencyLightOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          emergencyLightFloorOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="emergency-light-floor-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="emergency-light-floor-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={emergencyLightFloorPrice}
+                        onChange={(e) =>
+                          setEmergencyLightFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (emergencyLightFloorValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = emergencyLightFloorOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const floorId = opt?.id ?? 0;
+                          if (!floorId) return;
+                          const price = parseFloat(emergencyLightFloorPrice) || 0;
+                          try {
+                            await saveProfessionalEmergencyLightFloorPrice(token, floorId, price);
+                            setEmergencyLightUpdateMessage({ type: "success", text: "Floor price saved successfully." });
+                          } catch {
+                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save floor price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: Select emergency light type – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Emergency light type</Label>
+                    <Select value={emergencyLightTypeValue} onValueChange={setEmergencyLightTypeValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select type"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emergencyLightTypeOptions.length === 0 && !loadingEmergencyLightOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          emergencyLightTypeOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="emergency-light-type-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="emergency-light-type-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={emergencyLightTypePrice}
+                        onChange={(e) =>
+                          setEmergencyLightTypePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (emergencyLightTypeValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = emergencyLightTypeOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const lightTypeId = opt?.id ?? 0;
+                          if (!lightTypeId) return;
+                          const price = parseFloat(emergencyLightTypePrice) || 0;
+                          try {
+                            await saveProfessionalEmergencyLightTypePrice(token, lightTypeId, price);
+                            setEmergencyLightUpdateMessage({ type: "success", text: "Emergency light type price saved successfully." });
+                          } catch {
+                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save Emergency light type price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 5: Select emergency light test – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select Emergency light test</Label>
+                    <Select value={emergencyLightTestValue} onValueChange={setEmergencyLightTestValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select test"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emergencyLightTestOptions.length === 0 && !loadingEmergencyLightOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          emergencyLightTestOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="emergency-light-test-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="emergency-light-test-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={emergencyLightTestPrice}
+                        onChange={(e) =>
+                          setEmergencyLightTestPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const v = (emergencyLightTestValue ?? "").trim();
+                          if (!v || v === "no-data") return;
+                          const opt = emergencyLightTestOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          const lightTestId = opt?.id ?? 0;
+                          if (!lightTestId) return;
+                          const price = parseFloat(emergencyLightTestPrice) || 0;
+                          try {
+                            await saveProfessionalEmergencyLightTestPrice(token, lightTestId, price);
+                            setEmergencyLightUpdateMessage({ type: "success", text: "Emergency light test price saved successfully." });
+                          } catch {
+                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save Emergency light test price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimated Price(£) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label htmlFor="emergency-light-estimate-price" className="text-gray-700 font-medium">
+                      Estimated Price(£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                      <Input
+                        id="emergency-light-estimate-price"
+                        type="text"
+                        readOnly
+                        placeholder="0.00"
+                        value={emergencyLightEstimatePrice}
+                        className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+                </div>
+
+                {emergencyLightUpdateMessage && (
+                  <p
+                    className={`text-sm ${
+                      emergencyLightUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {emergencyLightUpdateMessage.text}
+                  </p>
+                )}
+                <div className="pt-4">
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setEmergencyLightUpdateMessage(null);
+                      const token = getApiToken();
+                      if (!token) {
+                        setEmergencyLightUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                        return;
+                      }
+                      setUpdatingEmergencyLightPrice(true);
+                      try {
+                        const basePrice = parseFloat(emergencyLightBasePrice) || 0;
+                        await saveProfessionalEmergencyLightBasePrice(token, basePrice);
+                        const lightId = (() => {
+                          const v = (emergencyLightValue ?? "").trim();
+                          if (!v || v === "no-data") return 0;
+                          const opt = emergencyLightOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          return opt?.id ?? 0;
+                        })();
+                        if (lightId) {
+                          const price = parseFloat(emergencyLightPrice) || 0;
+                          await createProfessionalEmergencyLightPrice(token, lightId, "light", price);
+                        }
+                        const floorId = (() => {
+                          const v = (emergencyLightFloorValue ?? "").trim();
+                          if (!v || v === "no-data") return 0;
+                          const opt = emergencyLightFloorOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          return opt?.id ?? 0;
+                        })();
+                        if (floorId) {
+                          const floorPrice = parseFloat(emergencyLightFloorPrice) || 0;
+                          await saveProfessionalEmergencyLightFloorPrice(token, floorId, floorPrice);
+                        }
+                        const lightTypeId = (() => {
+                          const v = (emergencyLightTypeValue ?? "").trim();
+                          if (!v || v === "no-data") return 0;
+                          const opt = emergencyLightTypeOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          return opt?.id ?? 0;
+                        })();
+                        if (lightTypeId) {
+                          const typePrice = parseFloat(emergencyLightTypePrice) || 0;
+                          await saveProfessionalEmergencyLightTypePrice(token, lightTypeId, typePrice);
+                        }
+                        const lightTestId = (() => {
+                          const v = (emergencyLightTestValue ?? "").trim();
+                          if (!v || v === "no-data") return 0;
+                          const opt = emergencyLightTestOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+                          );
+                          return opt?.id ?? 0;
+                        })();
+                        if (lightTestId) {
+                          const testPrice = parseFloat(emergencyLightTestPrice) || 0;
+                          await saveProfessionalEmergencyLightTestPrice(token, lightTestId, testPrice);
+                        }
+                        setEmergencyLightUpdateMessage({ type: "success", text: "Price updated successfully." });
+                      } catch {
+                        setEmergencyLightUpdateMessage({ type: "error", text: "Failed to update price." });
+                      } finally {
+                        setUpdatingEmergencyLightPrice(false);
+                      }
+                    }}
+                    disabled={updatingEmergencyLightPrice}
+                    className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                  >
+                    {updatingEmergencyLightPrice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Price"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value={TAB_IDS.TRAINING} className="mt-0">
-          <ComingSoonCard title="Training" />
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+              <CardTitle className="text-lg text-[#0A1A2F]">
+                Training Pricing
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Training services
+              </p>
+            </CardHeader>
+            <CardContent className="p-4 md:p-8">
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+                {/* Row 1: Professional marshal – Base price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Professional Marshal
+                    </Label>
+                    <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                      Professional Marshal
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="training-base-price" className="text-gray-700 font-medium">
+                      Base Price (£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="training-base-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={trainingBasePrice}
+                        onChange={(e) =>
+                          setTrainingBasePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const price = parseFloat(trainingBasePrice) || 0;
+                          try {
+                            await saveProfessionalMarshalBasePrice(token, price);
+                            setTrainingUpdateMessage({ type: "success", text: "Base price saved successfully." });
+                          } catch {
+                            setTrainingUpdateMessage({ type: "error", text: "Failed to save base price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                  <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    Addon Price
+                  </span>
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                </div>
+
+                {/* Row 2: Select People – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select People</Label>
+                    <Select value={trainingPeopleValue} onValueChange={setTrainingPeopleValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select People"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trainingPeopleOptions.length === 0 && !loadingTrainingOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          trainingPeopleOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="training-people-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="training-people-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={trainingPeoplePrice}
+                        onChange={(e) => {
+                          setTrainingTotalPriceFromApi(null);
+                          setTrainingPeoplePrice(e.target.value.replace(/[^0-9.]/g, ""));
+                        }}
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const peopleOpt = trainingPeopleOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPeopleValue
+                          );
+                          if (!peopleOpt || !trainingPeopleValue || trainingPeopleValue === "no-data") return;
+                          const price = parseFloat(trainingPeoplePrice) || 0;
+                          try {
+                            await saveProfessionalMarshalPeoplePrice(token, peopleOpt.id, price);
+                            setTrainingUpdateMessage({ type: "success", text: "People price saved." });
+                          } catch {
+                            setTrainingUpdateMessage({ type: "error", text: "Failed to save people price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Select Place – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Place</Label>
+                    <Select value={trainingPlaceValue} onValueChange={setTrainingPlaceValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Place"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trainingPlaceOptions.length === 0 && !loadingTrainingOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          trainingPlaceOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="training-place-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="training-place-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={trainingPlacePrice}
+                        onChange={(e) => {
+                          setTrainingTotalPriceFromApi(null);
+                          setTrainingPlacePrice(e.target.value.replace(/[^0-9.]/g, ""));
+                        }}
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const placeOpt = trainingPlaceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPlaceValue
+                          );
+                          if (!placeOpt || !trainingPlaceValue || trainingPlaceValue === "no-data") return;
+                          const price = parseFloat(trainingPlacePrice) || 0;
+                          try {
+                            await saveProfessionalMarshalPlacePrice(token, placeOpt.id, price);
+                            setTrainingUpdateMessage({ type: "success", text: "Place price saved." });
+                          } catch {
+                            setTrainingUpdateMessage({ type: "error", text: "Failed to save place price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: Select Training – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Training On</Label>
+                    <Select value={trainingTrainingValue} onValueChange={setTrainingTrainingValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Training"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trainingTrainingOptions.length === 0 && !loadingTrainingOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          trainingTrainingOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="training-training-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="training-training-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={trainingTrainingPrice}
+                        onChange={(e) => {
+                          setTrainingTotalPriceFromApi(null);
+                          setTrainingTrainingPrice(e.target.value.replace(/[^0-9.]/g, ""));
+                        }}
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const trainingOnOpt = trainingTrainingOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingTrainingValue
+                          );
+                          if (!trainingOnOpt || !trainingTrainingValue || trainingTrainingValue === "no-data") return;
+                          const price = parseFloat(trainingTrainingPrice) || 0;
+                          try {
+                            await saveProfessionalMarshalTrainingOnPrice(token, trainingOnOpt.id, price);
+                            setTrainingUpdateMessage({ type: "success", text: "Training On price saved." });
+                          } catch {
+                            setTrainingUpdateMessage({ type: "error", text: "Failed to save Training On price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 5: Select Experience – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">Select Experience</Label>
+                    <Select value={trainingExperienceValue} onValueChange={setTrainingExperienceValue}>
+                      <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Experience"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trainingExperienceOptions.length === 0 && !loadingTrainingOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          trainingExperienceOptions.map((opt) => {
+                            const val = String(opt.value ?? "").trim() || String(opt.id);
+                            return (
+                              <SelectItem key={opt.id} value={val}>
+                                {opt.value}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="training-experience-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="training-experience-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={trainingExperiencePrice}
+                        onChange={(e) => {
+                          setTrainingTotalPriceFromApi(null);
+                          setTrainingExperiencePrice(e.target.value.replace(/[^0-9.]/g, ""));
+                        }}
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const experienceOpt = trainingExperienceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingExperienceValue
+                          );
+                          if (!experienceOpt || !trainingExperienceValue || trainingExperienceValue === "no-data") return;
+                          const price = parseFloat(trainingExperiencePrice) || 0;
+                          try {
+                            await saveProfessionalMarshalExperiencePrice(token, experienceOpt.id, price);
+                            setTrainingUpdateMessage({ type: "success", text: "Experience price saved." });
+                          } catch {
+                            setTrainingUpdateMessage({ type: "error", text: "Failed to save experience price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimated Price(£) – from API total when available, else sum of base + addon prices */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label htmlFor="training-estimate-price" className="text-gray-700 font-medium">
+                      Estimated Price(£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                      <Input
+                        id="training-estimate-price"
+                        type="text"
+                        readOnly
+                        placeholder="0.00"
+                        value={trainingTotalPriceFromApi ?? trainingEstimatePrice}
+                        className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+                </div>
+
+                {trainingUpdateMessage && (
+                  <p
+                    className={`text-sm ${
+                      trainingUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {trainingUpdateMessage.text}
+                  </p>
+                )}
+                <div className="pt-4">
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setTrainingUpdateMessage(null);
+                      const token = getApiToken();
+                      if (!token) {
+                        setTrainingUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                        return;
+                      }
+                      setUpdatingTrainingPrice(true);
+                      try {
+                        const basePrice = parseFloat(trainingBasePrice) || 0;
+                        await saveProfessionalMarshalBasePrice(token, basePrice);
+                        const peopleOpt = trainingPeopleOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPeopleValue
+                        );
+                        if (peopleOpt && trainingPeopleValue && trainingPeopleValue !== "no-data") {
+                          const peoplePrice = parseFloat(trainingPeoplePrice) || 0;
+                          await saveProfessionalMarshalPeoplePrice(token, peopleOpt.id, peoplePrice);
+                        }
+                        const placeOpt = trainingPlaceOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPlaceValue
+                        );
+                        if (placeOpt && trainingPlaceValue && trainingPlaceValue !== "no-data") {
+                          const placePrice = parseFloat(trainingPlacePrice) || 0;
+                          await saveProfessionalMarshalPlacePrice(token, placeOpt.id, placePrice);
+                        }
+                        const trainingOnOpt = trainingTrainingOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingTrainingValue
+                        );
+                        if (trainingOnOpt && trainingTrainingValue && trainingTrainingValue !== "no-data") {
+                          const trainingOnPrice = parseFloat(trainingTrainingPrice) || 0;
+                          await saveProfessionalMarshalTrainingOnPrice(token, trainingOnOpt.id, trainingOnPrice);
+                        }
+                        const experienceOpt = trainingExperienceOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === trainingExperienceValue
+                        );
+                        if (experienceOpt && trainingExperienceValue && trainingExperienceValue !== "no-data") {
+                          const experiencePrice = parseFloat(trainingExperiencePrice) || 0;
+                          await saveProfessionalMarshalExperiencePrice(token, experienceOpt.id, experiencePrice);
+                        }
+                        setTrainingUpdateMessage({ type: "success", text: "Price updated successfully." });
+                      } catch {
+                        setTrainingUpdateMessage({ type: "error", text: "Failed to update price." });
+                      } finally {
+                        setUpdatingTrainingPrice(false);
+                      }
+                    }}
+                    disabled={updatingTrainingPrice}
+                    className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                  >
+                    {updatingTrainingPrice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Price"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value={TAB_IDS.CONSULTANCY} className="mt-0">
           <ComingSoonCard title="Consultancy" />

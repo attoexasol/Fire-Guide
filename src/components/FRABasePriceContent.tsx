@@ -32,7 +32,7 @@ import {
   storeProfessionalFraBasePrice,
   ProfessionalFraBasePriceItem,
 } from "../api/professionalFraBasePricesService";
-import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem } from "../api/adminService";
+import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem, getLightTestingAllPrices, LightTestingAllPricesProfessionalItem, getMarshalAllPrices, MarshalAllPricesProfessionalItem } from "../api/adminService";
 import { fetchPropertyTypes } from "../api/servicesService";
 import { toast } from "sonner";
 import { getApiToken, getProfessionalId } from "../lib/auth";
@@ -56,6 +56,18 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   const [loadingExtinguisherPrices, setLoadingExtinguisherPrices] = useState(false);
   const [errorExtinguisher, setErrorExtinguisher] = useState<string | null>(null);
   const [extinguisherFetchKey, setExtinguisherFetchKey] = useState(0);
+  const [lightTestingAllPrices, setLightTestingAllPrices] = useState<LightTestingAllPricesProfessionalItem[] | null>(null);
+  const [selectedLightTestingSystemByPro, setSelectedLightTestingSystemByPro] = useState<Record<number, string>>({});
+  const [lightTestingExpandedByPro, setLightTestingExpandedByPro] = useState<Record<number, boolean>>({});
+  const [loadingLightTestingPrices, setLoadingLightTestingPrices] = useState(false);
+  const [errorLightTesting, setErrorLightTesting] = useState<string | null>(null);
+  const [lightTestingFetchKey, setLightTestingFetchKey] = useState(0);
+  const [marshalAllPrices, setMarshalAllPrices] = useState<MarshalAllPricesProfessionalItem[] | null>(null);
+  const [selectedMarshalSystemByPro, setSelectedMarshalSystemByPro] = useState<Record<number, string>>({});
+  const [marshalExpandedByPro, setMarshalExpandedByPro] = useState<Record<number, boolean>>({});
+  const [loadingMarshalPrices, setLoadingMarshalPrices] = useState(false);
+  const [errorMarshal, setErrorMarshal] = useState<string | null>(null);
+  const [marshalFetchKey, setMarshalFetchKey] = useState(0);
   const [loadingAlarmPrices, setLoadingAlarmPrices] = useState(false);
   const [errorAlarm, setErrorAlarm] = useState<string | null>(null);
   const [alarmFetchKey, setAlarmFetchKey] = useState(0);
@@ -331,6 +343,62 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
       });
     return () => { cancelled = true; };
   }, [isAdmin, fraPriceTab, extinguisherFetchKey]);
+
+  useEffect(() => {
+    if (!isAdmin || fraPriceTab !== "emergency-lighting") return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+    let cancelled = false;
+    setLoadingLightTestingPrices(true);
+    setErrorLightTesting(null);
+    getLightTestingAllPrices(apiToken)
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.status && Array.isArray(res.data)) {
+          setLightTestingAllPrices(res.data);
+        } else {
+          setLightTestingAllPrices([]);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setErrorLightTesting(err instanceof Error ? err.message : "Failed to fetch Emergency Lighting prices");
+          setLightTestingAllPrices(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLightTestingPrices(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin, fraPriceTab, lightTestingFetchKey]);
+
+  useEffect(() => {
+    if (!isAdmin || fraPriceTab !== "training") return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+    let cancelled = false;
+    setLoadingMarshalPrices(true);
+    setErrorMarshal(null);
+    getMarshalAllPrices(apiToken)
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.status && Array.isArray(res.data)) {
+          setMarshalAllPrices(res.data);
+        } else {
+          setMarshalAllPrices([]);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setErrorMarshal(err instanceof Error ? err.message : "Failed to fetch Training (Marshal) prices");
+          setMarshalAllPrices(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMarshalPrices(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin, fraPriceTab, marshalFetchKey]);
 
   useEffect(() => {
     if (!addModalOpen) return;
@@ -1228,15 +1296,391 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
         </TabsContent>
         <TabsContent value="emergency-lighting" className="mt-0">
           <Card className="border border-gray-200 shadow-sm">
-            <CardContent className="py-12 text-center text-gray-500">
-              Emergency Lighting pricing content coming soon.
+            <CardHeader>
+              <CardTitle className="text-[#0A1A2F]">All professionals' Emergency Lighting prices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingLightTestingPrices && (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                  <p className="text-gray-500">Loading Emergency Lighting prices...</p>
+                </div>
+              )}
+              {!loadingLightTestingPrices && errorLightTesting && (
+                <div className="text-center py-12">
+                  <p className="text-red-500 mb-2">{errorLightTesting}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorLightTesting(null);
+                      setLightTestingFetchKey((k) => k + 1);
+                    }}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!loadingLightTestingPrices && !errorLightTesting && isAdmin && lightTestingAllPrices !== null && (
+                <>
+                  {lightTestingAllPrices.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No Emergency Lighting prices found.</div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <table className="w-full table-fixed">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 w-24">Reference</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 min-w-0">Professional</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700">Systems</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {lightTestingAllPrices.map((pro) => {
+                            const selectedSystem = selectedLightTestingSystemByPro[pro.professional_id] ?? "";
+                            return (
+                              <React.Fragment key={pro.professional_id}>
+                                <tr className="bg-red-50 hover:bg-red-100/60 transition-colors">
+                                  <td className="p-4">
+                                    <p className="font-medium text-gray-900">BS-{pro.professional_id}</p>
+                                  </td>
+                                  <td className="p-4">
+                                    <p className="text-gray-900 font-normal">{pro.professional_name}</p>
+                                  </td>
+                                  <td className="p-4 min-w-0">
+                                    <div className="flex items-center gap-1 w-full">
+                                      <Select
+                                        value={selectedSystem}
+                                        onValueChange={(value) => {
+                                          setSelectedLightTestingSystemByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: value,
+                                          }));
+                                          setLightTestingExpandedByPro((prev) => ({ ...prev, [pro.professional_id]: true }));
+                                        }}
+                                      >
+                                        <SelectTrigger className="flex-1 min-w-0 h-9 text-sm border-gray-200">
+                                          <SelectValue placeholder="Select system" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="base_price">Base price</SelectItem>
+                                          <SelectItem value="lights">Lights</SelectItem>
+                                          <SelectItem value="floors">Floors</SelectItem>
+                                          <SelectItem value="light_tests">Light tests</SelectItem>
+                                          <SelectItem value="light_types">Light types</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 border-gray-200"
+                                        onClick={() =>
+                                          setLightTestingExpandedByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: !(prev[pro.professional_id] !== false),
+                                          }))
+                                        }
+                                        aria-label={lightTestingExpandedByPro[pro.professional_id] !== false ? "Minimize" : "Expand"}
+                                      >
+                                        {lightTestingExpandedByPro[pro.professional_id] !== false ? (
+                                          <ChevronDown className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronUp className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {selectedSystem && lightTestingExpandedByPro[pro.professional_id] !== false && (
+                                  <tr className="bg-white">
+                                    <td colSpan={3} className="p-0 align-top">
+                                      <div className="bg-white px-4 pb-4 pt-1 w-full">
+                                        <div className="rounded border border-gray-200 bg-white overflow-hidden w-full">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 border-b border-gray-200">
+                                              <tr>
+                                                <th className="text-left py-2 px-3 font-medium text-gray-600">Option</th>
+                                                <th className="text-right py-2 px-3 font-medium text-gray-600">Base Price</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                              {selectedSystem === "base_price" &&
+                                                (pro.base_prices?.length
+                                                  ? pro.base_prices.map((bp, idx) => (
+                                                      <tr key={idx}>
+                                                        <td className="py-2 px-3 text-gray-900">Base price</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(bp.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No base price configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "lights" &&
+                                                (pro.lights?.length
+                                                  ? pro.lights.map((e) => (
+                                                      <tr key={e.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{e.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(e.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No lights configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "floors" &&
+                                                (pro.floors?.length
+                                                  ? pro.floors.map((f) => (
+                                                      <tr key={f.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{f.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(f.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No floors configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "light_tests" &&
+                                                (pro.light_tests?.length
+                                                  ? pro.light_tests.map((l) => (
+                                                      <tr key={l.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{l.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(l.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No light tests configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "light_types" &&
+                                                (pro.light_types?.length
+                                                  ? pro.light_types.map((lt) => (
+                                                      <tr key={lt.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{lt.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(lt.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No light types configured</td>
+                                                      </tr>
+                                                    ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="training" className="mt-0">
           <Card className="border border-gray-200 shadow-sm">
-            <CardContent className="py-12 text-center text-gray-500">
-              Training pricing content coming soon.
+            <CardHeader>
+              <CardTitle className="text-[#0A1A2F]">All professionals' Training (Marshal) prices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingMarshalPrices && (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                  <p className="text-gray-500">Loading Training prices...</p>
+                </div>
+              )}
+              {!loadingMarshalPrices && errorMarshal && (
+                <div className="text-center py-12">
+                  <p className="text-red-500 mb-2">{errorMarshal}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMarshal(null);
+                      setMarshalFetchKey((k) => k + 1);
+                    }}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!loadingMarshalPrices && !errorMarshal && isAdmin && marshalAllPrices !== null && (
+                <>
+                  {marshalAllPrices.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No Training (Marshal) prices found.</div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <table className="w-full table-fixed">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 w-24">Reference</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700 min-w-0">Professional</th>
+                            <th className="text-left p-4 text-sm font-medium text-gray-700">Systems</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {marshalAllPrices.map((pro) => {
+                            const selectedSystem = selectedMarshalSystemByPro[pro.professional_id] ?? "";
+                            return (
+                              <React.Fragment key={pro.professional_id}>
+                                <tr className="bg-red-50 hover:bg-red-100/60 transition-colors">
+                                  <td className="p-4">
+                                    <p className="font-medium text-gray-900">BS-{pro.professional_id}</p>
+                                  </td>
+                                  <td className="p-4">
+                                    <p className="text-gray-900 font-normal">{pro.professional_name}</p>
+                                  </td>
+                                  <td className="p-4 min-w-0">
+                                    <div className="flex items-center gap-1 w-full">
+                                      <Select
+                                        value={selectedSystem}
+                                        onValueChange={(value) => {
+                                          setSelectedMarshalSystemByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: value,
+                                          }));
+                                          setMarshalExpandedByPro((prev) => ({ ...prev, [pro.professional_id]: true }));
+                                        }}
+                                      >
+                                        <SelectTrigger className="flex-1 min-w-0 h-9 text-sm border-gray-200">
+                                          <SelectValue placeholder="Select system" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="base_price">Base price</SelectItem>
+                                          <SelectItem value="people">People</SelectItem>
+                                          <SelectItem value="places">Places</SelectItem>
+                                          <SelectItem value="training_on">Training On</SelectItem>
+                                          <SelectItem value="experience">Experience</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 border-gray-200"
+                                        onClick={() =>
+                                          setMarshalExpandedByPro((prev) => ({
+                                            ...prev,
+                                            [pro.professional_id]: !(prev[pro.professional_id] !== false),
+                                          }))
+                                        }
+                                        aria-label={marshalExpandedByPro[pro.professional_id] !== false ? "Minimize" : "Expand"}
+                                      >
+                                        {marshalExpandedByPro[pro.professional_id] !== false ? (
+                                          <ChevronDown className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronUp className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {selectedSystem && marshalExpandedByPro[pro.professional_id] !== false && (
+                                  <tr className="bg-white">
+                                    <td colSpan={3} className="p-0 align-top">
+                                      <div className="bg-white px-4 pb-4 pt-1 w-full">
+                                        <div className="rounded border border-gray-200 bg-white overflow-hidden w-full">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 border-b border-gray-200">
+                                              <tr>
+                                                <th className="text-left py-2 px-3 font-medium text-gray-600">Option</th>
+                                                <th className="text-right py-2 px-3 font-medium text-gray-600">Price</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                              {selectedSystem === "base_price" &&
+                                                (pro.base_prices?.length
+                                                  ? pro.base_prices.map((bp, idx) => (
+                                                      <tr key={idx}>
+                                                        <td className="py-2 px-3 text-gray-900">Base price</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(bp.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No base price configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "people" &&
+                                                (pro.people?.length
+                                                  ? pro.people.map((e) => (
+                                                      <tr key={e.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{e.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(e.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No people configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "places" &&
+                                                (pro.places?.length
+                                                  ? pro.places.map((f) => (
+                                                      <tr key={f.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{f.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(f.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No places configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "training_on" &&
+                                                (pro.training_on?.length
+                                                  ? pro.training_on.map((t) => (
+                                                      <tr key={t.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{t.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(t.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No training on configured</td>
+                                                      </tr>
+                                                    ))}
+                                              {selectedSystem === "experience" &&
+                                                (pro.experience?.length
+                                                  ? pro.experience.map((exp) => (
+                                                      <tr key={exp.id}>
+                                                        <td className="py-2 px-3 text-gray-900">{exp.value}</td>
+                                                        <td className="py-2 px-3 text-right font-medium">{formatPrice(exp.price)}</td>
+                                                      </tr>
+                                                    ))
+                                                  : (
+                                                      <tr>
+                                                        <td colSpan={2} className="py-3 px-3 text-gray-500 text-center">No experience configured</td>
+                                                      </tr>
+                                                    ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

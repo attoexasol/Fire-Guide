@@ -24,7 +24,6 @@ apiClient.interceptors.response.use(
 
 
 
-
 export interface AdminOverviewSummaryRequest {
   api_token: string;
 }
@@ -228,6 +227,86 @@ export interface ExtinguisherAllPricesResponse {
 export const getExtinguisherAllPrices = async (apiToken: string): Promise<ExtinguisherAllPricesResponse> => {
   const response = await apiClient.post<ExtinguisherAllPricesResponse>(
     '/professional-wise/Extingusher-all-prices',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+// Emergency Lighting (Light Testing) all prices – Admin Pricing > Emergency Lighting tab
+export interface LightTestingAllPricesBasePrice {
+  price: string;
+}
+
+export interface LightTestingAllPricesOption {
+  id: number;
+  value: string;
+  price: string;
+}
+
+export interface LightTestingAllPricesProfessionalItem {
+  professional_id: number;
+  professional_name: string;
+  base_prices: LightTestingAllPricesBasePrice[];
+  lights: LightTestingAllPricesOption[];
+  floors: LightTestingAllPricesOption[];
+  light_tests: LightTestingAllPricesOption[];
+  light_types: LightTestingAllPricesOption[];
+}
+
+export interface LightTestingAllPricesResponse {
+  status: boolean;
+  message: string;
+  data: LightTestingAllPricesProfessionalItem[];
+}
+
+/**
+ * Fetch all professionals' Emergency Lighting (light testing) prices.
+ * POST https://fireguide.attoexasolutions.com/api/professional-wise/light-testing-all-prices
+ * Body: { api_token }
+ */
+export const getLightTestingAllPrices = async (apiToken: string): Promise<LightTestingAllPricesResponse> => {
+  const response = await apiClient.post<LightTestingAllPricesResponse>(
+    '/professional-wise/light-testing-all-prices',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+// Training (Marshal) all prices – Admin Pricing > Training tab
+export interface MarshalAllPricesBasePrice {
+  price: string;
+}
+
+export interface MarshalAllPricesOption {
+  id: number;
+  value: string;
+  price: string;
+}
+
+export interface MarshalAllPricesProfessionalItem {
+  professional_id: number;
+  professional_name: string;
+  base_prices: MarshalAllPricesBasePrice[];
+  people: MarshalAllPricesOption[];
+  places: MarshalAllPricesOption[];
+  training_on: MarshalAllPricesOption[];
+  experience: MarshalAllPricesOption[];
+}
+
+export interface MarshalAllPricesResponse {
+  status: boolean;
+  message: string;
+  data: MarshalAllPricesProfessionalItem[];
+}
+
+/**
+ * Fetch all professionals' Training (Marshal) prices.
+ * POST https://fireguide.attoexasolutions.com/api/professional-wise/marshal-all-prices
+ * Body: { api_token }
+ */
+export const getMarshalAllPrices = async (apiToken: string): Promise<MarshalAllPricesResponse> => {
+  const response = await apiClient.post<MarshalAllPricesResponse>(
+    '/professional-wise/marshal-all-prices',
     { api_token: apiToken }
   );
   return response.data;
