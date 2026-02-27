@@ -312,6 +312,669 @@ export const getMarshalAllPrices = async (apiToken: string): Promise<MarshalAllP
   return response.data;
 };
 
+// Consultation all prices – Admin Pricing > Consultancy tab
+export interface ConsultationAllPricesBasePrice {
+  price: string;
+}
+
+export interface ConsultationAllPricesMode {
+  id: number | null;
+  value: string | null;
+  price: string;
+}
+
+export interface ConsultationAllPricesHour {
+  id: number;
+  value: string;
+  price: string;
+}
+
+export interface ConsultationAllPricesProfessionalItem {
+  professional_id: number;
+  professional_name: string;
+  base_price: ConsultationAllPricesBasePrice[];
+  modes: ConsultationAllPricesMode[];
+  hours: ConsultationAllPricesHour[];
+}
+
+export interface ConsultationAllPricesResponse {
+  status: boolean;
+  message: string;
+  data: ConsultationAllPricesProfessionalItem[];
+}
+
+/**
+ * Fetch all professionals' Consultation prices.
+ * POST https://fireguide.attoexasolutions.com/api/professional-wise/consultation-all-prices
+ * Body: { api_token }
+ */
+export const getConsultationAllPrices = async (apiToken: string): Promise<ConsultationAllPricesResponse> => {
+  const response = await apiClient.post<ConsultationAllPricesResponse>(
+    '/professional-wise/consultation-all-prices',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation-admin/base-price-create */
+export interface AdminConsultationBasePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create & update Consultation base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-consultation-admin/base-price-create
+ * Body: { api_token, professional_id, price }
+ */
+export const saveAdminConsultationBasePrice = async (
+  apiToken: string,
+  professionalId: number,
+  price: number
+): Promise<AdminConsultationBasePriceCreateResponse> => {
+  const response = await apiClient.post<AdminConsultationBasePriceCreateResponse>(
+    '/professional-consultation-admin/base-price-create',
+    { api_token: apiToken, professional_id: professionalId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation-admin/base-price-get */
+export interface AdminConsultationBasePriceGetResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number | string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get Consultation base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-consultation-admin/base-price-get
+ * Body: { api_token, professional_id }
+ */
+export const getAdminConsultationBasePrice = async (
+  apiToken: string,
+  professionalId: number
+): Promise<AdminConsultationBasePriceGetResponse> => {
+  const response = await apiClient.post<AdminConsultationBasePriceGetResponse>(
+    '/professional-consultation-admin/base-price-get',
+    { api_token: apiToken, professional_id: professionalId }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation-admin/mode-price-create */
+export interface AdminConsultationModePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    mode_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create & update Consultation mode (Select Consultation Model) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-consultation-admin/mode-price-create
+ * Body: { api_token, mode_id, professional_id, type: "mode", price }
+ */
+export const saveAdminConsultationModePrice = async (
+  apiToken: string,
+  professionalId: number,
+  modeId: number,
+  price: number
+): Promise<AdminConsultationModePriceCreateResponse> => {
+  const response = await apiClient.post<AdminConsultationModePriceCreateResponse>(
+    '/professional-consultation-admin/mode-price-create',
+    {
+      api_token: apiToken,
+      mode_id: modeId,
+      professional_id: professionalId,
+      type: 'mode',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation-admin/get-single/prices */
+export interface AdminConsultationSinglePricesResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    professional?: { id: number; name: string };
+    mode?: { id: number; people?: number | null; price?: string | number };
+    hour?: { id: number; place?: string; price?: string | number };
+    total_price?: number;
+  };
+}
+
+/**
+ * Get single Consultation prices for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-consultation-admin/get-single/prices
+ * Body: { api_token, professional_id, mode_id, hour_id }
+ */
+export const getAdminConsultationSinglePrices = async (
+  apiToken: string,
+  professionalId: number,
+  modeId: number,
+  hourId: number
+): Promise<AdminConsultationSinglePricesResponse> => {
+  const response = await apiClient.post<AdminConsultationSinglePricesResponse>(
+    '/professional-consultation-admin/get-single/prices',
+    { api_token: apiToken, professional_id: professionalId, mode_id: modeId, hour_id: hourId }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation-admin/hour-price-create */
+export interface AdminConsultationHourPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    hour_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create & update Consultation hour (Select Consultation Hours) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-consultation-admin/hour-price-create
+ * Body: { api_token, professional_id, hour_id, type: "hour", price }
+ */
+export const saveAdminConsultationHourPrice = async (
+  apiToken: string,
+  professionalId: number,
+  hourId: number,
+  price: number
+): Promise<AdminConsultationHourPriceCreateResponse> => {
+  const response = await apiClient.post<AdminConsultationHourPriceCreateResponse>(
+    '/professional-consultation-admin/hour-price-create',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      hour_id: hourId,
+      type: 'hour',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/base-price-get */
+export interface AdminMarshalBasePriceGetResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number | string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get Professional Marshal (Training) base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/base-price-get
+ * Body: { api_token, professional_id }
+ */
+export const getAdminMarshalBasePrice = async (
+  apiToken: string,
+  professionalId: number
+): Promise<AdminMarshalBasePriceGetResponse> => {
+  const response = await apiClient.post<AdminMarshalBasePriceGetResponse>(
+    '/professional-marshal-admin/base-price-get',
+    { api_token: apiToken, professional_id: professionalId }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/base-price-create */
+export interface AdminMarshalBasePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create & update Professional Marshal (Training) base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/base-price-create
+ * Body: { api_token, professional_id, price }
+ */
+export const saveAdminMarshalBasePrice = async (
+  apiToken: string,
+  professionalId: number,
+  price: number
+): Promise<AdminMarshalBasePriceCreateResponse> => {
+  const response = await apiClient.post<AdminMarshalBasePriceCreateResponse>(
+    '/professional-marshal-admin/base-price-create',
+    { api_token: apiToken, professional_id: professionalId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/people-price-create */
+export interface AdminMarshalPeoplePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    people_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Marshal "Select People" price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/people-price-create
+ * Body: { api_token, professional_id, people_id, type: "people", price }
+ */
+export const saveAdminMarshalPeoplePrice = async (
+  apiToken: string,
+  professionalId: number,
+  peopleId: number,
+  price: number
+): Promise<AdminMarshalPeoplePriceCreateResponse> => {
+  const response = await apiClient.post<AdminMarshalPeoplePriceCreateResponse>(
+    '/professional-marshal-admin/people-price-create',
+    { api_token: apiToken, professional_id: professionalId, people_id: peopleId, type: 'people', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/place-price-create */
+export interface AdminMarshalPlacePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    place_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Marshal "Select Place" price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/place-price-create
+ * Body: { api_token, professional_id, place_id, type: "training_place", price }
+ */
+export const saveAdminMarshalPlacePrice = async (
+  apiToken: string,
+  professionalId: number,
+  placeId: number,
+  price: number
+): Promise<AdminMarshalPlacePriceCreateResponse> => {
+  const response = await apiClient.post<AdminMarshalPlacePriceCreateResponse>(
+    '/professional-marshal-admin/place-price-create',
+    { api_token: apiToken, professional_id: professionalId, place_id: placeId, type: 'training_place', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/training-on-price-create */
+export interface AdminMarshalTrainingOnPriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    training_on_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Marshal "Select Training On" price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/training-on-price-create
+ * Body: { api_token, professional_id, training_on_id, type: "building_type", price }
+ */
+export const saveAdminMarshalTrainingOnPrice = async (
+  apiToken: string,
+  professionalId: number,
+  trainingOnId: number,
+  price: number
+): Promise<AdminMarshalTrainingOnPriceCreateResponse> => {
+  const response = await apiClient.post<AdminMarshalTrainingOnPriceCreateResponse>(
+    '/professional-marshal-admin/training-on-price-create',
+    { api_token: apiToken, professional_id: professionalId, training_on_id: trainingOnId, type: 'building_type', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/experience-price-create */
+export interface AdminMarshalExperiencePriceCreateResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    experience_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Marshal "Select Experience" price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/experience-price-create
+ * Body: { api_token, professional_id, experience_id, type: "experience", price }
+ */
+export const saveAdminMarshalExperiencePrice = async (
+  apiToken: string,
+  professionalId: number,
+  experienceId: number,
+  price: number
+): Promise<AdminMarshalExperiencePriceCreateResponse> => {
+  const response = await apiClient.post<AdminMarshalExperiencePriceCreateResponse>(
+    '/professional-marshal-admin/experience-price-create',
+    { api_token: apiToken, professional_id: professionalId, experience_id: experienceId, type: 'experience', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-marshal-admin/get-single/prices */
+export interface AdminMarshalSinglePricesResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    professional?: { id: number; name: string };
+    people?: { id: number; people?: string; price?: string };
+    place?: { id: number; place?: string; price?: string };
+    training_on?: { id: number; training_on?: string; price?: string };
+    experience?: { id: number; experience?: string; price?: string };
+  };
+}
+
+/**
+ * Get single Marshal (Training) prices for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-marshal-admin/get-single/prices
+ * Body: { api_token, professional_id, people_id, place_id, training_on_id, experience_id }
+ */
+export const getAdminMarshalSinglePrices = async (
+  apiToken: string,
+  professionalId: number,
+  peopleId: number,
+  placeId: number,
+  trainingOnId: number,
+  experienceId: number
+): Promise<AdminMarshalSinglePricesResponse> => {
+  const response = await apiClient.post<AdminMarshalSinglePricesResponse>(
+    '/professional-marshal-admin/get-single/prices',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      people_id: peopleId,
+      place_id: placeId,
+      training_on_id: trainingOnId,
+      experience_id: experienceId,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-admin/base-price-get */
+export interface AdminEmergencyLightBasePriceGetResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: string | number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get Professional Emergency Light base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-emergency-light-admin/base-price-get
+ * Body: { api_token, professional_id }
+ */
+export const getAdminEmergencyLightBasePrice = async (
+  apiToken: string,
+  professionalId: number
+): Promise<AdminEmergencyLightBasePriceGetResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightBasePriceGetResponse>(
+    '/professional-emergency-light-admin/base-price-get',
+    { api_token: apiToken, professional_id: professionalId }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-admin/base-price-create */
+export interface AdminEmergencyLightBasePriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Emergency Light base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-emergency-light-admin/base-price-create
+ * Body: { api_token, professional_id, price }
+ */
+export const saveAdminEmergencyLightBasePrice = async (
+  apiToken: string,
+  professionalId: number,
+  price: number
+): Promise<AdminEmergencyLightBasePriceCreateResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightBasePriceCreateResponse>(
+    '/professional-emergency-light-admin/base-price-create',
+    { api_token: apiToken, professional_id: professionalId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-light-testing-admin/get-single/prices */
+export interface AdminEmergencyLightSinglePricesResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    professional?: { id: number; name: string };
+    light?: { id: number; lights?: string; price?: string };
+    floor?: { id: number; floor?: string; price?: string };
+    light_test?: { id: number; light_test?: string; price?: string };
+    light_type?: { id: number; light_type?: string; price?: string };
+  };
+}
+
+/**
+ * Get single Emergency Lighting prices for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-light-testing-admin/get-single/prices
+ * Body: { api_token, professional_id, light_id, floor_id, light_test_id, light_type_id }
+ */
+export const getAdminEmergencyLightSinglePrices = async (
+  apiToken: string,
+  professionalId: number,
+  lightId: number,
+  floorId: number,
+  lightTestId: number,
+  lightTypeId: number
+): Promise<AdminEmergencyLightSinglePricesResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightSinglePricesResponse>(
+    '/professional-fire-light-testing-admin/get-single/prices',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      light_id: lightId,
+      floor_id: floorId,
+      light_test_id: lightTestId,
+      light_type_id: lightTypeId,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-admin/price-create */
+export interface AdminEmergencyLightPriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    light_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Emergency Light (Select Emergency light) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-emergency-light-admin/price-create
+ * Body: { api_token, professional_id, light_id, type: "light", price }
+ */
+export const saveAdminEmergencyLightPrice = async (
+  apiToken: string,
+  professionalId: number,
+  lightId: number,
+  price: number
+): Promise<AdminEmergencyLightPriceCreateResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightPriceCreateResponse>(
+    '/professional-emergency-light-admin/price-create',
+    { api_token: apiToken, professional_id: professionalId, light_id: lightId, type: 'light', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-admin/floor-price-create */
+export interface AdminEmergencyLightFloorPriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    floor_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Emergency Light floor price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-emergency-light-admin/floor-price-create
+ * Body: { api_token, professional_id, floor_id, type: "floor", price }
+ */
+export const saveAdminEmergencyLightFloorPrice = async (
+  apiToken: string,
+  professionalId: number,
+  floorId: number,
+  price: number
+): Promise<AdminEmergencyLightFloorPriceCreateResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightFloorPriceCreateResponse>(
+    '/professional-emergency-light-admin/floor-price-create',
+    { api_token: apiToken, professional_id: professionalId, floor_id: floorId, type: 'floor', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-type-admin/price-create */
+export interface AdminEmergencyLightTypePriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    light_type_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Emergency Light type price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-emergency-light-type-admin/price-create
+ * Body: { api_token, professional_id, light_type_id, type: "light_type", price }
+ */
+export const saveAdminEmergencyLightTypePrice = async (
+  apiToken: string,
+  professionalId: number,
+  lightTypeId: number,
+  price: number
+): Promise<AdminEmergencyLightTypePriceCreateResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightTypePriceCreateResponse>(
+    '/professional-emergency-light-type-admin/price-create',
+    { api_token: apiToken, professional_id: professionalId, light_type_id: lightTypeId, type: 'light_type', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-emergency-light-test-admin/price-create */
+export interface AdminEmergencyLightTestPriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    light_test_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Emergency Light test price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-emergency-light-test-admin/price-create
+ * Body: { api_token, professional_id, light_test_id, type: "light_test", price }
+ */
+export const saveAdminEmergencyLightTestPrice = async (
+  apiToken: string,
+  professionalId: number,
+  lightTestId: number,
+  price: number
+): Promise<AdminEmergencyLightTestPriceCreateResponse> => {
+  const response = await apiClient.post<AdminEmergencyLightTestPriceCreateResponse>(
+    '/professional-emergency-light-test-admin/price-create',
+    { api_token: apiToken, professional_id: professionalId, light_test_id: lightTestId, type: 'light_test', price }
+  );
+  return response.data;
+};
+
 // Admin customer summary (Customer Management page)
 export interface AdminCustomerSummaryData {
   total_customers: number;

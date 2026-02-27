@@ -5,7 +5,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Pencil, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import {
   fetchPropertyTypes,
   fetchApproximatePeople,
@@ -61,6 +62,13 @@ import {
   getProfessionalMarshalSinglePrices,
   fetchMarshalOptions,
   MarshalServiceOptionItem,
+  fetchFireConsultationOptions,
+  ConsultationOptionItem,
+  saveProfessionalConsultationBasePrice,
+  getProfessionalConsultationBasePrice,
+  saveProfessionalConsultationModePrice,
+  saveProfessionalConsultationHourPrice,
+  getProfessionalConsultationSinglePrices,
 } from "../api/servicesService";
 import { getProfessionalId, getApiToken } from "../lib/auth";
 
@@ -81,7 +89,7 @@ const TAB_LABELS: Record<string, string> = {
   [TAB_IDS.EXTINGUISHERS]: "Extinguishers",
   [TAB_IDS.EMERGENCY_LIGHTING]: "Emergency Lighting",
   [TAB_IDS.TRAINING]: "Training",
-  [TAB_IDS.CONSULTANCY]: "Consultancy",
+  [TAB_IDS.CONSULTANCY]: "Consultation",
 };
 
 export function ProfessionalPricingContent() {
@@ -162,6 +170,8 @@ export function ProfessionalPricingContent() {
   const [emergencyLightTestValue, setEmergencyLightTestValue] = useState("");
   const [emergencyLightTestPrice, setEmergencyLightTestPrice] = useState("");
   const [updatingEmergencyLightPrice, setUpdatingEmergencyLightPrice] = useState(false);
+  const [savingEmergencyLightPrice, setSavingEmergencyLightPrice] = useState(false);
+  const [savingEmergencyLightFloorPrice, setSavingEmergencyLightFloorPrice] = useState(false);
   const [emergencyLightUpdateMessage, setEmergencyLightUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [emergencyLightOptions, setEmergencyLightOptions] = useState<{ id: number; value: string }[]>([]);
   const [emergencyLightFloorOptions, setEmergencyLightFloorOptions] = useState<{ id: number; value: string }[]>([]);
@@ -187,6 +197,19 @@ export function ProfessionalPricingContent() {
   const [trainingExperienceOptions, setTrainingExperienceOptions] = useState<{ id: number; value: string }[]>([]);
   const [loadingTrainingOptions, setLoadingTrainingOptions] = useState(false);
   const [trainingTotalPriceFromApi, setTrainingTotalPriceFromApi] = useState<string | null>(null);
+
+  // Consultancy tab state (same design as Training tab)
+  const [consultancyBasePrice, setConsultancyBasePrice] = useState("");
+  const [consultancyModelValue, setConsultancyModelValue] = useState("");
+  const [consultancyModelPrice, setConsultancyModelPrice] = useState("");
+  const [consultancyHoursValue, setConsultancyHoursValue] = useState("");
+  const [consultancyHoursPrice, setConsultancyHoursPrice] = useState("");
+  const [updatingConsultancyPrice, setUpdatingConsultancyPrice] = useState(false);
+  const [consultancyUpdateMessage, setConsultancyUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [consultancyModalOpen, setConsultancyModalOpen] = useState(false);
+  const [consultancyModelOptions, setConsultancyModelOptions] = useState<ConsultationOptionItem[]>([]);
+  const [consultancyHoursOptions, setConsultancyHoursOptions] = useState<ConsultationOptionItem[]>([]);
+  const [loadingConsultationOptions, setLoadingConsultationOptions] = useState(false);
 
   const [updatingPrice, setUpdatingPrice] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -242,6 +265,13 @@ export function ProfessionalPricingContent() {
     (parseFloat(trainingPlacePrice) || 0) +
     (parseFloat(trainingTrainingPrice) || 0) +
     (parseFloat(trainingExperiencePrice) || 0)
+  ).toFixed(2);
+
+  // Consultancy estimated price = base + model price + hours price
+  const consultancyEstimatePrice = (
+    (parseFloat(consultancyBasePrice) || 0) +
+    (parseFloat(consultancyModelPrice) || 0) +
+    (parseFloat(consultancyHoursPrice) || 0)
   ).toFixed(2);
 
   // When any option is selected, call POST /fra-price/professional and fill price inputs from response (no other logic changed)
@@ -738,10 +768,10 @@ export function ProfessionalPricingContent() {
       setLoadingEmergencyLightOptions(true);
       try {
         const [light, floor, lightType, lightTest] = await Promise.all([
-          fetchEmergencyLightOptions(api_token, "light"),
-          fetchEmergencyLightOptions(api_token, "floor"),
-          fetchEmergencyLightOptions(api_token, "light_type"),
-          fetchEmergencyLightOptions(api_token, "light_test"),
+          fetchEmergencyLightOptions("light"),
+          fetchEmergencyLightOptions("floor"),
+          fetchEmergencyLightOptions("light_type"),
+          fetchEmergencyLightOptions("light_test"),
         ]);
         const lightList = Array.isArray(light) ? light : [];
         const floorList = Array.isArray(floor) ? floor : [];
@@ -809,6 +839,81 @@ export function ProfessionalPricingContent() {
     };
     load();
   }, [activeTab]);
+
+  // Fetch Consultation (mode + hour) options and base price when Consultation tab is active
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.CONSULTANCY) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const load = async () => {
+      setLoadingConsultationOptions(true);
+      try {
+        const [modeList, hourList] = await Promise.all([
+          fetchFireConsultationOptions(api_token, "mode"),
+          fetchFireConsultationOptions(api_token, "hour"),
+        ]);
+        const modeOptions = Array.isArray(modeList) ? modeList : [];
+        const hourOptions = Array.isArray(hourList) ? hourList : [];
+
+        setConsultancyModelOptions(modeOptions);
+        setConsultancyHoursOptions(hourOptions);
+
+        try {
+          const basePriceRes = await getProfessionalConsultationBasePrice(api_token);
+          if (basePriceRes?.data != null && basePriceRes.data.price !== undefined) {
+            const p = basePriceRes.data.price;
+            const displayPrice =
+              typeof p === "string" ? p : typeof p === "number" ? p.toFixed(2) : String(p);
+            setConsultancyBasePrice(displayPrice);
+          }
+        } catch (err) {
+          console.error("Failed to fetch Consultation base price:", err);
+        }
+
+        const firstVal = (item: ConsultationOptionItem | undefined) =>
+          item ? String(item.id) : "";
+
+        setConsultancyModelValue((prev) => prev || firstVal(modeOptions[0]));
+        setConsultancyHoursValue((prev) => prev || firstVal(hourOptions[0]));
+      } catch (err) {
+        console.error("Failed to fetch Consultation options:", err);
+      } finally {
+        setLoadingConsultationOptions(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // When Consultation mode or hour selection changes, fetch and display prices from API
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.CONSULTANCY || loadingConsultationOptions) return;
+    const api_token = getApiToken();
+    if (!api_token) return;
+
+    const modeId = consultancyModelValue ? parseInt(consultancyModelValue, 10) : 0;
+    const hourId = consultancyHoursValue ? parseInt(consultancyHoursValue, 10) : 0;
+    if (!modeId || !hourId || consultancyModelValue === "no-data" || consultancyHoursValue === "no-data") return;
+
+    const fetchPrices = async () => {
+      try {
+        const res = await getProfessionalConsultationSinglePrices(api_token, modeId, hourId);
+        if (res?.data) {
+          const modePrice = res.data.mode?.price;
+          const placePrice = res.data.place?.price;
+          if (modePrice !== undefined && modePrice !== null) {
+            setConsultancyModelPrice(typeof modePrice === "string" ? modePrice : String(modePrice));
+          }
+          if (placePrice !== undefined && placePrice !== null) {
+            setConsultancyHoursPrice(typeof placePrice === "string" ? placePrice : String(placePrice));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch Consultation prices:", err);
+      }
+    };
+    fetchPrices();
+  }, [activeTab, consultancyModelValue, consultancyHoursValue, loadingConsultationOptions]);
 
   // When Extinguisher selections change, fetch prices for the selected IDs and display them
   useEffect(() => {
@@ -923,6 +1028,50 @@ export function ProfessionalPricingContent() {
     emergencyLightTestOptions,
     emergencyLightTypeOptions,
   ]);
+
+  const saveEmergencyLightPriceNow = async () => {
+    const token = getApiToken();
+    if (!token) return;
+    const v = (emergencyLightValue ?? "").trim();
+    if (!v || v === "no-data") return;
+    const opt = emergencyLightOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+    );
+    const lightId = opt?.id ?? 0;
+    if (!lightId) return;
+    const price = parseFloat(emergencyLightPrice) || 0;
+    setSavingEmergencyLightPrice(true);
+    try {
+      await createProfessionalEmergencyLightPrice(token, lightId, "light", price);
+      setEmergencyLightUpdateMessage({ type: "success", text: "Emergency light price saved successfully." });
+    } catch {
+      setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save Emergency light price." });
+    } finally {
+      setSavingEmergencyLightPrice(false);
+    }
+  };
+
+  const saveEmergencyLightFloorPriceNow = async () => {
+    const token = getApiToken();
+    if (!token) return;
+    const v = (emergencyLightFloorValue ?? "").trim();
+    if (!v || v === "no-data") return;
+    const opt = emergencyLightFloorOptions.find(
+      (o) => (String(o.value ?? "").trim() || String(o.id)) === v
+    );
+    const floorId = opt?.id ?? 0;
+    if (!floorId) return;
+    const price = parseFloat(emergencyLightFloorPrice) || 0;
+    setSavingEmergencyLightFloorPrice(true);
+    try {
+      await saveProfessionalEmergencyLightFloorPrice(token, floorId, price);
+      setEmergencyLightUpdateMessage({ type: "success", text: "Emergency light floor price saved successfully." });
+    } catch {
+      setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save Emergency light floor price." });
+    } finally {
+      setSavingEmergencyLightFloorPrice(false);
+    }
+  };
 
   // When Training (Marshal) selections change, fetch prices for the selected IDs and display them
   useEffect(() => {
@@ -1337,7 +1486,7 @@ export function ProfessionalPricingContent() {
           {(Object.entries(TAB_LABELS) as [string, string][]).map(
             ([id, label]) => {
               const isActive = activeTab === id;
-              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM && id !== TAB_IDS.EXTINGUISHERS && id !== TAB_IDS.EMERGENCY_LIGHTING && id !== TAB_IDS.TRAINING;
+              const isDisabled = id !== TAB_IDS.FRA_SERVICE && id !== TAB_IDS.FIRE_ALARM && id !== TAB_IDS.EXTINGUISHERS && id !== TAB_IDS.EMERGENCY_LIGHTING && id !== TAB_IDS.TRAINING && id !== TAB_IDS.CONSULTANCY;
               return (
                 <TabsTrigger
                   key={id}
@@ -2544,27 +2693,27 @@ export function ProfessionalPricingContent() {
                         onChange={(e) =>
                           setEmergencyLightPrice(e.target.value.replace(/[^0-9.]/g, ""))
                         }
-                        onBlur={async () => {
-                          const token = getApiToken();
-                          if (!token) return;
-                          const v = (emergencyLightValue ?? "").trim();
-                          if (!v || v === "no-data") return;
-                          const opt = emergencyLightOptions.find(
-                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
-                          );
-                          const lightId = opt?.id ?? 0;
-                          if (!lightId) return;
-                          const price = parseFloat(emergencyLightPrice) || 0;
-                          try {
-                            await createProfessionalEmergencyLightPrice(token, lightId, "light", price);
-                            setEmergencyLightUpdateMessage({ type: "success", text: "Emergency light price saved successfully." });
-                          } catch {
-                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save Emergency light price." });
-                          }
-                        }}
+                        onBlur={saveEmergencyLightPriceNow}
                         className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
                       />
                     </div>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 flex items-end">
+                    <Button
+                      type="button"
+                      onClick={saveEmergencyLightPriceNow}
+                      disabled={savingEmergencyLightPrice || !emergencyLightValue || emergencyLightValue === "no-data"}
+                      className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-4 md:px-6 font-medium disabled:opacity-70"
+                    >
+                      {savingEmergencyLightPrice ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Create now"
+                      )}
+                    </Button>
                   </div>
                 </div>
 
@@ -2606,24 +2755,7 @@ export function ProfessionalPricingContent() {
                         onChange={(e) =>
                           setEmergencyLightFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))
                         }
-                        onBlur={async () => {
-                          const token = getApiToken();
-                          if (!token) return;
-                          const v = (emergencyLightFloorValue ?? "").trim();
-                          if (!v || v === "no-data") return;
-                          const opt = emergencyLightFloorOptions.find(
-                            (o) => (String(o.value ?? "").trim() || String(o.id)) === v
-                          );
-                          const floorId = opt?.id ?? 0;
-                          if (!floorId) return;
-                          const price = parseFloat(emergencyLightFloorPrice) || 0;
-                          try {
-                            await saveProfessionalEmergencyLightFloorPrice(token, floorId, price);
-                            setEmergencyLightUpdateMessage({ type: "success", text: "Floor price saved successfully." });
-                          } catch {
-                            setEmergencyLightUpdateMessage({ type: "error", text: "Failed to save floor price." });
-                          }
-                        }}
+                        onBlur={saveEmergencyLightFloorPriceNow}
                         className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
                       />
                     </div>
@@ -3271,9 +3403,517 @@ export function ProfessionalPricingContent() {
           </Card>
         </TabsContent>
         <TabsContent value={TAB_IDS.CONSULTANCY} className="mt-0">
-          <ComingSoonCard title="Consultancy" />
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg text-[#0A1A2F]">
+                    Consultancy Pricing
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Set your base and modifier prices for Consultancy services
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConsultancyModalOpen(true)}
+                  className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
+                  aria-label="Edit consultancy pricing"
+                >
+                  <Pencil className="w-5 h-5" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 md:p-8">
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+                {/* Row 1: Consultation – Base price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label className="text-gray-700 font-medium">
+                      Consultation
+                    </Label>
+                    <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                      Consultation
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="consultancy-base-price" className="text-gray-700 font-medium">
+                      Base Price (£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="consultancy-base-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={consultancyBasePrice}
+                        onChange={(e) =>
+                          setConsultancyBasePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const price = parseFloat(consultancyBasePrice) || 0;
+                          try {
+                            await saveProfessionalConsultationBasePrice(token, price);
+                            setConsultancyUpdateMessage({ type: "success", text: "Consultation base price saved successfully." });
+                          } catch {
+                            setConsultancyUpdateMessage({ type: "error", text: "Failed to save consultation base price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                  <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                    Addon Price
+                  </span>
+                  <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                </div>
+
+                {/* Row 2: Select Consultation Model – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Consultation Model</Label>
+                    <Select value={consultancyModelValue} onValueChange={setConsultancyModelValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        {(() => {
+                          const label = consultancyModelOptions.find((o) => String(o.id) === consultancyModelValue)?.value;
+                          return label ? label : <SelectValue placeholder={loadingConsultationOptions ? "Loading..." : "Select consultation model"} />;
+                        })()}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {consultancyModelOptions.length === 0 && !loadingConsultationOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          consultancyModelOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={String(opt.id)}>
+                              {opt.value}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="consultancy-model-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="consultancy-model-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={consultancyModelPrice}
+                        onChange={(e) =>
+                          setConsultancyModelPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const modeId = consultancyModelValue ? parseInt(consultancyModelValue, 10) : 0;
+                          if (!modeId || consultancyModelValue === "no-data") return;
+                          const price = parseFloat(consultancyModelPrice) || 0;
+                          try {
+                            await saveProfessionalConsultationModePrice(token, modeId, price);
+                            setConsultancyUpdateMessage({ type: "success", text: "Consultation model price saved successfully." });
+                          } catch {
+                            setConsultancyUpdateMessage({ type: "error", text: "Failed to save consultation model price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Select Consultation Hours – Price */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                    <Label className="text-gray-700 font-medium whitespace-nowrap">Select Consultation Hours</Label>
+                    <Select value={consultancyHoursValue} onValueChange={setConsultancyHoursValue}>
+                      <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                        {(() => {
+                          const label = consultancyHoursOptions.find((o) => String(o.id) === consultancyHoursValue)?.value;
+                          return label ? label : <SelectValue placeholder={loadingConsultationOptions ? "Loading..." : "Select consultation hours"} />;
+                        })()}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {consultancyHoursOptions.length === 0 && !loadingConsultationOptions ? (
+                          <SelectItem value="no-data">No options available</SelectItem>
+                        ) : (
+                          consultancyHoursOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={String(opt.id)}>
+                              {opt.value}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                    <Label htmlFor="consultancy-hours-price" className="text-gray-700 font-medium">Price (£)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                      <Input
+                        id="consultancy-hours-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={consultancyHoursPrice}
+                        onChange={(e) =>
+                          setConsultancyHoursPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                        }
+                        onBlur={async () => {
+                          const token = getApiToken();
+                          if (!token) return;
+                          const hourId = consultancyHoursValue ? parseInt(consultancyHoursValue, 10) : 0;
+                          if (!hourId || consultancyHoursValue === "no-data") return;
+                          const price = parseFloat(consultancyHoursPrice) || 0;
+                          try {
+                            await saveProfessionalConsultationHourPrice(token, hourId, price);
+                            setConsultancyUpdateMessage({ type: "success", text: "Consultation hours price saved successfully." });
+                          } catch {
+                            setConsultancyUpdateMessage({ type: "error", text: "Failed to save consultation hours price." });
+                          }
+                        }}
+                        className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimated Price(£) */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <Label htmlFor="consultancy-estimate-price" className="text-gray-700 font-medium">
+                      Estimated Price(£)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                      <Input
+                        id="consultancy-estimate-price"
+                        type="text"
+                        readOnly
+                        placeholder="0.00"
+                        value={consultancyEstimatePrice}
+                        className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+                </div>
+
+                {consultancyUpdateMessage && (
+                  <p
+                    className={`text-sm ${
+                      consultancyUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {consultancyUpdateMessage.text}
+                  </p>
+                )}
+                <div className="pt-4">
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setConsultancyUpdateMessage(null);
+                      const token = getApiToken();
+                      if (!token) {
+                        setConsultancyUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                        return;
+                      }
+                      setUpdatingConsultancyPrice(true);
+                      try {
+                        // TODO: wire to consultancy base/model/hours price APIs when available
+                        setConsultancyUpdateMessage({ type: "success", text: "Price updated successfully." });
+                      } catch {
+                        setConsultancyUpdateMessage({ type: "error", text: "Failed to update price." });
+                      } finally {
+                        setUpdatingConsultancyPrice(false);
+                      }
+                    }}
+                    disabled={updatingConsultancyPrice}
+                    className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                  >
+                    {updatingConsultancyPrice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Price"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Consultancy Pricing Edit Modal */}
+      <Dialog open={consultancyModalOpen} onOpenChange={setConsultancyModalOpen}>
+        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                  Consultancy Pricing
+                </DialogTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Set your base and modifier prices for Consultancy services
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConsultancyModalOpen(false)}
+                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="p-4 md:p-8">
+            <div className="space-y-4 md:space-y-6 w-full">
+              {/* Row 1: Consultation – Base price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Consultation</Label>
+                  <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                    Consultation
+                  </div>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-consultancy-base-price" className="text-gray-700 font-medium">
+                    Base Price (£)
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-consultancy-base-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={consultancyBasePrice}
+                      onChange={(e) =>
+                        setConsultancyBasePrice(e.target.value.replace(/[^0-9.]/g, ""))
+                      }
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const price = parseFloat(consultancyBasePrice) || 0;
+                        try {
+                          await saveProfessionalConsultationBasePrice(token, price);
+                          setConsultancyUpdateMessage({ type: "success", text: "Consultation base price saved successfully." });
+                        } catch {
+                          setConsultancyUpdateMessage({ type: "error", text: "Failed to save consultation base price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Addon Price
+                </span>
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+              </div>
+
+              {/* Row 2: Select Consultation Model – Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                  <Label className="text-gray-700 font-medium whitespace-nowrap">Select Consultation Model</Label>
+                  <Select value={consultancyModelValue} onValueChange={setConsultancyModelValue}>
+                    <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      {(() => {
+                        const label = consultancyModelOptions.find((o) => String(o.id) === consultancyModelValue)?.value;
+                        return label ? label : <SelectValue placeholder={loadingConsultationOptions ? "Loading..." : "Select consultation model"} />;
+                      })()}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {consultancyModelOptions.length === 0 && !loadingConsultationOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        consultancyModelOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>
+                            {opt.value}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-consultancy-model-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-consultancy-model-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={consultancyModelPrice}
+                      onChange={(e) =>
+                        setConsultancyModelPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                      }
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const modeId = consultancyModelValue ? parseInt(consultancyModelValue, 10) : 0;
+                        if (!modeId || consultancyModelValue === "no-data") return;
+                        const price = parseFloat(consultancyModelPrice) || 0;
+                        try {
+                          await saveProfessionalConsultationModePrice(token, modeId, price);
+                          setConsultancyUpdateMessage({ type: "success", text: "Consultation model price saved successfully." });
+                        } catch {
+                          setConsultancyUpdateMessage({ type: "error", text: "Failed to save consultation model price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Select Consultation Hours – Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
+                  <Label className="text-gray-700 font-medium whitespace-nowrap">Select Consultation Hours</Label>
+                  <Select value={consultancyHoursValue} onValueChange={setConsultancyHoursValue}>
+                    <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      {(() => {
+                        const label = consultancyHoursOptions.find((o) => String(o.id) === consultancyHoursValue)?.value;
+                        return label ? label : <SelectValue placeholder={loadingConsultationOptions ? "Loading..." : "Select consultation hours"} />;
+                      })()}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {consultancyHoursOptions.length === 0 && !loadingConsultationOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        consultancyHoursOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>
+                            {opt.value}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-consultancy-hours-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-consultancy-hours-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={consultancyHoursPrice}
+                      onChange={(e) =>
+                        setConsultancyHoursPrice(e.target.value.replace(/[^0-9.]/g, ""))
+                      }
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const hourId = consultancyHoursValue ? parseInt(consultancyHoursValue, 10) : 0;
+                        if (!hourId || consultancyHoursValue === "no-data") return;
+                        const price = parseFloat(consultancyHoursPrice) || 0;
+                        try {
+                          await saveProfessionalConsultationHourPrice(token, hourId, price);
+                          setConsultancyUpdateMessage({ type: "success", text: "Consultation hours price saved successfully." });
+                        } catch {
+                          setConsultancyUpdateMessage({ type: "error", text: "Failed to save consultation hours price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Estimated Price(£) */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label htmlFor="modal-consultancy-estimate-price" className="text-gray-700 font-medium">
+                    Estimated Price(£)
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                    <Input
+                      id="modal-consultancy-estimate-price"
+                      type="text"
+                      readOnly
+                      placeholder="0.00"
+                      value={consultancyEstimatePrice}
+                      className="w-full pl-8 h-12 text-base font-semibold border-gray-200 bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                    />
+                  </div>
+                </div>
+                <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
+              </div>
+
+              {consultancyUpdateMessage && (
+                <p
+                  className={`text-sm ${
+                    consultancyUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {consultancyUpdateMessage.text}
+                </p>
+              )}
+              <div className="pt-4">
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    setConsultancyUpdateMessage(null);
+                    const token = getApiToken();
+                    if (!token) {
+                      setConsultancyUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                      return;
+                    }
+                    setUpdatingConsultancyPrice(true);
+                    try {
+                      setConsultancyUpdateMessage({ type: "success", text: "Price updated successfully." });
+                    } catch {
+                      setConsultancyUpdateMessage({ type: "error", text: "Failed to update price." });
+                    } finally {
+                      setUpdatingConsultancyPrice(false);
+                    }
+                  }}
+                  disabled={updatingConsultancyPrice}
+                  className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70 uppercase"
+                >
+                  {updatingConsultancyPrice ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Price"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

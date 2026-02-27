@@ -436,7 +436,7 @@ export const fetchExtinguisherServiceOptions = async (
 
 /**
  * Emergency Light Service: fetch options for dropdowns.
- * POST /emergency-lighting-testing/get-emergency-light  Body: { api_token, type }
+ * POST /emergency-lighting-testing/get-emergency-light  Body: { type }
  * type: "light" | "floor" | "light_type" | "light_test"
  * Response: { status, message, data: [{ id, type, value, ... }] }
  */
@@ -446,13 +446,12 @@ export interface EmergencyLightServiceOptionItem {
 }
 
 export const fetchEmergencyLightOptions = async (
-  apiToken: string,
   type: string
 ): Promise<EmergencyLightServiceOptionItem[]> => {
   try {
     const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
       '/emergency-lighting-testing/get-emergency-light',
-      { api_token: apiToken, type }
+      { type }
     );
     const raw = response.data;
     const list = Array.isArray(raw?.data) ? raw.data : [];
@@ -467,9 +466,10 @@ export const fetchEmergencyLightOptions = async (
 
 /**
  * Fire Marshal (Training): fetch options for dropdowns.
- * POST /fire-marshal/get-marshal  Body: { api_token, type }
+ * POST /fire-marshal/get-marshal  Body: { type }
  * type: "people" | "training_place" | "building_type" | "experience"
  * Response: { status, message, data: [{ id, type, value, ... }] }
+ * Dropdowns display the value from each item in data.
  */
 export interface MarshalServiceOptionItem {
   id: number;
@@ -477,12 +477,43 @@ export interface MarshalServiceOptionItem {
 }
 
 export const fetchMarshalOptions = async (
-  apiToken: string,
+  _apiToken: string,
   type: string
 ): Promise<MarshalServiceOptionItem[]> => {
   try {
     const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
       '/fire-marshal/get-marshal',
+      { type }
+    );
+    const raw = response.data;
+    const list = Array.isArray(raw?.data) ? raw.data : [];
+    return list.map((item) => ({
+      id: Number(item.id),
+      value: String(item.value ?? '').trim() || String(item.id),
+    }));
+  } catch (_err) {
+    return [];
+  }
+};
+
+/**
+ * Fire Consultation: fetch options for dropdowns.
+ * POST /fire-consultation/get-consultation  Body: { api_token, type }
+ * type: "hour" | "mode"
+ * Response: { status, message, data: [{ id, type, value, ... }] }
+ */
+export interface ConsultationOptionItem {
+  id: number;
+  value: string;
+}
+
+export const fetchFireConsultationOptions = async (
+  apiToken: string,
+  type: string
+): Promise<ConsultationOptionItem[]> => {
+  try {
+    const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
+      '/fire-consultation/get-consultation',
       { api_token: apiToken, type }
     );
     const raw = response.data;
@@ -494,6 +525,149 @@ export const fetchMarshalOptions = async (
   } catch (_err) {
     return [];
   }
+};
+
+/** Response for POST /professional-consultation/base-price-create */
+export interface ProfessionalConsultationBasePriceResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Consultation base price.
+ * POST /professional-consultation/base-price-create  Body: { api_token, price }
+ */
+export const saveProfessionalConsultationBasePrice = async (
+  apiToken: string,
+  price: number
+): Promise<ProfessionalConsultationBasePriceResponse> => {
+  const response = await apiClient.post<ProfessionalConsultationBasePriceResponse>(
+    '/professional-consultation/base-price-create',
+    { api_token: apiToken, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation/base-price-get */
+export interface ProfessionalConsultationBasePriceGetResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number | string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get professional Consultation base price.
+ * POST /professional-consultation/base-price-get  Body: { api_token }
+ */
+export const getProfessionalConsultationBasePrice = async (
+  apiToken: string
+): Promise<ProfessionalConsultationBasePriceGetResponse> => {
+  const response = await apiClient.post<ProfessionalConsultationBasePriceGetResponse>(
+    '/professional-consultation/base-price-get',
+    { api_token: apiToken }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation/mode-price-create */
+export interface ProfessionalConsultationModePriceResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    mode_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Consultation Model price.
+ * POST /professional-consultation/mode-price-create  Body: { api_token, mode_id, type: "mode", price }
+ */
+export const saveProfessionalConsultationModePrice = async (
+  apiToken: string,
+  modeId: number,
+  price: number
+): Promise<ProfessionalConsultationModePriceResponse> => {
+  const response = await apiClient.post<ProfessionalConsultationModePriceResponse>(
+    '/professional-consultation/mode-price-create',
+    { api_token: apiToken, mode_id: modeId, type: 'mode', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation/hour-price-create */
+export interface ProfessionalConsultationHourPriceResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    hour_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update professional Consultation Hour price.
+ * POST /professional-consultation/hour-price-create  Body: { api_token, hour_id, type: "hour", price }
+ */
+export const saveProfessionalConsultationHourPrice = async (
+  apiToken: string,
+  hourId: number,
+  price: number
+): Promise<ProfessionalConsultationHourPriceResponse> => {
+  const response = await apiClient.post<ProfessionalConsultationHourPriceResponse>(
+    '/professional-consultation/hour-price-create',
+    { api_token: apiToken, hour_id: hourId, type: 'hour', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-consultation/get-single/prices */
+export interface ProfessionalConsultationSinglePricesResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    professional?: { id: number; name: string };
+    mode?: { id: number; people?: number | null; price?: string | number };
+    place?: { id: number; place?: string; price?: string | number };
+    total_price?: number;
+  };
+}
+
+/**
+ * Get professional Consultation single prices for selected mode and hour.
+ * POST /professional-consultation/get-single/prices  Body: { api_token, mode_id, hour_id }
+ */
+export const getProfessionalConsultationSinglePrices = async (
+  apiToken: string,
+  modeId: number,
+  hourId: number
+): Promise<ProfessionalConsultationSinglePricesResponse> => {
+  const response = await apiClient.post<ProfessionalConsultationSinglePricesResponse>(
+    '/professional-consultation/get-single/prices',
+    { api_token: apiToken, mode_id: modeId, hour_id: hourId }
+  );
+  return response.data;
 };
 
 /** Response for POST /professional-extinguisher/base-price-create */
