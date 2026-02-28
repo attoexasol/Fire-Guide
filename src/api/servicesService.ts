@@ -425,9 +425,12 @@ export const fetchExtinguisherServiceOptions = async (
     );
     const raw = response.data;
     const list = Array.isArray(raw?.data) ? raw.data : [];
-    return list.map((item) => ({
+    // Only include items whose type matches the requested type (so e.g. floor dropdown shows only floor values from response)
+    const filtered = list.filter((item) => (item.type ?? '').toLowerCase() === (type ?? '').toLowerCase());
+    return filtered.map((item) => ({
       id: Number(item.id),
       value: String(item.value ?? '').trim() || String(item.id),
+      type: item.type,
     }));
   } catch (_err) {
     return [];
@@ -1193,7 +1196,7 @@ export interface ProfessionalExtinguisherTypePriceCreateResponse {
 
 /**
  * Create/update professional extinguisher type price (Select Extinguisher Type).
- * POST /professional-extinguisher/type-price-create  Body: { api_token, extinguisher_type_id, type: "metarials", price }
+ * POST /professional-extinguisher/type-price-create  Body: { api_token, extinguisher_type_id, type: "extinguisher_type", price }
  */
 export const saveProfessionalExtinguisherTypePrice = async (
   apiToken: string,
@@ -1202,7 +1205,7 @@ export const saveProfessionalExtinguisherTypePrice = async (
 ): Promise<ProfessionalExtinguisherTypePriceCreateResponse> => {
   const response = await apiClient.post<ProfessionalExtinguisherTypePriceCreateResponse>(
     '/professional-extinguisher/type-price-create',
-    { api_token: apiToken, extinguisher_type_id, type: "metarials", price }
+    { api_token: apiToken, extinguisher_type_id, type: "extinguisher_type", price }
   );
   return response.data;
 };

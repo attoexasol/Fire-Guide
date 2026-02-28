@@ -748,6 +748,235 @@ export const getAdminMarshalSinglePrices = async (
   return response.data;
 };
 
+/** Response for POST /professional-extinguisher-admin/base-price-get */
+export interface AdminExtinguisherBasePriceGetResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: string | number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get Professional Extinguisher base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-extinguisher-admin/base-price-get
+ * Body: { api_token, professional_id }
+ */
+export const getAdminExtinguisherBasePrice = async (
+  apiToken: string,
+  professionalId: number
+): Promise<AdminExtinguisherBasePriceGetResponse> => {
+  const response = await apiClient.post<AdminExtinguisherBasePriceGetResponse>(
+    '/professional-extinguisher-admin/base-price-get',
+    { api_token: apiToken, professional_id: professionalId }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher-admin/base-price-create */
+export interface AdminExtinguisherBasePriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Extinguisher base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-extinguisher-admin/base-price-create
+ * Body: { api_token, professional_id, price }
+ */
+export const saveAdminExtinguisherBasePrice = async (
+  apiToken: string,
+  professionalId: number,
+  price: number
+): Promise<AdminExtinguisherBasePriceCreateResponse> => {
+  const response = await apiClient.post<AdminExtinguisherBasePriceCreateResponse>(
+    '/professional-extinguisher-admin/base-price-create',
+    { api_token: apiToken, professional_id: professionalId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-Extingusher-admin/get-single/prices */
+export interface AdminExtinguisherSinglePricesResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    professional?: { id: number; name: string };
+    extinguisher?: { id: number; smoke_detector?: string; price?: string };
+    floor?: { id: number; floor?: string; price?: string };
+    last_service?: { id: number; last_service?: string; price?: string };
+    extinguisher_type?: { id: number; system_type?: string; price?: string };
+  };
+}
+
+/**
+ * Get single Extinguisher prices for a professional (Admin). Admin token in request body.
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-Extingusher-admin/get-single/prices
+ * Body: { api_token, professional_id, extinguisher_id, floor_id, last_service_id, extinguisher_type_id }
+ */
+export const getAdminExtinguisherSinglePrices = async (
+  apiToken: string,
+  professionalId: number,
+  extinguisherId: number,
+  floorId: number,
+  lastServiceId: number,
+  extinguisherTypeId: number
+): Promise<AdminExtinguisherSinglePricesResponse> => {
+  const response = await apiClient.post<AdminExtinguisherSinglePricesResponse>(
+    '/professional-fire-Extingusher-admin/get-single/prices',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      extinguisher_id: extinguisherId,
+      floor_id: floorId,
+      last_service_id: lastServiceId,
+      extinguisher_type_id: extinguisherTypeId,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher-wise-admin/price-create */
+export interface AdminExtinguisherWisePriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    extinguisher_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Extinguisher (Select Extinguisher / floor / type / last_service) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-extinguisher-wise-admin/price-create
+ * Body: { api_token, professional_id, extinguisher_id, type, price }
+ * type: "extinguisher" | "floor" | "metarials" | "last_service"
+ */
+export const saveAdminExtinguisherWisePrice = async (
+  apiToken: string,
+  professionalId: number,
+  extinguisherId: number,
+  type: string,
+  price: number
+): Promise<AdminExtinguisherWisePriceCreateResponse> => {
+  const response = await apiClient.post<AdminExtinguisherWisePriceCreateResponse>(
+    '/professional-extinguisher-wise-admin/price-create',
+    { api_token: apiToken, professional_id: professionalId, extinguisher_id: extinguisherId, type, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher-admin/floor-price-create */
+export interface AdminExtinguisherFloorPriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    floor_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Extinguisher floor price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-extinguisher-admin/floor-price-create
+ * Body: { api_token, professional_id, floor_id, type: "floor", price }
+ */
+export const saveAdminExtinguisherFloorPrice = async (
+  apiToken: string,
+  professionalId: number,
+  floorId: number,
+  price: number
+): Promise<AdminExtinguisherFloorPriceCreateResponse> => {
+  const response = await apiClient.post<AdminExtinguisherFloorPriceCreateResponse>(
+    '/professional-extinguisher-admin/floor-price-create',
+    { api_token: apiToken, professional_id: professionalId, floor_id: floorId, type: 'floor', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher-admin/last-service-price-create */
+export interface AdminExtinguisherLastServicePriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    last_service_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Extinguisher last service price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-extinguisher-admin/last-service-price-create
+ * Body: { api_token, professional_id, last_service_id, type: "last_service", price }
+ */
+export const saveAdminExtinguisherLastServicePrice = async (
+  apiToken: string,
+  professionalId: number,
+  lastServiceId: number,
+  price: number
+): Promise<AdminExtinguisherLastServicePriceCreateResponse> => {
+  const response = await apiClient.post<AdminExtinguisherLastServicePriceCreateResponse>(
+    '/professional-extinguisher-admin/last-service-price-create',
+    { api_token: apiToken, professional_id: professionalId, last_service_id: lastServiceId, type: 'last_service', price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-extinguisher-admin/type-price-create */
+export interface AdminExtinguisherTypePriceCreateResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    extinguisher_type_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Extinguisher type price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-extinguisher-admin/type-price-create
+ * Body: { api_token, professional_id, extinguisher_type_id, type: "metarials", price }
+ */
+export const saveAdminExtinguisherTypePrice = async (
+  apiToken: string,
+  professionalId: number,
+  extinguisherTypeId: number,
+  price: number
+): Promise<AdminExtinguisherTypePriceCreateResponse> => {
+  const response = await apiClient.post<AdminExtinguisherTypePriceCreateResponse>(
+    '/professional-extinguisher-admin/type-price-create',
+    { api_token: apiToken, professional_id: professionalId, extinguisher_type_id: extinguisherTypeId, type: 'metarials', price }
+  );
+  return response.data;
+};
+
 /** Response for POST /professional-emergency-light-admin/base-price-get */
 export interface AdminEmergencyLightBasePriceGetResponse {
   status?: boolean;

@@ -32,7 +32,7 @@ import {
   storeProfessionalFraBasePrice,
   ProfessionalFraBasePriceItem,
 } from "../api/professionalFraBasePricesService";
-import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem, getLightTestingAllPrices, LightTestingAllPricesProfessionalItem, getMarshalAllPrices, MarshalAllPricesProfessionalItem, getConsultationAllPrices, ConsultationAllPricesProfessionalItem, saveAdminConsultationBasePrice, getAdminConsultationSinglePrices, getAdminConsultationBasePrice, saveAdminConsultationModePrice, saveAdminConsultationHourPrice, getAdminMarshalSinglePrices, getAdminMarshalBasePrice, saveAdminMarshalBasePrice, saveAdminMarshalPeoplePrice, saveAdminMarshalPlacePrice, saveAdminMarshalTrainingOnPrice, saveAdminMarshalExperiencePrice, getAdminEmergencyLightSinglePrices, getAdminEmergencyLightBasePrice, saveAdminEmergencyLightBasePrice, saveAdminEmergencyLightPrice, saveAdminEmergencyLightFloorPrice, saveAdminEmergencyLightTypePrice, saveAdminEmergencyLightTestPrice } from "../api/adminService";
+import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem, getLightTestingAllPrices, LightTestingAllPricesProfessionalItem, getMarshalAllPrices, MarshalAllPricesProfessionalItem, getConsultationAllPrices, ConsultationAllPricesProfessionalItem, saveAdminConsultationBasePrice, getAdminConsultationSinglePrices, getAdminConsultationBasePrice, saveAdminConsultationModePrice, saveAdminConsultationHourPrice, getAdminMarshalSinglePrices, getAdminMarshalBasePrice, saveAdminMarshalBasePrice, saveAdminMarshalPeoplePrice, saveAdminMarshalPlacePrice, saveAdminMarshalTrainingOnPrice, saveAdminMarshalExperiencePrice, getAdminEmergencyLightSinglePrices, getAdminEmergencyLightBasePrice, saveAdminEmergencyLightBasePrice, saveAdminEmergencyLightPrice, saveAdminEmergencyLightFloorPrice, saveAdminEmergencyLightTypePrice, saveAdminEmergencyLightTestPrice, getAdminExtinguisherBasePrice, saveAdminExtinguisherBasePrice, getAdminExtinguisherSinglePrices, saveAdminExtinguisherWisePrice, saveAdminExtinguisherFloorPrice, saveAdminExtinguisherLastServicePrice, saveAdminExtinguisherTypePrice } from "../api/adminService";
 import {
   fetchPropertyTypes,
   fetchFireConsultationOptions,
@@ -51,8 +51,17 @@ import {
   saveProfessionalMarshalTrainingOnPrice,
   saveProfessionalMarshalExperiencePrice,
   getProfessionalMarshalSinglePrices,
+  fetchExtinguisherServiceOptions,
+  ExtinguisherServiceOptionItem,
   fetchEmergencyLightOptions,
   EmergencyLightServiceOptionItem,
+  getProfessionalExtinguisherBasePrice,
+  saveProfessionalExtinguisherBasePrice,
+  createProfessionalExtinguisherWisePrice,
+  saveProfessionalExtinguisherFloorPrice,
+  saveProfessionalExtinguisherTypePrice,
+  saveProfessionalExtinguisherLastServicePrice,
+  getProfessionalExtinguisherSinglePrices,
   getProfessionalEmergencyLightBasePrice,
   saveProfessionalEmergencyLightBasePrice,
   createProfessionalEmergencyLightPrice,
@@ -83,6 +92,24 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   const [loadingExtinguisherPrices, setLoadingExtinguisherPrices] = useState(false);
   const [errorExtinguisher, setErrorExtinguisher] = useState<string | null>(null);
   const [extinguisherFetchKey, setExtinguisherFetchKey] = useState(0);
+  const [extinguisherModalOpen, setExtinguisherModalOpen] = useState(false);
+  const [extinguisherModalProfessionalId, setExtinguisherModalProfessionalId] = useState<string>("");
+  const [exExtinguisherOptions, setExExtinguisherOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [exFloorOptions, setExFloorOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [exLastServiceOptions, setExLastServiceOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [exTypeOptions, setExTypeOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [loadingExOptions, setLoadingExOptions] = useState(false);
+  const [exExtinguisherValue, setExExtinguisherValue] = useState("");
+  const [exFloorValue, setExFloorValue] = useState("");
+  const [exLastServiceValue, setExLastServiceValue] = useState("");
+  const [exTypeValue, setExTypeValue] = useState("");
+  const [exBasePrice, setExBasePrice] = useState("");
+  const [exExtinguisherPrice, setExExtinguisherPrice] = useState("");
+  const [exFloorPrice, setExFloorPrice] = useState("");
+  const [exTypePrice, setExTypePrice] = useState("");
+  const [exLastServicePrice, setExLastServicePrice] = useState("");
+  const [exUpdateMessage, setExUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [updatingExPrice, setUpdatingExPrice] = useState(false);
   const [lightTestingAllPrices, setLightTestingAllPrices] = useState<LightTestingAllPricesProfessionalItem[] | null>(null);
   const [selectedLightTestingSystemByPro, setSelectedLightTestingSystemByPro] = useState<Record<number, string>>({});
   const [lightTestingExpandedByPro, setLightTestingExpandedByPro] = useState<Record<number, boolean>>({});
@@ -849,6 +876,142 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
       .finally(() => { if (!cancelled) setLoadingElOptions(false); });
     return () => { cancelled = true; };
   }, [emergencyLightingModalOpen]);
+
+  // Extinguisher modal: fetch dropdown options from API (type in request body, data from response)
+  useEffect(() => {
+    if (!extinguisherModalOpen) return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+
+    let cancelled = false;
+    setLoadingExOptions(true);
+    Promise.all([
+      fetchExtinguisherServiceOptions(apiToken, "extinguisher"),
+      fetchExtinguisherServiceOptions(apiToken, "floor"),
+      fetchExtinguisherServiceOptions(apiToken, "last_service"),
+      fetchExtinguisherServiceOptions(apiToken, "metarials"),
+    ])
+      .then(([extList, floorList, lastList, typeList]) => {
+        if (cancelled) return;
+        setExExtinguisherOptions(extList);
+        setExFloorOptions(floorList);
+        setExLastServiceOptions(lastList);
+        setExTypeOptions(typeList);
+        const firstVal = (item: ExtinguisherServiceOptionItem | undefined) =>
+          item ? (String(item.value ?? "").trim() || String(item.id)) : "";
+        setExExtinguisherValue((prev) => prev || firstVal(extList[0]));
+        setExFloorValue((prev) => prev || firstVal(floorList[0]));
+        setExLastServiceValue((prev) => prev || firstVal(lastList[0]));
+        setExTypeValue((prev) => prev || firstVal(typeList[0]));
+      })
+      .finally(() => { if (!cancelled) setLoadingExOptions(false); });
+    return () => { cancelled = true; };
+  }, [extinguisherModalOpen]);
+
+  // Extinguisher modal: fetch base price when modal opens (admin API or professional API)
+  useEffect(() => {
+    if (!extinguisherModalOpen) return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+
+    const setPriceFromResponse = (res: { data?: { price?: string | number | null } }) => {
+      const p = res?.data?.price;
+      if (p !== undefined && p !== null) {
+        const displayPrice = typeof p === "string" ? p : typeof p === "number" ? p.toFixed(2) : String(p);
+        setExBasePrice(displayPrice.replace(/[^0-9.]/g, "") || "");
+      } else {
+        setExBasePrice("");
+      }
+    };
+
+    if (isAdmin && extinguisherModalProfessionalId) {
+      const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+      if (professionalId) {
+        getAdminExtinguisherBasePrice(apiToken, professionalId)
+          .then(setPriceFromResponse)
+          .catch(() => setExBasePrice(""));
+        return;
+      }
+    }
+
+    getProfessionalExtinguisherBasePrice(apiToken)
+      .then(setPriceFromResponse)
+      .catch(() => setExBasePrice(""));
+  }, [extinguisherModalOpen, isAdmin, extinguisherModalProfessionalId]);
+
+  // Extinguisher modal: when selections change, fetch single prices (admin token in body for admin)
+  useEffect(() => {
+    if (!extinguisherModalOpen || loadingExOptions) return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+    const findId = (v: string, opts: ExtinguisherServiceOptionItem[]) => {
+      const val = (v ?? "").trim();
+      if (!val || val === "no-data") return 0;
+      const opt = opts.find((o) => (String(o.value ?? "").trim() || String(o.id)) === val);
+      return opt?.id ?? 0;
+    };
+    const extinguisher_id = findId(exExtinguisherValue, exExtinguisherOptions);
+    const floor_id = findId(exFloorValue, exFloorOptions);
+    const last_service_id = findId(exLastServiceValue, exLastServiceOptions);
+    const extinguisher_type_id = findId(exTypeValue, exTypeOptions);
+    if (!extinguisher_id && !floor_id && !last_service_id && !extinguisher_type_id) return;
+
+    const priceStr = (v: string | null | undefined) =>
+      v != null && String(v).trim() !== "" ? String(v).trim() : "0.00";
+
+    if (isAdmin && extinguisherModalProfessionalId) {
+      const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+      if (professionalId) {
+        getAdminExtinguisherSinglePrices(
+          apiToken,
+          professionalId,
+          extinguisher_id || 0,
+          floor_id || 0,
+          last_service_id || 0,
+          extinguisher_type_id || 0
+        )
+          .then((res) => {
+            if (!res?.data) return;
+            const d = res.data;
+            setExExtinguisherPrice(priceStr(d.extinguisher?.price));
+            setExFloorPrice(priceStr(d.floor?.price));
+            setExLastServicePrice(priceStr(d.last_service?.price));
+            setExTypePrice(priceStr(d.extinguisher_type?.price));
+          })
+          .catch(() => {});
+        return;
+      }
+    }
+
+    getProfessionalExtinguisherSinglePrices(apiToken, {
+      extinguisher_id: extinguisher_id || 0,
+      floor_id: floor_id || 0,
+      last_service_id: last_service_id || 0,
+      extinguisher_type_id: extinguisher_type_id || 0,
+    })
+      .then((res) => {
+        if (!res?.data) return;
+        const d = res.data;
+        setExExtinguisherPrice(priceStr(d.extinguisher?.price));
+        setExFloorPrice(priceStr(d.floor?.price));
+        setExLastServicePrice(priceStr(d.last_service?.price));
+        setExTypePrice(priceStr(d.extinguisher_type?.price));
+      })
+      .catch(() => {});
+  }, [
+    extinguisherModalOpen,
+    loadingExOptions,
+    isAdmin,
+    extinguisherModalProfessionalId,
+    exExtinguisherValue,
+    exFloorValue,
+    exLastServiceValue,
+    exTypeValue,
+    exExtinguisherOptions,
+    exFloorOptions,
+    exLastServiceOptions,
+    exTypeOptions,
+  ]);
 
   // Emergency Lighting modal: fetch base price when modal opens (after options may have loaded)
   useEffect(() => {
@@ -1697,18 +1860,8 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
         </TabsContent>
         <TabsContent value="extinguishers" className="mt-0">
           <Card className="border border-gray-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="space-y-0 pb-2">
               <CardTitle className="text-[#0A1A2F]">All professionals' Extinguisher prices</CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0 border-gray-200"
-                onClick={() => {}}
-                aria-label="Edit Extinguisher prices"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
             </CardHeader>
             <CardContent>
               {loadingExtinguisherPrices && (
@@ -1799,6 +1952,19 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                         ) : (
                                           <ChevronUp className="h-4 w-4" />
                                         )}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 border-gray-200"
+                                        onClick={() => {
+                                          setExtinguisherModalProfessionalId(String(pro.professional_id));
+                                          setExtinguisherModalOpen(true);
+                                        }}
+                                        aria-label="Edit Extinguisher prices"
+                                      >
+                                        <Pencil className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   </td>
@@ -1902,23 +2068,8 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
         </TabsContent>
         <TabsContent value="emergency-lighting" className="mt-0">
           <Card className="border border-gray-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="space-y-0 pb-2">
               <CardTitle className="text-[#0A1A2F]">All professionals' Emergency Lighting prices</CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0 border-gray-200"
-                onClick={() => {
-                  if (lightTestingAllPrices?.length) {
-                    setEmergencyLightingModalProfessionalId(String(lightTestingAllPrices[0].professional_id));
-                    setEmergencyLightingModalOpen(true);
-                  }
-                }}
-                aria-label="Edit Emergency Lighting prices"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
             </CardHeader>
             <CardContent>
               {loadingLightTestingPrices && (
@@ -3461,6 +3612,443 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                   className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
                 >
                   {updatingTrainingPrice ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Price"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extinguisher Pricing Modal – same design as Emergency Lighting: base price, ADDON PRICE, dropdowns + prices, estimated price */}
+      <Dialog open={extinguisherModalOpen} onOpenChange={setExtinguisherModalOpen}>
+        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                  Fire Extinguisher Pricing
+                </DialogTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Set your base and modifier prices for Fire Extinguisher services
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExtinguisherModalOpen(false)}
+                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="p-4 md:p-8">
+            <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+              {/* Row 1: Fire Extinguisher Service – Base price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Fire Extinguisher Service</Label>
+                  <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                    Fire Extinguisher Service
+                  </div>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-ex-base-price" className="text-gray-700 font-medium">Base Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-ex-base-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={exBasePrice}
+                      onChange={(e) => setExBasePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const price = parseFloat(exBasePrice) || 0;
+                        try {
+                          if (isAdmin && extinguisherModalProfessionalId) {
+                            const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                            if (professionalId) {
+                              await saveAdminExtinguisherBasePrice(token, professionalId, price);
+                              setExUpdateMessage({ type: "success", text: "Extinguisher base price updated successfully by admin." });
+                              setExtinguisherFetchKey((k) => k + 1);
+                              return;
+                            }
+                          }
+                          await saveProfessionalExtinguisherBasePrice(token, price);
+                          setExUpdateMessage({ type: "success", text: "Base price saved." });
+                        } catch {
+                          setExUpdateMessage({ type: "error", text: "Failed to save base price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Addon Price
+                </span>
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+              </div>
+
+              {/* Row 2: Select Extinguisher + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Extinguisher</Label>
+                  <Select value={exExtinguisherValue} onValueChange={setExExtinguisherValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select Extinguisher"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exExtinguisherOptions.length === 0 && !loadingExOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        exExtinguisherOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-ex-extinguisher-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-ex-extinguisher-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={exExtinguisherPrice}
+                      onChange={(e) => setExExtinguisherPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = exExtinguisherOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exExtinguisherValue);
+                        if (!opt || !exExtinguisherValue || exExtinguisherValue === "no-data") return;
+                        const price = parseFloat(exExtinguisherPrice) || 0;
+                        try {
+                          if (isAdmin && extinguisherModalProfessionalId) {
+                            const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                            if (professionalId) {
+                              await saveAdminExtinguisherWisePrice(token, professionalId, opt.id, "extinguisher", price);
+                              setExUpdateMessage({ type: "success", text: "Professional extinguisher price updated successfully by admin." });
+                              setExtinguisherFetchKey((k) => k + 1);
+                              return;
+                            }
+                          }
+                          await createProfessionalExtinguisherWisePrice(token, opt.id, "extinguisher", price);
+                          setExUpdateMessage({ type: "success", text: "Extinguisher price saved." });
+                        } catch {
+                          setExUpdateMessage({ type: "error", text: "Failed to save Extinguisher price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Select Floor + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Floor</Label>
+                  <Select value={exFloorValue} onValueChange={setExFloorValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select floor"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exFloorOptions.length === 0 && !loadingExOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        exFloorOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-ex-floor-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-ex-floor-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={exFloorPrice}
+                      onChange={(e) => setExFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = exFloorOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exFloorValue);
+                        if (!opt || !exFloorValue || exFloorValue === "no-data") return;
+                        const price = parseFloat(exFloorPrice) || 0;
+                        try {
+                          if (isAdmin && extinguisherModalProfessionalId) {
+                            const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                            if (professionalId) {
+                              await saveAdminExtinguisherFloorPrice(token, professionalId, opt.id, price);
+                              setExUpdateMessage({ type: "success", text: "Professional extinguisher floor price updated successfully by admin." });
+                              setExtinguisherFetchKey((k) => k + 1);
+                              return;
+                            }
+                          }
+                          await saveProfessionalExtinguisherFloorPrice(token, opt.id, price);
+                          setExUpdateMessage({ type: "success", text: "Floor price saved." });
+                        } catch {
+                          setExUpdateMessage({ type: "error", text: "Failed to save Floor price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Select Extinguisher Type + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Extinguisher Type</Label>
+                  <Select value={exTypeValue} onValueChange={setExTypeValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select extinguisher type"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exTypeOptions.length === 0 && !loadingExOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        exTypeOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-ex-type-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-ex-type-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={exTypePrice}
+                      onChange={(e) => setExTypePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = exTypeOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exTypeValue);
+                        if (!opt || !exTypeValue || exTypeValue === "no-data") return;
+                        const price = parseFloat(exTypePrice) || 0;
+                        try {
+                          if (isAdmin && extinguisherModalProfessionalId) {
+                            const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                            if (professionalId) {
+                              await saveAdminExtinguisherTypePrice(token, professionalId, opt.id, price);
+                              setExUpdateMessage({ type: "success", text: "Professional extinguisher type price updated successfully by admin." });
+                              setExtinguisherFetchKey((k) => k + 1);
+                              return;
+                            }
+                          }
+                          await saveProfessionalExtinguisherTypePrice(token, opt.id, price);
+                          setExUpdateMessage({ type: "success", text: "Extinguisher type price saved." });
+                        } catch {
+                          setExUpdateMessage({ type: "error", text: "Failed to save Extinguisher type price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 5: Select Last Service + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Last Service</Label>
+                  <Select value={exLastServiceValue} onValueChange={setExLastServiceValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select last service"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exLastServiceOptions.length === 0 && !loadingExOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        exLastServiceOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-ex-last-service-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-ex-last-service-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={exLastServicePrice}
+                      onChange={(e) => setExLastServicePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = exLastServiceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exLastServiceValue);
+                        if (!opt || !exLastServiceValue || exLastServiceValue === "no-data") return;
+                        const price = parseFloat(exLastServicePrice) || 0;
+                        try {
+                          if (isAdmin && extinguisherModalProfessionalId) {
+                            const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                            if (professionalId) {
+                              await saveAdminExtinguisherLastServicePrice(token, professionalId, opt.id, price);
+                              setExUpdateMessage({ type: "success", text: "Professional extinguisher last service price updated successfully by admin." });
+                              setExtinguisherFetchKey((k) => k + 1);
+                              return;
+                            }
+                          }
+                          await saveProfessionalExtinguisherLastServicePrice(token, opt.id, price);
+                          setExUpdateMessage({ type: "success", text: "Last service price saved." });
+                        } catch {
+                          setExUpdateMessage({ type: "error", text: "Failed to save Last service price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {exUpdateMessage && (
+                <p className={`text-sm ${exUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
+                  {exUpdateMessage.text}
+                </p>
+              )}
+
+              {/* Estimated Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label htmlFor="modal-ex-estimate-price" className="text-gray-700 font-medium">Estimated Price(£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                    <Input
+                      id="modal-ex-estimate-price"
+                      readOnly
+                      value={(
+                        (parseFloat(exBasePrice) || 0) +
+                        (parseFloat(exExtinguisherPrice) || 0) +
+                        (parseFloat(exFloorPrice) || 0) +
+                        (parseFloat(exTypePrice) || 0) +
+                        (parseFloat(exLastServicePrice) || 0)
+                      ).toFixed(2)}
+                      className="w-full pl-8 h-12 text-base border-gray-200 bg-gray-50 font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="flex-1 min-w-0" aria-hidden />
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    setExUpdateMessage(null);
+                    const token = getApiToken();
+                    if (!token) {
+                      setExUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                      return;
+                    }
+                    setUpdatingExPrice(true);
+                    try {
+                      const basePrice = parseFloat(exBasePrice) || 0;
+                      if (isAdmin && extinguisherModalProfessionalId) {
+                        const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                        if (professionalId) {
+                          await saveAdminExtinguisherBasePrice(token, professionalId, basePrice);
+                        } else {
+                          await saveProfessionalExtinguisherBasePrice(token, basePrice);
+                        }
+                      } else {
+                        await saveProfessionalExtinguisherBasePrice(token, basePrice);
+                      }
+                      const extOpt = exExtinguisherOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exExtinguisherValue);
+                      if (extOpt && exExtinguisherValue && exExtinguisherValue !== "no-data") {
+                        const extPrice = parseFloat(exExtinguisherPrice) || 0;
+                        if (isAdmin && extinguisherModalProfessionalId) {
+                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                          if (professionalId) await saveAdminExtinguisherWisePrice(token, professionalId, extOpt.id, "extinguisher", extPrice);
+                        } else {
+                          await createProfessionalExtinguisherWisePrice(token, extOpt.id, "extinguisher", extPrice);
+                        }
+                      }
+                      const floorOpt = exFloorOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exFloorValue);
+                      if (floorOpt && exFloorValue && exFloorValue !== "no-data") {
+                        const floorPriceVal = parseFloat(exFloorPrice) || 0;
+                        if (isAdmin && extinguisherModalProfessionalId) {
+                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                          if (professionalId) await saveAdminExtinguisherFloorPrice(token, professionalId, floorOpt.id, floorPriceVal);
+                        } else {
+                          await saveProfessionalExtinguisherFloorPrice(token, floorOpt.id, floorPriceVal);
+                        }
+                      }
+                      const typeOpt = exTypeOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exTypeValue);
+                      if (typeOpt && exTypeValue && exTypeValue !== "no-data") {
+                        const typePriceVal = parseFloat(exTypePrice) || 0;
+                        if (isAdmin && extinguisherModalProfessionalId) {
+                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                          if (professionalId) await saveAdminExtinguisherTypePrice(token, professionalId, typeOpt.id, typePriceVal);
+                        } else {
+                          await saveProfessionalExtinguisherTypePrice(token, typeOpt.id, typePriceVal);
+                        }
+                      }
+                      const lastOpt = exLastServiceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exLastServiceValue);
+                      if (lastOpt && exLastServiceValue && exLastServiceValue !== "no-data") {
+                        const lastPriceVal = parseFloat(exLastServicePrice) || 0;
+                        if (isAdmin && extinguisherModalProfessionalId) {
+                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                          if (professionalId) await saveAdminExtinguisherLastServicePrice(token, professionalId, lastOpt.id, lastPriceVal);
+                        } else {
+                          await saveProfessionalExtinguisherLastServicePrice(token, lastOpt.id, lastPriceVal);
+                        }
+                      }
+                      setExUpdateMessage({ type: "success", text: "Price updated successfully." });
+                      setExtinguisherFetchKey((k) => k + 1);
+                    } catch {
+                      setExUpdateMessage({ type: "error", text: "Failed to update price." });
+                    } finally {
+                      setUpdatingExPrice(false);
+                    }
+                  }}
+                  disabled={updatingExPrice}
+                  className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+                >
+                  {updatingExPrice ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
                       Updating...
