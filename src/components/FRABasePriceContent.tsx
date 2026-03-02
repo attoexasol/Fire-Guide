@@ -32,9 +32,14 @@ import {
   storeProfessionalFraBasePrice,
   ProfessionalFraBasePriceItem,
 } from "../api/professionalFraBasePricesService";
-import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem, getLightTestingAllPrices, LightTestingAllPricesProfessionalItem, getMarshalAllPrices, MarshalAllPricesProfessionalItem, getConsultationAllPrices, ConsultationAllPricesProfessionalItem, saveAdminConsultationBasePrice, getAdminConsultationSinglePrices, getAdminConsultationBasePrice, saveAdminConsultationModePrice, saveAdminConsultationHourPrice, getAdminMarshalSinglePrices, getAdminMarshalBasePrice, saveAdminMarshalBasePrice, saveAdminMarshalPeoplePrice, saveAdminMarshalPlacePrice, saveAdminMarshalTrainingOnPrice, saveAdminMarshalExperiencePrice, getAdminEmergencyLightSinglePrices, getAdminEmergencyLightBasePrice, saveAdminEmergencyLightBasePrice, saveAdminEmergencyLightPrice, saveAdminEmergencyLightFloorPrice, saveAdminEmergencyLightTypePrice, saveAdminEmergencyLightTestPrice, getAdminExtinguisherBasePrice, saveAdminExtinguisherBasePrice, getAdminExtinguisherSinglePrices, saveAdminExtinguisherWisePrice, saveAdminExtinguisherFloorPrice, saveAdminExtinguisherLastServicePrice, saveAdminExtinguisherTypePrice } from "../api/adminService";
+import { getFraAllPrices, FraAllPricesProfessionalItem, getAlarmAllPrices, AlarmAllPricesProfessionalItem, getExtinguisherAllPrices, ExtinguisherAllPricesProfessionalItem, getLightTestingAllPrices, LightTestingAllPricesProfessionalItem, getMarshalAllPrices, MarshalAllPricesProfessionalItem, getConsultationAllPrices, ConsultationAllPricesProfessionalItem, saveAdminConsultationBasePrice, getAdminConsultationSinglePrices, getAdminConsultationBasePrice, saveAdminConsultationModePrice, saveAdminConsultationHourPrice, getAdminMarshalSinglePrices, getAdminMarshalBasePrice, saveAdminMarshalBasePrice, saveAdminMarshalPeoplePrice, saveAdminMarshalPlacePrice, saveAdminMarshalTrainingOnPrice, saveAdminMarshalExperiencePrice, getAdminEmergencyLightSinglePrices, getAdminEmergencyLightBasePrice, saveAdminEmergencyLightBasePrice, saveAdminEmergencyLightPrice, saveAdminEmergencyLightFloorPrice, saveAdminEmergencyLightTypePrice, saveAdminEmergencyLightTestPrice, getAdminExtinguisherBasePrice, saveAdminExtinguisherBasePrice, getAdminExtinguisherSinglePrices, saveAdminExtinguisherWisePrice, saveAdminExtinguisherFloorPrice, saveAdminExtinguisherLastServicePrice, saveAdminExtinguisherTypePrice, getAdminFireAlarmBasePrice, saveAdminFireAlarmBasePrice, getAdminFireAlarmSinglePrices, saveAdminFireAlarmSmokeDetectorPrice, saveAdminFireAlarmCallPointPrice, saveAdminFireAlarmFloorPrice, saveAdminFireAlarmPanelPrice, saveAdminFireAlarmLastServicePrice, saveAdminFireAlarmSystemTypePrice, saveAdminFraPropertyTypePrice, saveAdminFraPeoplePrice, saveAdminFraFloorPrice, saveAdminFraDurationPrice, getAdminFraPricing } from "../api/adminService";
 import {
   fetchPropertyTypes,
+  fetchApproximatePeople,
+  fetchFloorPricing,
+  fetchFraDurations,
+  formatPeopleOptionLabel,
+  getPeopleOptionSortKey,
   fetchFireConsultationOptions,
   ConsultationOptionItem,
   getProfessionalConsultationBasePrice,
@@ -55,6 +60,8 @@ import {
   ExtinguisherServiceOptionItem,
   fetchEmergencyLightOptions,
   EmergencyLightServiceOptionItem,
+  fetchFireAlarmOptions,
+  FireAlarmOptionItem,
   getProfessionalExtinguisherBasePrice,
   saveProfessionalExtinguisherBasePrice,
   createProfessionalExtinguisherWisePrice,
@@ -69,6 +76,15 @@ import {
   saveProfessionalEmergencyLightTestPrice,
   saveProfessionalEmergencyLightTypePrice,
   getProfessionalEmergencyLightSinglePrices,
+  getProfessionalFireAlarmBasePrice,
+  saveProfessionalFireAlarmBasePrice,
+  getProfessionalFireAlarmSinglePrices,
+  createProfessionalFireAlarmSmokeDetectorPrice,
+  createProfessionalFireAlarmCallPointPrice,
+  createProfessionalFireAlarmFloorPrice,
+  createProfessionalFireAlarmPanelPrice,
+  createProfessionalFireAlarmSystemTypePrice,
+  createProfessionalFireAlarmLastServicePrice,
 } from "../api/servicesService";
 import { toast } from "sonner";
 import { getApiToken, getProfessionalId } from "../lib/auth";
@@ -78,11 +94,30 @@ interface FRABasePriceContentProps {
   isAdmin?: boolean;
 }
 
-export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
+function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
   const [records, setRecords] = useState<ProfessionalFraBasePriceItem[]>([]);
   const [fraAllPrices, setFraAllPrices] = useState<FraAllPricesProfessionalItem[] | null>(null);
   const [selectedSystemByPro, setSelectedSystemByPro] = useState<Record<number, string>>({});
   const [fraExpandedByPro, setFraExpandedByPro] = useState<Record<number, boolean>>({});
+  // FRA Pricing modal (like Fire Alarm modal – opens from pencil in FRA Price table)
+  const [fraModalOpen, setFraModalOpen] = useState(false);
+  const [fraModalProfessionalId, setFraModalProfessionalId] = useState<string>("");
+  const [fraModalLoadingOptions, setFraModalLoadingOptions] = useState(false);
+  const [fraModalPropertyTypes, setFraModalPropertyTypes] = useState<Array<{ id: number; property_type_name: string }>>([]);
+  const [fraModalPeople, setFraModalPeople] = useState<Array<{ id: number; number_of_people: string }>>([]);
+  const [fraModalFloors, setFraModalFloors] = useState<Array<{ id: number; floor: string; label?: string }>>([]);
+  const [fraModalDurations, setFraModalDurations] = useState<Array<{ id: number; duration: string }>>([]);
+  const [fraModalPropertyTypeId, setFraModalPropertyTypeId] = useState<string>("");
+  const [fraModalPropertyTypePrice, setFraModalPropertyTypePrice] = useState("");
+  const [fraModalPeopleId, setFraModalPeopleId] = useState<string>("");
+  const [fraModalPeoplePrice, setFraModalPeoplePrice] = useState("");
+  const [fraModalFloorId, setFraModalFloorId] = useState<string>("");
+  const [fraModalFloorPrice, setFraModalFloorPrice] = useState("");
+  const [fraModalDurationId, setFraModalDurationId] = useState<string>("");
+  const [fraModalDurationPrice, setFraModalDurationPrice] = useState("");
+  const [fraModalUpdateMessage, setFraModalUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [fraModalUpdatingPrice, setFraModalUpdatingPrice] = useState(false);
+  const [fraModalRetryKey, setFraModalRetryKey] = useState(0);
   const [alarmAllPrices, setAlarmAllPrices] = useState<AlarmAllPricesProfessionalItem[] | null>(null);
   const [selectedAlarmSystemByPro, setSelectedAlarmSystemByPro] = useState<Record<number, string>>({});
   const [alarmExpandedByPro, setAlarmExpandedByPro] = useState<Record<number, boolean>>({});
@@ -110,6 +145,32 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   const [exLastServicePrice, setExLastServicePrice] = useState("");
   const [exUpdateMessage, setExUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [updatingExPrice, setUpdatingExPrice] = useState(false);
+  // Fire Alarm modal (same design as Extinguisher modal)
+  const [alarmModalOpen, setAlarmModalOpen] = useState(false);
+  const [alarmModalProfessionalId, setAlarmModalProfessionalId] = useState<string>("");
+  const [alarmDetectorsOptions, setAlarmDetectorsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [alarmCallPointsOptions, setAlarmCallPointsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [alarmFloorsOptions, setAlarmFloorsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [alarmPanelsOptions, setAlarmPanelsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [alarmSystemTypeOptions, setAlarmSystemTypeOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [alarmLastServiceOptions, setAlarmLastServiceOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [loadingAlarmModalOptions, setLoadingAlarmModalOptions] = useState(false);
+  const [alarmBasePrice, setAlarmBasePrice] = useState("");
+  const [alarmDetectorsValue, setAlarmDetectorsValue] = useState("");
+  const [alarmCallPointsValue, setAlarmCallPointsValue] = useState("");
+  const [alarmFloorValue, setAlarmFloorValue] = useState("");
+  const [alarmPanelsValue, setAlarmPanelsValue] = useState("");
+  const [alarmSystemTypeValue, setAlarmSystemTypeValue] = useState("");
+  const [alarmLastServiceValue, setAlarmLastServiceValue] = useState("");
+  const [alarmDetectorsPrice, setAlarmDetectorsPrice] = useState("");
+  const [alarmCallPointsPrice, setAlarmCallPointsPrice] = useState("");
+  const [alarmFloorPrice, setAlarmFloorPrice] = useState("");
+  const [alarmPanelsPrice, setAlarmPanelsPrice] = useState("");
+  const [alarmSystemTypePrice, setAlarmSystemTypePrice] = useState("");
+  const [alarmLastServicePrice, setAlarmLastServicePrice] = useState("");
+  const [alarmUpdateMessage, setAlarmUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [updatingAlarmPrice, setUpdatingAlarmPrice] = useState(false);
+  const [alarmOptionsRetryKey, setAlarmOptionsRetryKey] = useState(0);
   const [lightTestingAllPrices, setLightTestingAllPrices] = useState<LightTestingAllPricesProfessionalItem[] | null>(null);
   const [selectedLightTestingSystemByPro, setSelectedLightTestingSystemByPro] = useState<Record<number, string>>({});
   const [lightTestingExpandedByPro, setLightTestingExpandedByPro] = useState<Record<number, boolean>>({});
@@ -396,6 +457,151 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // FRA modal: load options and populate from fraAllPrices when modal opens
+  useEffect(() => {
+    if (!fraModalOpen) return;
+    const proId = fraModalProfessionalId ? Number(fraModalProfessionalId) : 0;
+    const pro = fraAllPrices?.find((p) => p.professional_id === proId);
+
+    let cancelled = false;
+    setFraModalLoadingOptions(true);
+    setFraModalUpdateMessage(null);
+
+    Promise.all([
+      fetchPropertyTypes(),
+      fetchApproximatePeople(),
+      fetchFloorPricing(),
+      fetchFraDurations(),
+    ])
+      .then(([ptRes, peopleRes, floorsRes, durationsRes]) => {
+        if (cancelled) return;
+        const ptList = Array.isArray(ptRes) ? ptRes : [];
+        const peopleList = Array.isArray(peopleRes) ? peopleRes : [];
+        const floorsRaw = Array.isArray(floorsRes) ? floorsRes : [];
+        const floorsList = floorsRaw.map((f: { id?: number; floor?: string; label?: string }) => ({
+          id: f.id ?? 0,
+          floor: (f as { floor?: string }).floor ?? "",
+          label: (f as { label?: string }).label ?? (f as { floor?: string }).floor ?? "",
+        }));
+        const durationsList = Array.isArray(durationsRes) ? durationsRes : [];
+
+        setFraModalPropertyTypes(ptList.map((p: { id: number; property_type_name: string }) => ({ id: p.id, property_type_name: p.property_type_name })));
+        setFraModalPeople(peopleList.map((p: { id: number; number_of_people: string }) => ({ id: p.id, number_of_people: p.number_of_people })));
+        setFraModalFloors(floorsList);
+        setFraModalDurations(durationsList.map((d: { id: number; duration: string }) => ({ id: d.id, duration: d.duration })));
+
+        const firstPt = ptList[0] as { id: number; property_type_name: string } | undefined;
+        const firstPeople = peopleList[0] as { id: number; number_of_people: string } | undefined;
+        const firstFloor = floorsList[0];
+        const firstDur = durationsList[0] as { id: number; duration: string } | undefined;
+
+        const ptId = firstPt ? String(firstPt.id) : "";
+        const peopleId = firstPeople ? String(firstPeople.id) : "";
+        const floorId = firstFloor ? String(firstFloor.id ?? firstFloor.floor) : "";
+        const durId = firstDur ? String(firstDur.id) : "";
+
+        setFraModalPropertyTypeId(ptId);
+        setFraModalPeopleId(peopleId);
+        setFraModalFloorId(floorId);
+        setFraModalDurationId(durId);
+
+        const priceStr = (s: string | undefined) => (s != null ? String(s).replace(/[^0-9.]/g, "") : "");
+        if (pro) {
+          const ptMatch = pro.property_types?.find((x) => String(x.id) === ptId);
+          const peopleMatch = pro.people?.find((x) => String(x.id) === peopleId);
+          const floorMatch = pro.floors?.find((x) => String(x.id) === floorId);
+          const durMatch = pro.durations?.find((x) => String(x.id) === durId);
+          setFraModalPropertyTypePrice(ptMatch ? priceStr(ptMatch.price) : "");
+          setFraModalPeoplePrice(peopleMatch ? priceStr(peopleMatch.price) : "");
+          setFraModalFloorPrice(floorMatch ? priceStr(floorMatch.price) : "");
+          setFraModalDurationPrice(durMatch ? priceStr(durMatch.price) : "");
+        } else {
+          setFraModalPropertyTypePrice("");
+          setFraModalPeoplePrice("");
+          setFraModalFloorPrice("");
+          setFraModalDurationPrice("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFraModalUpdateMessage({ type: "error", text: "Couldn't load options. Check your connection or try again." });
+      })
+      .finally(() => {
+        if (!cancelled) setFraModalLoadingOptions(false);
+      });
+    return () => { cancelled = true; };
+  }, [fraModalOpen, fraModalProfessionalId, fraAllPrices, fraModalRetryKey]);
+
+  // FRA modal: when selections change, fetch whole price from API and set prices
+  useEffect(() => {
+    if (!fraModalOpen || fraModalLoadingOptions) return;
+    const token = getApiToken();
+    const proId = fraModalProfessionalId ? Number(fraModalProfessionalId) : 0;
+    const propTypeId = fraModalPropertyTypeId ? Number(fraModalPropertyTypeId) : 0;
+    const peopleId = fraModalPeopleId ? Number(fraModalPeopleId) : 0;
+    const floorId = fraModalFloorId ? Number(fraModalFloorId) : 0;
+    const durationId = fraModalDurationId ? Number(fraModalDurationId) : 0;
+    const hasAll =
+      token &&
+      proId &&
+      propTypeId &&
+      peopleId &&
+      floorId &&
+      durationId &&
+      fraModalPropertyTypeId !== "no-data" &&
+      fraModalPeopleId !== "no-data" &&
+      fraModalFloorId !== "no-data" &&
+      fraModalDurationId !== "no-data";
+    if (!hasAll) {
+      const pro = fraAllPrices?.find((p) => p.professional_id === proId);
+      const priceStr = (s: string | undefined) => (s != null ? String(s).replace(/[^0-9.]/g, "") : "");
+      if (!pro) {
+        setFraModalPropertyTypePrice("");
+        setFraModalPeoplePrice("");
+        setFraModalFloorPrice("");
+        setFraModalDurationPrice("");
+        return;
+      }
+      const pt = pro.property_types?.find((x) => String(x.id) === fraModalPropertyTypeId);
+      const people = pro.people?.find((x) => String(x.id) === fraModalPeopleId);
+      const floor = pro.floors?.find((x) => String(x.id) === fraModalFloorId);
+      const dur = pro.durations?.find((x) => String(x.id) === fraModalDurationId);
+      setFraModalPropertyTypePrice(pt ? priceStr(pt.price) : "");
+      setFraModalPeoplePrice(people ? priceStr(people.price) : "");
+      setFraModalFloorPrice(floor ? priceStr(floor.price) : "");
+      setFraModalDurationPrice(dur ? priceStr(dur.price) : "");
+      return;
+    }
+    let cancelled = false;
+    getAdminFraPricing(token, proId, propTypeId, floorId, peopleId, durationId)
+      .then((res) => {
+        if (cancelled || !res?.data) return;
+        const d = res.data;
+        const priceStr = (s: string | number | undefined) => (s != null ? String(s).replace(/[^0-9.]/g, "") : "");
+        setFraModalPropertyTypePrice(priceStr(d.property_type?.price));
+        setFraModalPeoplePrice(priceStr(d.people?.price));
+        setFraModalFloorPrice(priceStr(d.floor?.price));
+        setFraModalDurationPrice(priceStr(d.duration?.price));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const pro = fraAllPrices?.find((p) => p.professional_id === proId);
+        const priceStr = (s: string | undefined) => (s != null ? String(s).replace(/[^0-9.]/g, "") : "");
+        if (pro) {
+          const pt = pro.property_types?.find((x) => String(x.id) === fraModalPropertyTypeId);
+          const people = pro.people?.find((x) => String(x.id) === fraModalPeopleId);
+          const floor = pro.floors?.find((x) => String(x.id) === fraModalFloorId);
+          const dur = pro.durations?.find((x) => String(x.id) === fraModalDurationId);
+          setFraModalPropertyTypePrice(pt ? priceStr(pt.price) : "");
+          setFraModalPeoplePrice(people ? priceStr(people.price) : "");
+          setFraModalFloorPrice(floor ? priceStr(floor.price) : "");
+          setFraModalDurationPrice(dur ? priceStr(dur.price) : "");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fraModalOpen, fraModalLoadingOptions, fraModalProfessionalId, fraModalPropertyTypeId, fraModalPeopleId, fraModalFloorId, fraModalDurationId, fraAllPrices]);
 
   useEffect(() => {
     if (!isAdmin || fraPriceTab !== "fire-alarm") return;
@@ -1013,6 +1219,145 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
     exTypeOptions,
   ]);
 
+  // Fire Alarm modal: fetch options and base price when modal opens (admin uses professional_id)
+  useEffect(() => {
+    if (!alarmModalOpen) return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+
+    const professionalId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+    const isAdminEditing = professionalId > 0;
+
+    let cancelled = false;
+    setLoadingAlarmModalOptions(true);
+    setAlarmUpdateMessage(null);
+    const firstVal = (item: FireAlarmOptionItem | undefined) =>
+      item ? (String(item.value ?? "").trim() || String(item.id)) : "";
+
+    const basePricePromise = isAdminEditing
+      ? getAdminFireAlarmBasePrice(apiToken, professionalId)
+      : getProfessionalFireAlarmBasePrice(apiToken);
+
+    Promise.all([
+      fetchFireAlarmOptions(apiToken, "ditectors"),
+      fetchFireAlarmOptions(apiToken, "call_points"),
+      fetchFireAlarmOptions(apiToken, "floors"),
+      fetchFireAlarmOptions(apiToken, "alarm_panels"),
+      fetchFireAlarmOptions(apiToken, "system_type"),
+      fetchFireAlarmOptions(apiToken, "last_service"),
+      basePricePromise,
+    ])
+      .then(([detectors, callPoints, floors, panels, systemType, lastService, baseRes]) => {
+        if (cancelled) return;
+        const detectorsList = Array.isArray(detectors) ? detectors : [];
+        const callPointsList = Array.isArray(callPoints) ? callPoints : [];
+        const floorsList = Array.isArray(floors) ? floors : [];
+        const panelsList = Array.isArray(panels) ? panels : [];
+        const systemTypeList = Array.isArray(systemType) ? systemType : [];
+        const lastServiceList = Array.isArray(lastService) ? lastService : [];
+        setAlarmDetectorsOptions(detectorsList);
+        setAlarmCallPointsOptions(callPointsList);
+        setAlarmFloorsOptions(floorsList);
+        setAlarmPanelsOptions(panelsList);
+        setAlarmSystemTypeOptions(systemTypeList);
+        setAlarmLastServiceOptions(lastServiceList);
+        setAlarmDetectorsValue((prev) => prev || firstVal(detectorsList[0]));
+        setAlarmCallPointsValue((prev) => prev || firstVal(callPointsList[0]));
+        setAlarmFloorValue((prev) => prev || firstVal(floorsList[0]));
+        setAlarmPanelsValue((prev) => prev || firstVal(panelsList[0]));
+        setAlarmSystemTypeValue((prev) => prev || firstVal(systemTypeList[0]));
+        setAlarmLastServiceValue((prev) => prev || firstVal(lastServiceList[0]));
+        if (baseRes?.data?.price != null) {
+          const p = String(baseRes.data.price).trim().replace(/[^0-9.]/g, "");
+          setAlarmBasePrice(p || "");
+        } else {
+          setAlarmBasePrice("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAlarmUpdateMessage({ type: "error", text: "Couldn't load options. Check your connection or try again." });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAlarmModalOptions(false);
+      });
+    return () => { cancelled = true; };
+  }, [alarmModalOpen, alarmOptionsRetryKey, alarmModalProfessionalId]);
+
+  // Fire Alarm modal: fetch single prices when dropdown values change (after options loaded)
+  useEffect(() => {
+    if (!alarmModalOpen || loadingAlarmModalOptions) return;
+    const apiToken = getApiToken();
+    if (!apiToken) return;
+
+    const findId = (val: string, opts: FireAlarmOptionItem[]) => {
+      const o = opts.find((opt) => (String(opt.value ?? "").trim() || String(opt.id)) === val);
+      return o?.id ?? 0;
+    };
+    const smoke_detectors_id = findId(alarmDetectorsValue, alarmDetectorsOptions);
+    const call_point_id = findId(alarmCallPointsValue, alarmCallPointsOptions);
+    const floor_id = findId(alarmFloorValue, alarmFloorsOptions);
+    const panel_id = findId(alarmPanelsValue, alarmPanelsOptions);
+    const system_type_id = findId(alarmSystemTypeValue, alarmSystemTypeOptions);
+    const last_service_id = findId(alarmLastServiceValue, alarmLastServiceOptions);
+    if (!smoke_detectors_id && !call_point_id && !floor_id && !panel_id && !system_type_id && !last_service_id) return;
+
+    const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+    const ids = {
+      smoke_detectors_id: smoke_detectors_id || 0,
+      call_point_id: call_point_id || 0,
+      floor_id: floor_id || 0,
+      panel_id: panel_id || 0,
+      system_type_id: system_type_id || 0,
+      last_service_id: last_service_id || 0,
+    };
+
+    const priceStr = (p: { price?: string } | undefined) => (p?.price != null ? String(p.price).replace(/[^0-9.]/g, "") : "");
+
+    if (proId > 0) {
+      getAdminFireAlarmSinglePrices(apiToken, proId, ids)
+        .then((res) => {
+          if (!res?.data) return;
+          const d = res.data;
+          setAlarmDetectorsPrice(priceStr(d.smoke_detector));
+          setAlarmCallPointsPrice(priceStr(d.call_point));
+          setAlarmFloorPrice(priceStr(d.floor));
+          setAlarmPanelsPrice(priceStr(d.panel));
+          setAlarmSystemTypePrice(priceStr(d.system_type));
+          setAlarmLastServicePrice(priceStr(d.last_service));
+        })
+        .catch(() => {});
+    } else {
+      getProfessionalFireAlarmSinglePrices(apiToken, ids)
+        .then((res) => {
+          if (!res?.data) return;
+          const d = res.data;
+          setAlarmDetectorsPrice(priceStr(d.smoke_detector));
+          setAlarmCallPointsPrice(priceStr(d.call_point));
+          setAlarmFloorPrice(priceStr(d.floor));
+          setAlarmPanelsPrice(priceStr(d.panel));
+          setAlarmSystemTypePrice(priceStr(d.system_type));
+          setAlarmLastServicePrice(priceStr(d.last_service));
+        })
+        .catch(() => {});
+    }
+  }, [
+    alarmModalOpen,
+    loadingAlarmModalOptions,
+    alarmModalProfessionalId,
+    alarmDetectorsValue,
+    alarmCallPointsValue,
+    alarmFloorValue,
+    alarmPanelsValue,
+    alarmSystemTypeValue,
+    alarmLastServiceValue,
+    alarmDetectorsOptions,
+    alarmCallPointsOptions,
+    alarmFloorsOptions,
+    alarmPanelsOptions,
+    alarmSystemTypeOptions,
+    alarmLastServiceOptions,
+  ]);
+
   // Emergency Lighting modal: fetch base price when modal opens (after options may have loaded)
   useEffect(() => {
     if (!emergencyLightingModalOpen) return;
@@ -1222,7 +1567,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
 
         <TabsContent value="fra-price" className="mt-0">
       <Card className="border border-gray-200 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="space-y-0 pb-2">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 flex-1 min-w-0">
             <CardTitle className="text-[#0A1A2F]">
               {isAdmin ? "All professionals' FRA prices" : "FRA Base Prices"}
@@ -1234,18 +1579,6 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               </Button>
             )}
           </div>
-          {isAdmin && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0 border-gray-200 ml-2"
-              onClick={() => {}}
-              aria-label="Edit FRA prices"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           {isLoading && (
@@ -1335,6 +1668,19 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                       <ChevronUp className="h-4 w-4" />
                                     )}
                                   </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-9 w-9 shrink-0 border-gray-200"
+                                    onClick={() => {
+                                      setFraModalProfessionalId(String(pro.professional_id));
+                                      setFraModalOpen(true);
+                                    }}
+                                    aria-label="Edit FRA prices"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -1350,7 +1696,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                             <th className="text-right py-2 px-3 font-medium text-gray-600">Base Price</th>
                                           </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
+                                        <tbody className="divide-y divide-gray-100 bg-white">
                                           {selectedSystem === "property_type" &&
                                             pro.property_types.map((pt) => (
                                               <tr key={pt.id}>
@@ -1625,20 +1971,10 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
 
         <TabsContent value="fire-alarm" className="mt-0">
           <Card className="border border-gray-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="space-y-0 pb-2">
               <CardTitle className="text-[#0A1A2F]">
                 All professionals' Fire Alarm prices
               </CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0 border-gray-200"
-                onClick={() => {}}
-                aria-label="Edit Fire Alarm prices"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
             </CardHeader>
             <CardContent>
               {loadingAlarmPrices && (
@@ -1732,6 +2068,19 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                           <ChevronUp className="h-4 w-4" />
                                         )}
                                       </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 border-gray-200"
+                                        onClick={() => {
+                                          setAlarmModalProfessionalId(String(pro.professional_id));
+                                          setAlarmModalOpen(true);
+                                        }}
+                                        aria-label="Edit Fire Alarm prices"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1747,7 +2096,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                                                 <th className="text-right py-2 px-3 font-medium text-gray-600">Base Price</th>
                                               </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100">
+                                            <tbody className="divide-y divide-gray-100 bg-white">
                                               {selectedSystem === "base_price" &&
                                                 (pro.base_prices?.length
                                                   ? pro.base_prices.map((bp, idx) => (
@@ -2911,8 +3260,8 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
 
       {/* Consultancy Pricing Modal – opened from edit icon on "All professionals' Consultation prices" card */}
       <Dialog open={consultationPricingModalOpen} onOpenChange={setConsultationPricingModalOpen}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
@@ -2932,7 +3281,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               </button>
             </div>
           </div>
-          <div className="p-4 md:p-8">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
             <div className="space-y-4 md:space-y-6 w-full">
               <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
                 <div className="space-y-2 flex-1 min-w-0">
@@ -3144,68 +3493,70 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                 <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
               </div>
 
-              {consultancyUpdateMessage && (
-                <p
-                  className={`text-sm ${
-                    consultancyUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {consultancyUpdateMessage.text}
-                </p>
-              )}
-              <div className="pt-4">
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    setConsultancyUpdateMessage(null);
-                    const token = getApiToken();
-                    if (!token) {
-                      setConsultancyUpdateMessage({ type: "error", text: "Please log in to update prices." });
-                      return;
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t bg-gray-50 px-4 md:px-8 py-4 flex flex-col gap-3">
+            {consultancyUpdateMessage && (
+              <p
+                className={`text-sm ${
+                  consultancyUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {consultancyUpdateMessage.text}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                onClick={async () => {
+                  setConsultancyUpdateMessage(null);
+                  const token = getApiToken();
+                  if (!token) {
+                    setConsultancyUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                    return;
+                  }
+                  if (isAdmin && !consultancyModalProfessionalId) {
+                    setConsultancyUpdateMessage({ type: "error", text: "Please select a professional." });
+                    return;
+                  }
+                  setUpdatingConsultancyPrice(true);
+                  try {
+                    const price = parseFloat(consultancyBasePrice) || 0;
+                    if (isAdmin && consultancyModalProfessionalId) {
+                      const professionalId = parseInt(consultancyModalProfessionalId, 10);
+                      await saveAdminConsultationBasePrice(token, professionalId, price);
+                      setConsultancyUpdateMessage({ type: "success", text: "Consultation base price updated successfully by admin." });
+                      setConsultationFetchKey((k) => k + 1);
+                    } else {
+                      setConsultancyUpdateMessage({ type: "success", text: "Price updated successfully." });
                     }
-                    if (isAdmin && !consultancyModalProfessionalId) {
-                      setConsultancyUpdateMessage({ type: "error", text: "Please select a professional." });
-                      return;
-                    }
-                    setUpdatingConsultancyPrice(true);
-                    try {
-                      const price = parseFloat(consultancyBasePrice) || 0;
-                      if (isAdmin && consultancyModalProfessionalId) {
-                        const professionalId = parseInt(consultancyModalProfessionalId, 10);
-                        await saveAdminConsultationBasePrice(token, professionalId, price);
-                        setConsultancyUpdateMessage({ type: "success", text: "Consultation base price updated successfully by admin." });
-                        setConsultationFetchKey((k) => k + 1);
-                      } else {
-                        setConsultancyUpdateMessage({ type: "success", text: "Price updated successfully." });
-                      }
-                    } catch {
-                      setConsultancyUpdateMessage({ type: "error", text: "Failed to update price." });
-                    } finally {
-                      setUpdatingConsultancyPrice(false);
-                    }
-                  }}
-                  disabled={updatingConsultancyPrice}
-                  className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70 uppercase"
-                >
-                  {updatingConsultancyPrice ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                      Updating...
-                    </>
-                  ) : (
-                    "Update Price"
-                  )}
-                </Button>
-              </div>
+                  } catch {
+                    setConsultancyUpdateMessage({ type: "error", text: "Failed to update price." });
+                  } finally {
+                    setUpdatingConsultancyPrice(false);
+                  }
+                }}
+                disabled={updatingConsultancyPrice}
+                className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70 uppercase"
+              >
+                {updatingConsultancyPrice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Price"
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Training Pricing Modal – opened from edit icon on "All professionals' Training (Marshal) prices" card */}
+      {/* Training Pricing Modal – scrollable body + sticky footer (same as Fire Alarm) */}
       <Dialog open={trainingPricingModalOpen} onOpenChange={setTrainingPricingModalOpen}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
@@ -3225,7 +3576,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               </button>
             </div>
           </div>
-          <div className="p-4 md:p-8">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
             <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
               <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
                 <div className="space-y-2 flex-1 min-w-0">
@@ -3534,102 +3885,104 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                 <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
               </div>
 
-              {trainingUpdateMessage && (
-                <p className={`text-sm ${trainingUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
-                  {trainingUpdateMessage.text}
-                </p>
-              )}
-              <div className="pt-4">
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    setTrainingUpdateMessage(null);
-                    const token = getApiToken();
-                    if (!token) {
-                      setTrainingUpdateMessage({ type: "error", text: "Please log in to update prices." });
-                      return;
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t bg-gray-50 px-4 md:px-8 py-4 flex flex-col gap-3">
+            {trainingUpdateMessage && (
+              <p className={`text-sm ${trainingUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
+                {trainingUpdateMessage.text}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                onClick={async () => {
+                  setTrainingUpdateMessage(null);
+                  const token = getApiToken();
+                  if (!token) {
+                    setTrainingUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                    return;
+                  }
+                  setUpdatingTrainingPrice(true);
+                  try {
+                    const basePrice = parseFloat(trainingBasePrice) || 0;
+                    if (isAdmin && trainingModalProfessionalId) {
+                      const professionalId = parseInt(trainingModalProfessionalId, 10);
+                      if (professionalId) {
+                        await saveAdminMarshalBasePrice(token, professionalId, basePrice);
+                        setMarshalFetchKey((k) => k + 1);
+                      }
+                    } else {
+                      await saveProfessionalMarshalBasePrice(token, basePrice);
                     }
-                    setUpdatingTrainingPrice(true);
-                    try {
-                      const basePrice = parseFloat(trainingBasePrice) || 0;
+                    const peopleOpt = trainingPeopleOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPeopleValue);
+                    if (peopleOpt && trainingPeopleValue && trainingPeopleValue !== "no-data") {
+                      const peoplePriceVal = parseFloat(trainingPeoplePrice) || 0;
                       if (isAdmin && trainingModalProfessionalId) {
                         const professionalId = parseInt(trainingModalProfessionalId, 10);
-                        if (professionalId) {
-                          await saveAdminMarshalBasePrice(token, professionalId, basePrice);
-                          setMarshalFetchKey((k) => k + 1);
-                        }
+                        if (professionalId) await saveAdminMarshalPeoplePrice(token, professionalId, peopleOpt.id, peoplePriceVal);
                       } else {
-                        await saveProfessionalMarshalBasePrice(token, basePrice);
+                        await saveProfessionalMarshalPeoplePrice(token, peopleOpt.id, peoplePriceVal);
                       }
-                      const peopleOpt = trainingPeopleOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPeopleValue);
-                      if (peopleOpt && trainingPeopleValue && trainingPeopleValue !== "no-data") {
-                        const peoplePriceVal = parseFloat(trainingPeoplePrice) || 0;
-                        if (isAdmin && trainingModalProfessionalId) {
-                          const professionalId = parseInt(trainingModalProfessionalId, 10);
-                          if (professionalId) await saveAdminMarshalPeoplePrice(token, professionalId, peopleOpt.id, peoplePriceVal);
-                        } else {
-                          await saveProfessionalMarshalPeoplePrice(token, peopleOpt.id, peoplePriceVal);
-                        }
-                      }
-                      const placeOpt = trainingPlaceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPlaceValue);
-                      if (placeOpt && trainingPlaceValue && trainingPlaceValue !== "no-data") {
-                        const placePriceVal = parseFloat(trainingPlacePrice) || 0;
-                        if (isAdmin && trainingModalProfessionalId) {
-                          const professionalId = parseInt(trainingModalProfessionalId, 10);
-                          if (professionalId) await saveAdminMarshalPlacePrice(token, professionalId, placeOpt.id, placePriceVal);
-                        } else {
-                          await saveProfessionalMarshalPlacePrice(token, placeOpt.id, placePriceVal);
-                        }
-                      }
-                      const trainingOnOpt = trainingTrainingOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingTrainingValue);
-                      if (trainingOnOpt && trainingTrainingValue && trainingTrainingValue !== "no-data") {
-                        const trainingOnPriceVal = parseFloat(trainingTrainingPrice) || 0;
-                        if (isAdmin && trainingModalProfessionalId) {
-                          const professionalId = parseInt(trainingModalProfessionalId, 10);
-                          if (professionalId) await saveAdminMarshalTrainingOnPrice(token, professionalId, trainingOnOpt.id, trainingOnPriceVal);
-                        } else {
-                          await saveProfessionalMarshalTrainingOnPrice(token, trainingOnOpt.id, trainingOnPriceVal);
-                        }
-                      }
-                      const experienceOpt = trainingExperienceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingExperienceValue);
-                      if (experienceOpt && trainingExperienceValue && trainingExperienceValue !== "no-data") {
-                        const experiencePriceVal = parseFloat(trainingExperiencePrice) || 0;
-                        if (isAdmin && trainingModalProfessionalId) {
-                          const professionalId = parseInt(trainingModalProfessionalId, 10);
-                          if (professionalId) await saveAdminMarshalExperiencePrice(token, professionalId, experienceOpt.id, experiencePriceVal);
-                        } else {
-                          await saveProfessionalMarshalExperiencePrice(token, experienceOpt.id, experiencePriceVal);
-                        }
-                      }
-                      setTrainingUpdateMessage({ type: "success", text: "Price updated successfully." });
-                    } catch {
-                      setTrainingUpdateMessage({ type: "error", text: "Failed to update price." });
-                    } finally {
-                      setUpdatingTrainingPrice(false);
                     }
-                  }}
-                  disabled={updatingTrainingPrice}
-                  className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
-                >
-                  {updatingTrainingPrice ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                      Updating...
-                    </>
-                  ) : (
-                    "Update Price"
-                  )}
-                </Button>
-              </div>
+                    const placeOpt = trainingPlaceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingPlaceValue);
+                    if (placeOpt && trainingPlaceValue && trainingPlaceValue !== "no-data") {
+                      const placePriceVal = parseFloat(trainingPlacePrice) || 0;
+                      if (isAdmin && trainingModalProfessionalId) {
+                        const professionalId = parseInt(trainingModalProfessionalId, 10);
+                        if (professionalId) await saveAdminMarshalPlacePrice(token, professionalId, placeOpt.id, placePriceVal);
+                      } else {
+                        await saveProfessionalMarshalPlacePrice(token, placeOpt.id, placePriceVal);
+                      }
+                    }
+                    const trainingOnOpt = trainingTrainingOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingTrainingValue);
+                    if (trainingOnOpt && trainingTrainingValue && trainingTrainingValue !== "no-data") {
+                      const trainingOnPriceVal = parseFloat(trainingTrainingPrice) || 0;
+                      if (isAdmin && trainingModalProfessionalId) {
+                        const professionalId = parseInt(trainingModalProfessionalId, 10);
+                        if (professionalId) await saveAdminMarshalTrainingOnPrice(token, professionalId, trainingOnOpt.id, trainingOnPriceVal);
+                      } else {
+                        await saveProfessionalMarshalTrainingOnPrice(token, trainingOnOpt.id, trainingOnPriceVal);
+                      }
+                    }
+                    const experienceOpt = trainingExperienceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === trainingExperienceValue);
+                    if (experienceOpt && trainingExperienceValue && trainingExperienceValue !== "no-data") {
+                      const experiencePriceVal = parseFloat(trainingExperiencePrice) || 0;
+                      if (isAdmin && trainingModalProfessionalId) {
+                        const professionalId = parseInt(trainingModalProfessionalId, 10);
+                        if (professionalId) await saveAdminMarshalExperiencePrice(token, professionalId, experienceOpt.id, experiencePriceVal);
+                      } else {
+                        await saveProfessionalMarshalExperiencePrice(token, experienceOpt.id, experiencePriceVal);
+                      }
+                    }
+                    setTrainingUpdateMessage({ type: "success", text: "Price updated successfully." });
+                  } catch {
+                    setTrainingUpdateMessage({ type: "error", text: "Failed to update price." });
+                  } finally {
+                    setUpdatingTrainingPrice(false);
+                  }
+                }}
+                disabled={updatingTrainingPrice}
+                className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+              >
+                {updatingTrainingPrice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Price"
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Extinguisher Pricing Modal – same design as Emergency Lighting: base price, ADDON PRICE, dropdowns + prices, estimated price */}
+      {/* Extinguisher Pricing Modal – scrollable body + sticky footer (same as Fire Alarm) */}
       <Dialog open={extinguisherModalOpen} onOpenChange={setExtinguisherModalOpen}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
@@ -3649,7 +4002,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               </button>
             </div>
           </div>
-          <div className="p-4 md:p-8">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
             <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
               {/* Row 1: Fire Extinguisher Service – Base price */}
               <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
@@ -3945,12 +4298,6 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                 </div>
               </div>
 
-              {exUpdateMessage && (
-                <p className={`text-sm ${exUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
-                  {exUpdateMessage.text}
-                </p>
-              )}
-
               {/* Estimated Price */}
               <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
                 <div className="space-y-2 flex-1 min-w-0">
@@ -3973,99 +4320,1032 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
-                <div className="flex-1 min-w-0" aria-hidden />
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    setExUpdateMessage(null);
-                    const token = getApiToken();
-                    if (!token) {
-                      setExUpdateMessage({ type: "error", text: "Please log in to update prices." });
-                      return;
-                    }
-                    setUpdatingExPrice(true);
-                    try {
-                      const basePrice = parseFloat(exBasePrice) || 0;
-                      if (isAdmin && extinguisherModalProfessionalId) {
-                        const professionalId = parseInt(extinguisherModalProfessionalId, 10);
-                        if (professionalId) {
-                          await saveAdminExtinguisherBasePrice(token, professionalId, basePrice);
-                        } else {
-                          await saveProfessionalExtinguisherBasePrice(token, basePrice);
-                        }
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t bg-gray-50 px-4 md:px-8 py-4 flex flex-col gap-3">
+            {exUpdateMessage && (
+              <p className={`text-sm ${exUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
+                {exUpdateMessage.text}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                onClick={async () => {
+                  setExUpdateMessage(null);
+                  const token = getApiToken();
+                  if (!token) {
+                    setExUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                    return;
+                  }
+                  setUpdatingExPrice(true);
+                  try {
+                    const basePrice = parseFloat(exBasePrice) || 0;
+                    if (isAdmin && extinguisherModalProfessionalId) {
+                      const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                      if (professionalId) {
+                        await saveAdminExtinguisherBasePrice(token, professionalId, basePrice);
                       } else {
                         await saveProfessionalExtinguisherBasePrice(token, basePrice);
                       }
-                      const extOpt = exExtinguisherOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exExtinguisherValue);
-                      if (extOpt && exExtinguisherValue && exExtinguisherValue !== "no-data") {
-                        const extPrice = parseFloat(exExtinguisherPrice) || 0;
-                        if (isAdmin && extinguisherModalProfessionalId) {
-                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
-                          if (professionalId) await saveAdminExtinguisherWisePrice(token, professionalId, extOpt.id, "extinguisher", extPrice);
-                        } else {
-                          await createProfessionalExtinguisherWisePrice(token, extOpt.id, "extinguisher", extPrice);
-                        }
-                      }
-                      const floorOpt = exFloorOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exFloorValue);
-                      if (floorOpt && exFloorValue && exFloorValue !== "no-data") {
-                        const floorPriceVal = parseFloat(exFloorPrice) || 0;
-                        if (isAdmin && extinguisherModalProfessionalId) {
-                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
-                          if (professionalId) await saveAdminExtinguisherFloorPrice(token, professionalId, floorOpt.id, floorPriceVal);
-                        } else {
-                          await saveProfessionalExtinguisherFloorPrice(token, floorOpt.id, floorPriceVal);
-                        }
-                      }
-                      const typeOpt = exTypeOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exTypeValue);
-                      if (typeOpt && exTypeValue && exTypeValue !== "no-data") {
-                        const typePriceVal = parseFloat(exTypePrice) || 0;
-                        if (isAdmin && extinguisherModalProfessionalId) {
-                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
-                          if (professionalId) await saveAdminExtinguisherTypePrice(token, professionalId, typeOpt.id, typePriceVal);
-                        } else {
-                          await saveProfessionalExtinguisherTypePrice(token, typeOpt.id, typePriceVal);
-                        }
-                      }
-                      const lastOpt = exLastServiceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exLastServiceValue);
-                      if (lastOpt && exLastServiceValue && exLastServiceValue !== "no-data") {
-                        const lastPriceVal = parseFloat(exLastServicePrice) || 0;
-                        if (isAdmin && extinguisherModalProfessionalId) {
-                          const professionalId = parseInt(extinguisherModalProfessionalId, 10);
-                          if (professionalId) await saveAdminExtinguisherLastServicePrice(token, professionalId, lastOpt.id, lastPriceVal);
-                        } else {
-                          await saveProfessionalExtinguisherLastServicePrice(token, lastOpt.id, lastPriceVal);
-                        }
-                      }
-                      setExUpdateMessage({ type: "success", text: "Price updated successfully." });
-                      setExtinguisherFetchKey((k) => k + 1);
-                    } catch {
-                      setExUpdateMessage({ type: "error", text: "Failed to update price." });
-                    } finally {
-                      setUpdatingExPrice(false);
+                    } else {
+                      await saveProfessionalExtinguisherBasePrice(token, basePrice);
                     }
-                  }}
-                  disabled={updatingExPrice}
-                  className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
-                >
-                  {updatingExPrice ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                      Updating...
-                    </>
-                  ) : (
-                    "Update Price"
-                  )}
-                </Button>
+                    const extOpt = exExtinguisherOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exExtinguisherValue);
+                    if (extOpt && exExtinguisherValue && exExtinguisherValue !== "no-data") {
+                      const extPrice = parseFloat(exExtinguisherPrice) || 0;
+                      if (isAdmin && extinguisherModalProfessionalId) {
+                        const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                        if (professionalId) await saveAdminExtinguisherWisePrice(token, professionalId, extOpt.id, "extinguisher", extPrice);
+                      } else {
+                        await createProfessionalExtinguisherWisePrice(token, extOpt.id, "extinguisher", extPrice);
+                      }
+                    }
+                    const floorOpt = exFloorOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exFloorValue);
+                    if (floorOpt && exFloorValue && exFloorValue !== "no-data") {
+                      const floorPriceVal = parseFloat(exFloorPrice) || 0;
+                      if (isAdmin && extinguisherModalProfessionalId) {
+                        const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                        if (professionalId) await saveAdminExtinguisherFloorPrice(token, professionalId, floorOpt.id, floorPriceVal);
+                      } else {
+                        await saveProfessionalExtinguisherFloorPrice(token, floorOpt.id, floorPriceVal);
+                      }
+                    }
+                    const typeOpt = exTypeOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exTypeValue);
+                    if (typeOpt && exTypeValue && exTypeValue !== "no-data") {
+                      const typePriceVal = parseFloat(exTypePrice) || 0;
+                      if (isAdmin && extinguisherModalProfessionalId) {
+                        const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                        if (professionalId) await saveAdminExtinguisherTypePrice(token, professionalId, typeOpt.id, typePriceVal);
+                      } else {
+                        await saveProfessionalExtinguisherTypePrice(token, typeOpt.id, typePriceVal);
+                      }
+                    }
+                    const lastOpt = exLastServiceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === exLastServiceValue);
+                    if (lastOpt && exLastServiceValue && exLastServiceValue !== "no-data") {
+                      const lastPriceVal = parseFloat(exLastServicePrice) || 0;
+                      if (isAdmin && extinguisherModalProfessionalId) {
+                        const professionalId = parseInt(extinguisherModalProfessionalId, 10);
+                        if (professionalId) await saveAdminExtinguisherLastServicePrice(token, professionalId, lastOpt.id, lastPriceVal);
+                      } else {
+                        await saveProfessionalExtinguisherLastServicePrice(token, lastOpt.id, lastPriceVal);
+                      }
+                    }
+                    setExUpdateMessage({ type: "success", text: "Price updated successfully." });
+                    setExtinguisherFetchKey((k) => k + 1);
+                  } catch {
+                    setExUpdateMessage({ type: "error", text: "Failed to update price." });
+                  } finally {
+                    setUpdatingExPrice(false);
+                  }
+                }}
+                disabled={updatingExPrice}
+                className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-6 md:px-8 font-medium disabled:opacity-70"
+              >
+                {updatingExPrice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Price"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fire Alarm Pricing Modal – scrollable body, sticky footer so Update Price is always visible */}
+      <Dialog open={alarmModalOpen} onOpenChange={setAlarmModalOpen}>
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                  Fire Alarm Pricing
+                </DialogTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Set your base and modifier prices for Fire Alarm services
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setAlarmModalOpen(false)}
+                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
+            <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+              {/* Base price row */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Fire Alarm Service</Label>
+                  <div className="h-12 flex items-center text-gray-500 border border-gray-200 rounded-md px-3 bg-gray-50">
+                    Fire Alarm Service
+                  </div>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-base-price" className="text-gray-700 font-medium">Base Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-base-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmBasePrice}
+                      onChange={(e) => setAlarmBasePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const price = parseFloat(alarmBasePrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmBasePrice(token, proId, price);
+                          } else {
+                            await saveProfessionalFireAlarmBasePrice(token, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "Base price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save base price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Addon Price
+                </span>
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+              </div>
+
+              {/* Select smoke/heat detectors */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select smoke/heat detectors</Label>
+                  <Select value={alarmDetectorsValue} onValueChange={setAlarmDetectorsValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select smoke/heat detectors"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alarmDetectorsOptions.length === 0 && !loadingAlarmModalOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        alarmDetectorsOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-detectors-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-detectors-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmDetectorsPrice}
+                      onChange={(e) => setAlarmDetectorsPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = alarmDetectorsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmDetectorsValue);
+                        if (!opt || !alarmDetectorsValue || alarmDetectorsValue === "no-data") return;
+                        const price = parseFloat(alarmDetectorsPrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmSmokeDetectorPrice(token, proId, opt.id, price);
+                          } else {
+                            await createProfessionalFireAlarmSmokeDetectorPrice(token, opt.id, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "Detectors price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save detectors price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Select manual call points */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select manual call points</Label>
+                  <Select value={alarmCallPointsValue} onValueChange={setAlarmCallPointsValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select manual call points"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alarmCallPointsOptions.length === 0 && !loadingAlarmModalOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        alarmCallPointsOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-callpoints-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-callpoints-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmCallPointsPrice}
+                      onChange={(e) => setAlarmCallPointsPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = alarmCallPointsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmCallPointsValue);
+                        if (!opt || !alarmCallPointsValue || alarmCallPointsValue === "no-data") return;
+                        const price = parseFloat(alarmCallPointsPrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmCallPointPrice(token, proId, opt.id, price);
+                          } else {
+                            await createProfessionalFireAlarmCallPointPrice(token, opt.id, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "Call points price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save call points price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Select number of floor */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select number of floor</Label>
+                  <Select value={alarmFloorValue} onValueChange={setAlarmFloorValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select number of floor"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alarmFloorsOptions.length === 0 && !loadingAlarmModalOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        alarmFloorsOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-floor-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-floor-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmFloorPrice}
+                      onChange={(e) => setAlarmFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = alarmFloorsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmFloorValue);
+                        if (!opt || !alarmFloorValue || alarmFloorValue === "no-data") return;
+                        const price = parseFloat(alarmFloorPrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmFloorPrice(token, proId, opt.id, price);
+                          } else {
+                            await createProfessionalFireAlarmFloorPrice(token, opt.id, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "Floor price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save floor price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Select fire alarm panels */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select fire alarm panels</Label>
+                  <Select value={alarmPanelsValue} onValueChange={setAlarmPanelsValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select fire alarm panel"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alarmPanelsOptions.length === 0 && !loadingAlarmModalOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        alarmPanelsOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-panels-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-panels-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmPanelsPrice}
+                      onChange={(e) => setAlarmPanelsPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = alarmPanelsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmPanelsValue);
+                        if (!opt || !alarmPanelsValue || alarmPanelsValue === "no-data") return;
+                        const price = parseFloat(alarmPanelsPrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmPanelPrice(token, proId, opt.id, price);
+                          } else {
+                            await createProfessionalFireAlarmPanelPrice(token, opt.id, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "Panels price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save panels price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Select type of alarm system */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select type of alarm system</Label>
+                  <Select value={alarmSystemTypeValue} onValueChange={setAlarmSystemTypeValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select type of alarm system"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alarmSystemTypeOptions.length === 0 && !loadingAlarmModalOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        alarmSystemTypeOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-system-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-system-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmSystemTypePrice}
+                      onChange={(e) => setAlarmSystemTypePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = alarmSystemTypeOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmSystemTypeValue);
+                        if (!opt || !alarmSystemTypeValue || alarmSystemTypeValue === "no-data") return;
+                        const price = parseFloat(alarmSystemTypePrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmSystemTypePrice(token, proId, opt.id, price);
+                          } else {
+                            await createProfessionalFireAlarmSystemTypePrice(token, opt.id, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "System type price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save system type price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Select last Service */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select last Service</Label>
+                  <Select value={alarmLastServiceValue} onValueChange={setAlarmLastServiceValue}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
+                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select last service"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alarmLastServiceOptions.length === 0 && !loadingAlarmModalOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        alarmLastServiceOptions.map((opt) => {
+                          const val = String(opt.value ?? "").trim() || String(opt.id);
+                          return <SelectItem key={opt.id} value={val}>{opt.value}</SelectItem>;
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="modal-alarm-last-service-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="modal-alarm-last-service-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={alarmLastServicePrice}
+                      onChange={(e) => setAlarmLastServicePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token) return;
+                        const opt = alarmLastServiceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmLastServiceValue);
+                        if (!opt || !alarmLastServiceValue || alarmLastServiceValue === "no-data") return;
+                        const price = parseFloat(alarmLastServicePrice) || 0;
+                        const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                        try {
+                          if (proId > 0) {
+                            await saveAdminFireAlarmLastServicePrice(token, proId, opt.id, price);
+                          } else {
+                            await createProfessionalFireAlarmLastServicePrice(token, opt.id, price);
+                          }
+                          setAlarmUpdateMessage({ type: "success", text: "Last service price saved." });
+                          setAlarmFetchKey((k) => k + 1);
+                        } catch {
+                          setAlarmUpdateMessage({ type: "error", text: "Failed to save last service price." });
+                        }
+                      }}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Estimated Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label htmlFor="modal-alarm-estimate-price" className="text-gray-700 font-medium">Estimated Price(£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                    <Input
+                      id="modal-alarm-estimate-price"
+                      readOnly
+                      value={(
+                        (parseFloat(alarmBasePrice) || 0) +
+                        (parseFloat(alarmDetectorsPrice) || 0) +
+                        (parseFloat(alarmCallPointsPrice) || 0) +
+                        (parseFloat(alarmFloorPrice) || 0) +
+                        (parseFloat(alarmPanelsPrice) || 0) +
+                        (parseFloat(alarmSystemTypePrice) || 0) +
+                        (parseFloat(alarmLastServicePrice) || 0)
+                      ).toFixed(2)}
+                      className="w-full pl-8 h-12 text-base border-gray-200 bg-gray-50 font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          {/* Sticky footer: message, Retry, Update Price – always visible */}
+          <div className="flex-shrink-0 border-t bg-gray-50 px-4 md:px-8 py-4 flex flex-col gap-3">
+            {alarmUpdateMessage && (
+              <p className={`text-sm ${alarmUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
+                {alarmUpdateMessage.text}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              {alarmUpdateMessage?.type === "error" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setAlarmUpdateMessage(null);
+                    setAlarmOptionsRetryKey((k) => k + 1);
+                  }}
+                  className="h-11 px-4"
+                >
+                  Retry loading options
+                </Button>
+              )}
+              <Button
+                type="button"
+                disabled={updatingAlarmPrice || loadingAlarmModalOptions}
+                onClick={async () => {
+                  setAlarmUpdateMessage(null);
+                  const token = getApiToken();
+                  if (!token) {
+                    setAlarmUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                    return;
+                  }
+                  setUpdatingAlarmPrice(true);
+                  try {
+                    const basePrice = parseFloat(alarmBasePrice) || 0;
+                    const proId = alarmModalProfessionalId ? Number(alarmModalProfessionalId) : 0;
+                    if (proId > 0) {
+                      await saveAdminFireAlarmBasePrice(token, proId, basePrice);
+                    } else {
+                      await saveProfessionalFireAlarmBasePrice(token, basePrice);
+                    }
+                    const detOpt = alarmDetectorsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmDetectorsValue);
+                    if (detOpt && alarmDetectorsValue && alarmDetectorsValue !== "no-data") {
+                      if (proId > 0) {
+                        await saveAdminFireAlarmSmokeDetectorPrice(token, proId, detOpt.id, parseFloat(alarmDetectorsPrice) || 0);
+                      } else {
+                        await createProfessionalFireAlarmSmokeDetectorPrice(token, detOpt.id, parseFloat(alarmDetectorsPrice) || 0);
+                      }
+                    }
+                    const callOpt = alarmCallPointsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmCallPointsValue);
+                    if (callOpt && alarmCallPointsValue && alarmCallPointsValue !== "no-data") {
+                      if (proId > 0) {
+                        await saveAdminFireAlarmCallPointPrice(token, proId, callOpt.id, parseFloat(alarmCallPointsPrice) || 0);
+                      } else {
+                        await createProfessionalFireAlarmCallPointPrice(token, callOpt.id, parseFloat(alarmCallPointsPrice) || 0);
+                      }
+                    }
+                    const floorOpt = alarmFloorsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmFloorValue);
+                    if (floorOpt && alarmFloorValue && alarmFloorValue !== "no-data") {
+                      if (proId > 0) {
+                        await saveAdminFireAlarmFloorPrice(token, proId, floorOpt.id, parseFloat(alarmFloorPrice) || 0);
+                      } else {
+                        await createProfessionalFireAlarmFloorPrice(token, floorOpt.id, parseFloat(alarmFloorPrice) || 0);
+                      }
+                    }
+                    const panelOpt = alarmPanelsOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmPanelsValue);
+                    if (panelOpt && alarmPanelsValue && alarmPanelsValue !== "no-data") {
+                      if (proId > 0) {
+                        await saveAdminFireAlarmPanelPrice(token, proId, panelOpt.id, parseFloat(alarmPanelsPrice) || 0);
+                      } else {
+                        await createProfessionalFireAlarmPanelPrice(token, panelOpt.id, parseFloat(alarmPanelsPrice) || 0);
+                      }
+                    }
+                    const sysOpt = alarmSystemTypeOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmSystemTypeValue);
+                    if (sysOpt && alarmSystemTypeValue && alarmSystemTypeValue !== "no-data") {
+                      if (proId > 0) {
+                        await saveAdminFireAlarmSystemTypePrice(token, proId, sysOpt.id, parseFloat(alarmSystemTypePrice) || 0);
+                      } else {
+                        await createProfessionalFireAlarmSystemTypePrice(token, sysOpt.id, parseFloat(alarmSystemTypePrice) || 0);
+                      }
+                    }
+                    const lastOpt = alarmLastServiceOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === alarmLastServiceValue);
+                    if (lastOpt && alarmLastServiceValue && alarmLastServiceValue !== "no-data") {
+                      if (proId > 0) {
+                        await saveAdminFireAlarmLastServicePrice(token, proId, lastOpt.id, parseFloat(alarmLastServicePrice) || 0);
+                      } else {
+                        await createProfessionalFireAlarmLastServicePrice(token, lastOpt.id, parseFloat(alarmLastServicePrice) || 0);
+                      }
+                    }
+                    setAlarmUpdateMessage({ type: "success", text: "Price updated successfully." });
+                    setAlarmFetchKey((k) => k + 1);
+                  } catch {
+                    setAlarmUpdateMessage({ type: "error", text: "Failed to update price." });
+                  } finally {
+                    setUpdatingAlarmPrice(false);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 h-11 px-6 md:px-8 font-medium"
+              >
+                {updatingAlarmPrice ? "Updating…" : "Update Price"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* FRA Pricing Modal – scrollable body + sticky footer (same as Fire Alarm) */}
+      <Dialog open={fraModalOpen} onOpenChange={setFraModalOpen}>
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                  Fire Risk Assessment Pricing
+                </DialogTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  {fraModalProfessionalId && fraAllPrices?.length
+                    ? (() => {
+                        const pro = fraAllPrices.find((p) => p.professional_id === Number(fraModalProfessionalId));
+                        return pro ? `Editing prices for ${pro.professional_name}` : "Set base and addon prices for FRA services";
+                      })()
+                    : "Set base and addon prices for FRA services"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFraModalOpen(false)}
+                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors shrink-0"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 relative">
+            {fraModalLoadingOptions && (
+              <div className="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center rounded-lg">
+                <Loader2 className="w-10 h-10 animate-spin text-red-600 mb-3" />
+                <p className="text-sm text-gray-600">Loading options…</p>
+              </div>
+            )}
+            <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
+              {/* Base price: Property Type + Base Price (£) */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Property Type</Label>
+                  <Select value={fraModalPropertyTypeId} onValueChange={setFraModalPropertyTypeId}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70 disabled:cursor-not-allowed min-w-0" disabled={fraModalLoadingOptions}>
+                      <span className={`block min-w-0 flex-1 overflow-hidden text-left ${fraModalPropertyTypeId ? "truncate" : "text-gray-500"}`}>
+                        {fraModalPropertyTypeId
+                          ? (fraModalPropertyTypes.find((o) => String(o.id) === fraModalPropertyTypeId)?.property_type_name ?? fraModalPropertyTypeId)
+                          : (fraModalLoadingOptions ? "Loading..." : "Select property type")}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fraModalPropertyTypes.length === 0 && !fraModalLoadingOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        fraModalPropertyTypes.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>{opt.property_type_name}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="fra-modal-base-price" className="text-gray-700 font-medium">Base Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="fra-modal-base-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={fraModalPropertyTypePrice}
+                      onChange={(e) => setFraModalPropertyTypePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token || !fraModalProfessionalId || !fraModalPropertyTypeId || fraModalPropertyTypeId === "no-data") return;
+                        const proId = Number(fraModalProfessionalId);
+                        const propTypeId = Number(fraModalPropertyTypeId);
+                        if (!proId || !propTypeId) return;
+                        const price = parseFloat(fraModalPropertyTypePrice) || 0;
+                        try {
+                          await saveAdminFraPropertyTypePrice(token, proId, propTypeId, price);
+                          setFraModalUpdateMessage({ type: "success", text: "Base price saved." });
+                          fetchData();
+                        } catch {
+                          setFraModalUpdateMessage({ type: "error", text: "Failed to save base price." });
+                        }
+                      }}
+                      disabled={fraModalLoadingOptions}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-row flex-nowrap items-center gap-2 md:gap-4 w-full">
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+                <span className="flex-shrink-0 text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Addon Price
+                </span>
+                <div className="flex-1 h-px min-w-0 bg-gray-400" aria-hidden />
+              </div>
+
+              {/* Approximate People + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Approximate People</Label>
+                  <Select value={fraModalPeopleId} onValueChange={setFraModalPeopleId}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70 disabled:cursor-not-allowed min-w-0" disabled={fraModalLoadingOptions}>
+                      <span className={`block min-w-0 flex-1 overflow-hidden text-left ${fraModalPeopleId ? "truncate" : "text-gray-500"}`}>
+                        {fraModalPeopleId
+                          ? (fraModalPeople.find((o) => String(o.id) === fraModalPeopleId)
+                            ? formatPeopleOptionLabel(fraModalPeople.find((o) => String(o.id) === fraModalPeopleId)!.number_of_people)
+                            : fraModalPeopleId)
+                          : (fraModalLoadingOptions ? "Loading..." : "Select approximate number")}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fraModalPeople.length === 0 && !fraModalLoadingOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        [...fraModalPeople]
+                          .sort((a, b) => getPeopleOptionSortKey(a.number_of_people) - getPeopleOptionSortKey(b.number_of_people))
+                          .map((opt) => (
+                            <SelectItem key={opt.id} value={String(opt.id)}>{formatPeopleOptionLabel(opt.number_of_people)}</SelectItem>
+                          ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="fra-modal-people-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="fra-modal-people-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={fraModalPeoplePrice}
+                      onChange={(e) => setFraModalPeoplePrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token || !fraModalProfessionalId || !fraModalPeopleId || fraModalPeopleId === "no-data") return;
+                        const proId = Number(fraModalProfessionalId);
+                        const peopleId = Number(fraModalPeopleId);
+                        if (!proId || !peopleId) return;
+                        const price = parseFloat(fraModalPeoplePrice) || 0;
+                        try {
+                          await saveAdminFraPeoplePrice(token, proId, peopleId, price);
+                          setFraModalUpdateMessage({ type: "success", text: "People price saved." });
+                          fetchData();
+                        } catch {
+                          setFraModalUpdateMessage({ type: "error", text: "Failed to save people price." });
+                        }
+                      }}
+                      disabled={fraModalLoadingOptions}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Number of Floors + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Number of Floors</Label>
+                  <Select value={fraModalFloorId} onValueChange={setFraModalFloorId}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70 disabled:cursor-not-allowed min-w-0" disabled={fraModalLoadingOptions}>
+                      <span className={`block min-w-0 flex-1 overflow-hidden text-left ${fraModalFloorId ? "truncate" : "text-gray-500"}`}>
+                        {fraModalFloorId
+                          ? (() => { const o = fraModalFloors.find((opt) => String(opt.id ?? opt.floor) === fraModalFloorId); return o ? (o.label || o.floor) : fraModalFloorId; })()
+                          : (fraModalLoadingOptions ? "Loading..." : "Select number of floors")}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fraModalFloors.length === 0 && !fraModalLoadingOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        fraModalFloors.map((opt) => (
+                          <SelectItem key={opt.id ?? opt.floor} value={String(opt.id ?? opt.floor)}>{opt.label || opt.floor}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="fra-modal-floor-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="fra-modal-floor-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={fraModalFloorPrice}
+                      onChange={(e) => setFraModalFloorPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token || !fraModalProfessionalId || !fraModalFloorId || fraModalFloorId === "no-data") return;
+                        const proId = Number(fraModalProfessionalId);
+                        const floorId = Number(fraModalFloorId);
+                        if (!proId || !floorId) return;
+                        const price = parseFloat(fraModalFloorPrice) || 0;
+                        try {
+                          await saveAdminFraFloorPrice(token, proId, floorId, price);
+                          setFraModalUpdateMessage({ type: "success", text: "Floor price saved." });
+                          fetchData();
+                        } catch {
+                          setFraModalUpdateMessage({ type: "error", text: "Failed to save floor price." });
+                        }
+                      }}
+                      disabled={fraModalLoadingOptions}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Urgency + Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label className="text-gray-700 font-medium">Select Urgency</Label>
+                  <Select value={fraModalDurationId} onValueChange={setFraModalDurationId}>
+                    <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70 disabled:cursor-not-allowed min-w-0" disabled={fraModalLoadingOptions}>
+                      <span className={`block min-w-0 flex-1 overflow-hidden text-left ${fraModalDurationId ? "truncate" : "text-gray-500"}`}>
+                        {fraModalDurationId
+                          ? (fraModalDurations.find((o) => String(o.id) === fraModalDurationId)?.duration ?? fraModalDurationId)
+                          : (fraModalLoadingOptions ? "Loading..." : "Select urgency")}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fraModalDurations.length === 0 && !fraModalLoadingOptions ? (
+                        <SelectItem value="no-data">No options available</SelectItem>
+                      ) : (
+                        fraModalDurations.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>{opt.duration}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex-shrink-0 w-36 md:w-40">
+                  <Label htmlFor="fra-modal-urgency-price" className="text-gray-700 font-medium">Price (£)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                    <Input
+                      id="fra-modal-urgency-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={fraModalDurationPrice}
+                      onChange={(e) => setFraModalDurationPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onBlur={async () => {
+                        const token = getApiToken();
+                        if (!token || !fraModalProfessionalId || !fraModalDurationId || fraModalDurationId === "no-data") return;
+                        const proId = Number(fraModalProfessionalId);
+                        const durationId = Number(fraModalDurationId);
+                        if (!proId || !durationId) return;
+                        const price = parseFloat(fraModalDurationPrice) || 0;
+                        try {
+                          await saveAdminFraDurationPrice(token, proId, durationId, price);
+                          setFraModalUpdateMessage({ type: "success", text: "Urgency price saved." });
+                          fetchData();
+                        } catch {
+                          setFraModalUpdateMessage({ type: "error", text: "Failed to save urgency price." });
+                        }
+                      }}
+                      disabled={fraModalLoadingOptions}
+                      className="w-full pl-8 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500 disabled:opacity-70"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Estimated Price */}
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label htmlFor="fra-modal-estimate" className="text-gray-700 font-medium">Estimated Price (£)</Label>
+                  <p className="text-xs text-gray-500 -mt-1">Sum of base price and all addon prices above.</p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">£</span>
+                    <Input
+                      id="fra-modal-estimate"
+                      readOnly
+                      aria-readonly
+                      value={(
+                        (parseFloat(fraModalPropertyTypePrice) || 0) +
+                        (parseFloat(fraModalPeoplePrice) || 0) +
+                        (parseFloat(fraModalFloorPrice) || 0) +
+                        (parseFloat(fraModalDurationPrice) || 0)
+                      ).toFixed(2)}
+                      className="w-full pl-8 h-12 text-base border-gray-200 bg-gray-50 font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t bg-gray-50 px-4 md:px-8 py-4 flex flex-col gap-3">
+            {fraModalUpdateMessage && (
+              <p className={`text-sm ${fraModalUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`} role="status">
+                {fraModalUpdateMessage.text}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              {fraModalUpdateMessage?.type === "error" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setFraModalUpdateMessage(null);
+                    setFraModalRetryKey((k) => k + 1);
+                  }}
+                  className="h-11 px-4"
+                >
+                  Retry loading options
+                </Button>
+              )}
+              <Button
+                type="button"
+                disabled={fraModalUpdatingPrice || fraModalLoadingOptions}
+                onClick={async () => {
+                  setFraModalUpdateMessage(null);
+                  const token = getApiToken();
+                  if (!token) {
+                    setFraModalUpdateMessage({ type: "error", text: "Please log in to update prices." });
+                    return;
+                  }
+                  const proId = fraModalProfessionalId ? Number(fraModalProfessionalId) : 0;
+                  const propTypeId = fraModalPropertyTypeId ? Number(fraModalPropertyTypeId) : 0;
+                  if (!proId || !propTypeId || fraModalPropertyTypeId === "no-data") {
+                    setFraModalUpdateMessage({ type: "error", text: "Select a professional and property type." });
+                    return;
+                  }
+                  setFraModalUpdatingPrice(true);
+                  try {
+                    const basePrice = parseFloat(fraModalPropertyTypePrice) || 0;
+                    await saveAdminFraPropertyTypePrice(token, proId, propTypeId, basePrice);
+                    if (fraModalPeopleId && fraModalPeopleId !== "no-data") {
+                      const peopleId = Number(fraModalPeopleId);
+                      if (peopleId) {
+                        const peoplePrice = parseFloat(fraModalPeoplePrice) || 0;
+                        await saveAdminFraPeoplePrice(token, proId, peopleId, peoplePrice);
+                      }
+                    }
+                    if (fraModalFloorId && fraModalFloorId !== "no-data") {
+                      const floorId = Number(fraModalFloorId);
+                      if (floorId) {
+                        const floorPrice = parseFloat(fraModalFloorPrice) || 0;
+                        await saveAdminFraFloorPrice(token, proId, floorId, floorPrice);
+                      }
+                    }
+                    if (fraModalDurationId && fraModalDurationId !== "no-data") {
+                      const durationId = Number(fraModalDurationId);
+                      if (durationId) {
+                        const durationPrice = parseFloat(fraModalDurationPrice) || 0;
+                        await saveAdminFraDurationPrice(token, proId, durationId, durationPrice);
+                      }
+                    }
+                    setFraModalUpdateMessage({ type: "success", text: "Prices updated successfully." });
+                    fetchData();
+                  } catch {
+                    setFraModalUpdateMessage({ type: "error", text: "Failed to update price." });
+                  } finally {
+                    setFraModalUpdatingPrice(false);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 h-11 px-6 md:px-8 font-medium"
+              >
+                {fraModalUpdatingPrice ? "Updating…" : "Update Price"}
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={emergencyLightingModalOpen} onOpenChange={setEmergencyLightingModalOpen}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
@@ -4085,7 +5365,7 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               </button>
             </div>
           </div>
-          <div className="p-4 md:p-8">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
             <div className="space-y-4 md:space-y-6 w-full max-w-4xl">
             <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
               <div className="space-y-2 flex-1 min-w-0">
@@ -4373,14 +5653,15 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               <div className="hidden md:block flex-shrink-0 w-36 md:w-40" aria-hidden />
             </div>
 
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t bg-gray-50 px-4 md:px-8 py-4 flex flex-col gap-3">
             {elUpdateMessage && (
               <p className={`text-sm ${elUpdateMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
                 {elUpdateMessage.text}
               </p>
             )}
-
-            <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
-              <div className="flex-1 min-w-0" aria-hidden />
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
                 onClick={async () => {
@@ -4461,9 +5742,10 @@ export function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProp
               </Button>
             </div>
           </div>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+export { FRABasePriceContent };

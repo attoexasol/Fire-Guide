@@ -1036,6 +1036,511 @@ export const saveAdminEmergencyLightBasePrice = async (
   return response.data;
 };
 
+/** Response for POST /professional-fire-alarm-admin/get-base-price */
+export interface AdminFireAlarmBasePriceGetResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Get Professional Fire Alarm base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/get-base-price
+ * Body: { api_token, professional_id }
+ */
+export const getAdminFireAlarmBasePrice = async (
+  apiToken: string,
+  professionalId: number
+): Promise<AdminFireAlarmBasePriceGetResponse> => {
+  const response = await apiClient.post<AdminFireAlarmBasePriceGetResponse>(
+    '/professional-fire-alarm-admin/get-base-price',
+    { api_token: apiToken, professional_id: professionalId }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-admin/fire-alarm-base-price */
+export interface AdminFireAlarmBasePriceSaveResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm base price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-admin/fire-alarm-base-price
+ * Body: { api_token, professional_id, price }
+ */
+export const saveAdminFireAlarmBasePrice = async (
+  apiToken: string,
+  professionalId: number,
+  price: number
+): Promise<AdminFireAlarmBasePriceSaveResponse> => {
+  const response = await apiClient.post<AdminFireAlarmBasePriceSaveResponse>(
+    '/professional-admin/fire-alarm-base-price',
+    { api_token: apiToken, professional_id: professionalId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-admin/get-fra-pricing (fetch whole FRA price by selection) */
+export interface AdminFraPricingResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    professional: { id: number; name: string };
+    property_type: { id: number; property_name: string; price: string };
+    people: { id: number; number_of_people: string; price: string };
+    floor: { id: number; floor: string; price: string };
+    duration: { id: number; duration: string; price: string };
+    total_price: number;
+  };
+}
+
+/**
+ * Get FRA whole price for a professional by property type, floor, people, duration (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-admin/get-fra-pricing
+ * Body: { api_token, professional_id, property_type_id, floor_id, people_id, duration_id }
+ */
+export const getAdminFraPricing = async (
+  apiToken: string,
+  professionalId: number,
+  propertyTypeId: number,
+  floorId: number,
+  peopleId: number,
+  durationId: number
+): Promise<AdminFraPricingResponse> => {
+  const response = await apiClient.post<AdminFraPricingResponse>(
+    '/professional-admin/get-fra-pricing',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      property_type_id: propertyTypeId,
+      floor_id: floorId,
+      people_id: peopleId,
+      duration_id: durationId,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-admin/fra-property-type */
+export interface AdminFraPropertyTypePriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    property_type_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional FRA property type (base) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-admin/fra-property-type
+ * Body: { api_token, professional_id, property_type_id, price }
+ */
+export const saveAdminFraPropertyTypePrice = async (
+  apiToken: string,
+  professionalId: number,
+  propertyTypeId: number,
+  price: number
+): Promise<AdminFraPropertyTypePriceResponse> => {
+  const response = await apiClient.post<AdminFraPropertyTypePriceResponse>(
+    '/professional-admin/fra-property-type',
+    { api_token: apiToken, professional_id: professionalId, property_type_id: propertyTypeId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-admin/fra-people */
+export interface AdminFraPeoplePriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    people_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional FRA people (approximate people) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-admin/fra-people
+ * Body: { api_token, professional_id, people_id, price }
+ */
+export const saveAdminFraPeoplePrice = async (
+  apiToken: string,
+  professionalId: number,
+  peopleId: number,
+  price: number
+): Promise<AdminFraPeoplePriceResponse> => {
+  const response = await apiClient.post<AdminFraPeoplePriceResponse>(
+    '/professional-admin/fra-people',
+    { api_token: apiToken, professional_id: professionalId, people_id: peopleId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fra-floor-admin */
+export interface AdminFraFloorPriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    floor_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional FRA floor price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fra-floor-admin
+ * Body: { api_token, professional_id, floor_id, price }
+ */
+export const saveAdminFraFloorPrice = async (
+  apiToken: string,
+  professionalId: number,
+  floorId: number,
+  price: number
+): Promise<AdminFraFloorPriceResponse> => {
+  const response = await apiClient.post<AdminFraFloorPriceResponse>(
+    '/professional-fra-floor-admin',
+    { api_token: apiToken, professional_id: professionalId, floor_id: floorId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fra-duration-admin */
+export interface AdminFraDurationPriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    duration_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional FRA duration (urgency) price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fra-duration-admin
+ * Body: { api_token, professional_id, duration_id, price }
+ */
+export const saveAdminFraDurationPrice = async (
+  apiToken: string,
+  professionalId: number,
+  durationId: number,
+  price: number
+): Promise<AdminFraDurationPriceResponse> => {
+  const response = await apiClient.post<AdminFraDurationPriceResponse>(
+    '/professional-fra-duration-admin',
+    { api_token: apiToken, professional_id: professionalId, duration_id: durationId, price }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/smoke-detectors/create-price */
+export interface AdminFireAlarmSmokeDetectorPriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    smoke_detectors_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm smoke detectors price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/smoke-detectors/create-price
+ * Body: { api_token, professional_id, smoke_detectors_id, type: "ditectors", price }
+ */
+export const saveAdminFireAlarmSmokeDetectorPrice = async (
+  apiToken: string,
+  professionalId: number,
+  smokeDetectorsId: number,
+  price: number
+): Promise<AdminFireAlarmSmokeDetectorPriceResponse> => {
+  const response = await apiClient.post<AdminFireAlarmSmokeDetectorPriceResponse>(
+    '/professional-fire-alarm-admin/smoke-detectors/create-price',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      smoke_detectors_id: smokeDetectorsId,
+      type: 'ditectors',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/call-points/create-price */
+export interface AdminFireAlarmCallPointPriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    call_point_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm call points price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/call-points/create-price
+ * Body: { api_token, professional_id, call_point_id, type: "call_points", price }
+ */
+export const saveAdminFireAlarmCallPointPrice = async (
+  apiToken: string,
+  professionalId: number,
+  callPointId: number,
+  price: number
+): Promise<AdminFireAlarmCallPointPriceResponse> => {
+  const response = await apiClient.post<AdminFireAlarmCallPointPriceResponse>(
+    '/professional-fire-alarm-admin/call-points/create-price',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      call_point_id: callPointId,
+      type: 'call_points',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/floor/create-price */
+export interface AdminFireAlarmFloorPriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    floor_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm floor price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/floor/create-price
+ * Body: { api_token, professional_id, floor_id, type: "floors", price }
+ */
+export const saveAdminFireAlarmFloorPrice = async (
+  apiToken: string,
+  professionalId: number,
+  floorId: number,
+  price: number
+): Promise<AdminFireAlarmFloorPriceResponse> => {
+  const response = await apiClient.post<AdminFireAlarmFloorPriceResponse>(
+    '/professional-fire-alarm-admin/floor/create-price',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      floor_id: floorId,
+      type: 'floors',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/panel/create-price */
+export interface AdminFireAlarmPanelPriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    panel_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm panel price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/panel/create-price
+ * Body: { api_token, professional_id, panel_id, type: "alarm_panels", price }
+ */
+export const saveAdminFireAlarmPanelPrice = async (
+  apiToken: string,
+  professionalId: number,
+  panelId: number,
+  price: number
+): Promise<AdminFireAlarmPanelPriceResponse> => {
+  const response = await apiClient.post<AdminFireAlarmPanelPriceResponse>(
+    '/professional-fire-alarm-admin/panel/create-price',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      panel_id: panelId,
+      type: 'alarm_panels',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/last-service/create-price */
+export interface AdminFireAlarmLastServicePriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    last_service_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm last service price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/last-service/create-price
+ * Body: { api_token, professional_id, last_service_id, type: "last_service", price }
+ */
+export const saveAdminFireAlarmLastServicePrice = async (
+  apiToken: string,
+  professionalId: number,
+  lastServiceId: number,
+  price: number
+): Promise<AdminFireAlarmLastServicePriceResponse> => {
+  const response = await apiClient.post<AdminFireAlarmLastServicePriceResponse>(
+    '/professional-fire-alarm-admin/last-service/create-price',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      last_service_id: lastServiceId,
+      type: 'last_service',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/system-type/create-price */
+export interface AdminFireAlarmSystemTypePriceResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    system_type_id: number;
+    price: number;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Create/update Professional Fire Alarm system type price for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/system-type/create-price
+ * Body: { api_token, professional_id, system_type_id, type: "system_type", price }
+ */
+export const saveAdminFireAlarmSystemTypePrice = async (
+  apiToken: string,
+  professionalId: number,
+  systemTypeId: number,
+  price: number
+): Promise<AdminFireAlarmSystemTypePriceResponse> => {
+  const response = await apiClient.post<AdminFireAlarmSystemTypePriceResponse>(
+    '/professional-fire-alarm-admin/system-type/create-price',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      system_type_id: systemTypeId,
+      type: 'system_type',
+      price,
+    }
+  );
+  return response.data;
+};
+
+/** Response for POST /professional-fire-alarm-admin/get-single/prices */
+export interface AdminFireAlarmSinglePricesResponse {
+  status?: boolean;
+  message?: string;
+  data?: {
+    professional?: { id: number; name: string };
+    smoke_detector?: { id: number; value?: string; price?: string };
+    call_point?: { id: number; value?: string; price?: string };
+    floor?: { id: number; value?: string; price?: string };
+    panel?: { id: number; value?: string; price?: string };
+    last_service?: { id: number; value?: string; price?: string };
+    system_type?: { id: number; value?: string; price?: string };
+    total_price?: number;
+  };
+}
+
+/**
+ * Get Professional Fire Alarm single/addon prices for a professional (Admin).
+ * POST https://fireguide.attoexasolutions.com/api/professional-fire-alarm-admin/get-single/prices
+ * Body: { api_token, professional_id, smoke_detectors_id, call_point_id, floor_id, panel_id, last_service_id, system_type_id }
+ */
+export const getAdminFireAlarmSinglePrices = async (
+  apiToken: string,
+  professionalId: number,
+  ids: {
+    smoke_detectors_id: number;
+    call_point_id: number;
+    floor_id: number;
+    panel_id: number;
+    last_service_id: number;
+    system_type_id: number;
+  }
+): Promise<AdminFireAlarmSinglePricesResponse> => {
+  const response = await apiClient.post<AdminFireAlarmSinglePricesResponse>(
+    '/professional-fire-alarm-admin/get-single/prices',
+    {
+      api_token: apiToken,
+      professional_id: professionalId,
+      smoke_detectors_id: ids.smoke_detectors_id,
+      call_point_id: ids.call_point_id,
+      floor_id: ids.floor_id,
+      panel_id: ids.panel_id,
+      last_service_id: ids.last_service_id,
+      system_type_id: ids.system_type_id,
+    }
+  );
+  return response.data;
+};
+
 /** Response for POST /professional-fire-light-testing-admin/get-single/prices */
 export interface AdminEmergencyLightSinglePricesResponse {
   status?: boolean;
