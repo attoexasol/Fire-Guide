@@ -98,6 +98,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   const [submittingCustomQuote, setSubmittingCustomQuote] = useState(false);
 
   const CUSTOM_PEOPLE_OPTION_VALUE = "More than 500 people";
+  const CUSTOM_FLOORS_OPTION_VALUE = "__custom__"; // "5+ Floors (enter number)" – like people custom option
   const isMoreThan500People = (value: string) =>
     /more than 500|500\+|501\+/i.test(value) || value.toLowerCase().includes("500");
   const showCustomPeopleInput = isMoreThan500People(formData.approximatePeopleId);
@@ -152,7 +153,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   const trainingPeopleCountDisplay = showCustomTrainingPeopleInput && formData.customTrainingPeopleCount.trim()
     ? formData.customTrainingPeopleCount.trim()
     : formData.trainingPeopleCount;
-  const showCustomFloorsInput = formData.numberOfFloors === "7+";
+  const isCustomFloorsOption = formData.numberOfFloors === "7+" || formData.numberOfFloors === "5+" || formData.numberOfFloors === CUSTOM_FLOORS_OPTION_VALUE;
+  const showCustomFloorsInput = isCustomFloorsOption;
   const floorsDisplay = showCustomFloorsInput && formData.customFloorsCount.trim()
     ? formData.customFloorsCount.trim()
     : formData.numberOfFloors;
@@ -241,6 +243,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     setFormData({ ...formData, extinguisherTypesList: next.join(", ") });
   };
 
+  const isFireAlarmCustomQuote = isFireAlarmService && (showCustomDetectorInput || showCustomManualCallPointsInput || showCustomFireAlarmFloorsInput || showCustomFireAlarmPanelsInput);
+
+  const isExtinguisherCustomQuote = isFireExtinguisherService && (showCustomExtinguisherInput || showCustomExtinguisherFloorsInput);
+
+  const isEmergencyLightingCustomQuote = isEmergencyLightingService && (showCustomEmergencyLightsInput || showCustomEmergencyLightsFloorsInput);
+
+  const isFireMarshalCustomQuote = isFireMarshalTrainingService && showCustomTrainingPeopleInput;
+
   const submitCustomQuoteNow = async () => {
     const resolvedServiceId = serviceId ?? (typeof service === "string" && /^\d+$/.test(service) ? parseInt(service, 10) : undefined);
     if (!resolvedServiceId) {
@@ -255,9 +265,15 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     }
     const isCustom = formData.propertyTypeId === "__custom__";
     const propertyTypeDisplay = isCustom ? formData.customPropertyType.trim() : formData.propertyTypeId;
-    const floors = showCustomFloorsInput
-      ? parseInt(formData.customFloorsCount, 10)
-      : parseInt(formData.numberOfFloors, 10);
+    const floors = isFireAlarmService
+      ? (showCustomFireAlarmFloorsInput ? parseInt(formData.customFireAlarmFloors, 10) : parseInt(formData.fireAlarmFloors, 10))
+      : isFireExtinguisherService
+        ? (showCustomExtinguisherFloorsInput ? parseInt(formData.customExtinguisherFloors, 10) : parseInt(formData.extinguisherFloors, 10))
+        : isEmergencyLightingService
+          ? (showCustomEmergencyLightsFloorsInput ? parseInt(formData.customEmergencyLightsFloors, 10) : parseInt(formData.emergencyLightsFloors, 10))
+          : isFireMarshalTrainingService
+            ? 1
+            : (showCustomFloorsInput ? parseInt(formData.customFloorsCount, 10) : parseInt(formData.numberOfFloors, 10));
     setSubmittingCustomQuote(true);
     try {
       await storeCustomQuoteRequest(
@@ -268,11 +284,29 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
         phone,
         {
           building_type: propertyTypeDisplay || "Not specified",
-          people_count: peopleCountDisplay || formData.approximatePeopleId,
+          people_count: peopleCountDisplay || formData.approximatePeopleId || "Not specified",
           floors: isNaN(floors) ? 0 : floors,
           assessment_type: "Standard",
           notes: formData.accessNotes.trim() || undefined,
           ...(isFireAlarmService && detectorDisplay && { detectors: detectorDisplay }),
+          ...(isFireAlarmService && manualCallPointsDisplay && { manual_call_points: manualCallPointsDisplay }),
+          ...(isFireAlarmService && fireAlarmFloorsDisplay && { fire_alarm_floors: fireAlarmFloorsDisplay }),
+          ...(isFireAlarmService && fireAlarmPanelsDisplay && { fire_alarm_panels: fireAlarmPanelsDisplay }),
+          ...(isFireAlarmService && formData.alarmSystemType && { alarm_system_type: formData.alarmSystemType }),
+          ...(isFireAlarmService && formData.lastServiced && formData.lastServiced !== "__skip__" && { last_serviced: formData.lastServiced }),
+          ...(isFireExtinguisherService && extinguisherCountDisplay && { extinguisher_count: extinguisherCountDisplay }),
+          ...(isFireExtinguisherService && extinguisherFloorsDisplay && { extinguisher_floors: extinguisherFloorsDisplay }),
+          ...(isFireExtinguisherService && formData.extinguisherTypesKnow && { extinguisher_types_known: formData.extinguisherTypesKnow }),
+          ...(isFireExtinguisherService && formData.extinguisherTypesList && { extinguisher_types: formData.extinguisherTypesList }),
+          ...(isFireExtinguisherService && formData.extinguisherLastServiced && { extinguisher_last_serviced: formData.extinguisherLastServiced }),
+          ...(isEmergencyLightingService && emergencyLightsCountDisplay && { emergency_lights_count: emergencyLightsCountDisplay }),
+          ...(isEmergencyLightingService && emergencyLightsFloorsDisplay && { emergency_lights_floors: emergencyLightsFloorsDisplay }),
+          ...(isEmergencyLightingService && formData.emergencyLightingType && formData.emergencyLightingType !== "__skip__" && { emergency_lighting_type: formData.emergencyLightingType }),
+          ...(isEmergencyLightingService && formData.emergencyLightingTestFrequency && formData.emergencyLightingTestFrequency !== "__skip__" && { emergency_lighting_test_frequency: formData.emergencyLightingTestFrequency }),
+          ...(isFireMarshalTrainingService && trainingPeopleCountDisplay && { training_people_count: trainingPeopleCountDisplay }),
+          ...(isFireMarshalTrainingService && formData.trainingLocation && { training_location: formData.trainingLocation }),
+          ...(isFireMarshalTrainingService && formData.buildingTypeForTraining && { building_type: formData.buildingTypeForTraining }),
+          ...(isFireMarshalTrainingService && formData.staffTrainingBefore && formData.staffTrainingBefore !== "__skip__" && { staff_training_before: formData.staffTrainingBefore }),
         }
       );
       toast.success("Custom quote request submitted successfully. We'll contact you soon.");
@@ -287,7 +321,28 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   };
 
   const handleNext = async () => {
-    if (currentStep === 2 && isMoreThan500People(formData.approximatePeopleId)) {
+    // Generic/FRA: call API only after step 3 (custom floor number), not on step 2 (people).
+    if (currentStep === 3 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && showCustomFloorsInput && formData.customFloorsCount.trim()) {
+      const submitted = await submitCustomQuoteNow();
+      if (submitted) return;
+    }
+    // Fire Alarm custom: call API only after step 4 (panels), not on earlier steps.
+    if (currentStep === 4 && isFireAlarmCustomQuote) {
+      const submitted = await submitCustomQuoteNow();
+      if (submitted) return;
+    }
+    // Extinguisher custom: call API only after step 2 (floors), not on step 1.
+    if (currentStep === 2 && isExtinguisherCustomQuote) {
+      const submitted = await submitCustomQuoteNow();
+      if (submitted) return;
+    }
+    // Emergency Lighting custom: call API only after step 2 (floors), not on step 1.
+    if (currentStep === 2 && isEmergencyLightingCustomQuote) {
+      const submitted = await submitCustomQuoteNow();
+      if (submitted) return;
+    }
+    // Fire Marshal custom: call API only after step 1 (people), the final step for custom data.
+    if (currentStep === 1 && isFireMarshalCustomQuote) {
       const submitted = await submitCustomQuoteNow();
       if (submitted) return;
     }
@@ -368,7 +423,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       switch (currentStep) {
         case 1: return formData.propertyTypeId === "__custom__" ? formData.customPropertyType.trim() !== "" : formData.propertyTypeId !== "";
         case 2: return formData.approximatePeopleId !== "";
-        case 3: return formData.numberOfFloors === "7+" ? formData.customFloorsCount.trim() !== "" : formData.numberOfFloors !== "";
+        case 3: return isCustomFloorsOption ? formData.customFloorsCount.trim() !== "" : formData.numberOfFloors !== "";
         case 4: return formData.durationId !== "";
         case 5: return formData.assessmentDate !== "";
         case 6: return true; // Access notes optional
@@ -382,7 +437,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       case 2:
         return formData.approximatePeopleId !== "";
       case 3:
-        if (formData.numberOfFloors === "7+") return formData.customFloorsCount.trim() !== "";
+        if (isCustomFloorsOption) return formData.customFloorsCount.trim() !== "";
         return formData.numberOfFloors !== "";
       case 4:
         return formData.durationId !== "";
@@ -1377,21 +1432,25 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     >
                       <SelectTrigger id="numberOfFloors" className="w-full">
                         <span>
-                          {formData.numberOfFloors
-                            ? floorOptions.find((o) => o.floor === formData.numberOfFloors)?.label ?? formData.numberOfFloors
-                            : "Choose number of floors"}
+                          {formData.numberOfFloors === CUSTOM_FLOORS_OPTION_VALUE
+                            ? "5+ Floors (enter number)"
+                            : formData.numberOfFloors
+                              ? floorOptions.find((o) => o.floor === formData.numberOfFloors)?.label ?? formData.numberOfFloors
+                              : "Choose number of floors"}
                         </span>
                       </SelectTrigger>
                       <SelectContent>
                         {floorOptions.length === 0 ? (
                           <SelectItem value="no-data">No options available</SelectItem>
-                        ) : (
-                          floorOptions.map((option) => (
-                            <SelectItem key={option.floor} value={option.floor}>
-                              {option.label}
-                            </SelectItem>
-                          ))
-                        )}
+                        ) : null}
+                        {floorOptions.map((option) => (
+                          <SelectItem key={option.floor} value={option.floor}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_FLOORS_OPTION_VALUE}>
+                          5+ Floors (enter number)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -1406,7 +1465,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                         onChange={(e) => updateFormData("customFloorsCount", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of floors for buildings with 7+ floors</p>
+                      <p className="text-sm text-gray-500">Enter the number of floors. After entering, click Next to submit a custom quote request.</p>
                     </div>
                   )}
                   <p className="text-sm text-gray-500">Include all levels, basements, and ground floor</p>
