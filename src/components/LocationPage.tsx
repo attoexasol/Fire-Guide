@@ -3,7 +3,7 @@ import { Flame, ChevronRight, MapPin, ArrowLeft, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { storeSelectedService, SelectedServiceStoreRequest } from "../api/servicesService";
+// selected_services/store is called only when "Book Now" is clicked on Compare Professionals page (with professional_id)
 
 interface LocationPageProps {
   serviceId: number;
@@ -24,7 +24,6 @@ interface LocationPageProps {
 export function LocationPage({ serviceId, questionnaireData, onContinue, onBack, onStoreSuccess }: LocationPageProps) {
   const [postcode, setPostcode] = useState("");
   const [selectedRadius, setSelectedRadius] = useState("10mi");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const radiusOptions = [
@@ -53,54 +52,22 @@ export function LocationPage({ serviceId, questionnaireData, onContinue, onBack,
     return "10km"; // Default
   };
 
-  const handleFindProfessionals = async () => {
+  const handleFindProfessionals = () => {
     if (!isValid || !questionnaireData) {
       return;
     }
-
-    setIsSubmitting(true);
     setError(null);
-
-    try {
-      const searchRadius = convertRadiusToKm(selectedRadius);
-
-      const requestData: SelectedServiceStoreRequest = {
-        service_id: serviceId,
-        property_type_id: questionnaireData.property_type_id,
-        approximate_people_id: questionnaireData.approximate_people_id,
-        number_of_floors:
-          questionnaireData.number_of_floors_id != null
-            ? String(questionnaireData.number_of_floors_id)
-            : questionnaireData.number_of_floors,
-        preferred_date: questionnaireData.preferred_date,
-        access_note: questionnaireData.access_note,
-        post_code: postcode.trim(),
-        search_radius: searchRadius,
-      };
-      if (questionnaireData.number_of_floors_id != null) {
-        requestData.number_of_floors_id = questionnaireData.number_of_floors_id;
-      }
-      if (questionnaireData.duration_id != null) {
-        requestData.duration_id = questionnaireData.duration_id;
-      }
-      // No token required for selected_services/store (per API flow)
-
-      const response = await storeSelectedService(requestData);
-      const createdId = response?.data?.id;
-      if (onStoreSuccess) {
-        onStoreSuccess(createdId ?? 0, {
-          post_code: postcode.trim(),
-          search_radius: searchRadius,
-          service_id: serviceId,
-        });
-      }
-
+    const searchRadius = convertRadiusToKm(selectedRadius);
+    const locationData = {
+      post_code: postcode.trim(),
+      search_radius: searchRadius,
+      service_id: serviceId,
+    };
+    if (onStoreSuccess) {
+      onStoreSuccess(0, locationData);
+      // Page saves location data and navigates to Compare Professionals; store API is called on Book Now only
+    } else {
       onContinue();
-    } catch (err: any) {
-      console.error("Error submitting form:", err);
-      setError(err?.message || err?.error || "Failed to submit. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -202,12 +169,13 @@ export function LocationPage({ serviceId, questionnaireData, onContinue, onBack,
 
               {/* Find Button */}
               <Button
-                disabled={!isValid || isSubmitting || !questionnaireData}
+                type="button"
+                disabled={!isValid || !questionnaireData}
                 className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleFindProfessionals}
               >
                 <Search className="w-5 h-5 mr-2" />
-                {isSubmitting ? "Submitting..." : "Find Professionals"}
+                Find Professionals
               </Button>
             </div>
 

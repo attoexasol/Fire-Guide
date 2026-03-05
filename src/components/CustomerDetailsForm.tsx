@@ -37,7 +37,7 @@ interface CustomerDetailsFormProps {
   isCustomQuote?: boolean;
   /** When true, this booking has real price from API — never use custom-quote flow (avoids backend "Custom quote request not found") */
   forceNormalBooking?: boolean;
-  customQuoteRequestData?: { building_type: string; people_count: string; floors: number; assessment_type: string; notes?: string };
+  customQuoteRequestData?: { building_type: string; people_count: string; floors: number };
   serviceIdForQuote?: number;
 }
 

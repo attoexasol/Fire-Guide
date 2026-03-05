@@ -126,13 +126,16 @@ const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
         <div
           ref={ref}
           className={cn(
-            "fixed z-50 max-h-52 overflow-y-auto overflow-x-hidden rounded-md border border-gray-200 bg-white shadow-lg py-1",
+            "fixed z-50 rounded-md border border-gray-200 bg-white shadow-lg py-1",
             className
           )}
           style={{
             top: pos.top,
             left: pos.left,
             width: pos.width,
+            maxHeight: "min(280px, 60vh)",
+            overflowY: "auto",
+            overflowX: "hidden",
           }}
           {...props}
         >

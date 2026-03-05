@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface DialogProps {
@@ -43,16 +44,22 @@ interface DialogDescriptionProps {
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div 
-        className="fixed inset-0 bg-black/50 transition-opacity duration-300 ease-in-out" 
-        onClick={() => onOpenChange?.(false)}
+  const dialog = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 z-[100] bg-black/50 transition-opacity duration-300 ease-in-out"
         style={{ animation: 'fadeIn 0.2s ease-in-out' }}
+        onClick={() => onOpenChange?.(false)}
+        aria-hidden
       />
-      <div 
-        className="relative z-50 transition-all duration-300 ease-in-out"
-        style={{ animation: 'slideUp 0.3s ease-in-out' }}
+      <div
+        className="absolute left-1/2 z-[101] flex w-full max-w-[calc(100vw-2rem)] flex-col items-center justify-center transition-all duration-300 ease-in-out"
+        style={{
+          top: 'calc(56px + (100vh - 56px) / 2)',
+          maxHeight: 'calc(100vh - 56px - 2rem)',
+          transform: 'translate(-50%, -50%)',
+          animation: 'slideUp 0.3s ease-in-out',
+        }}
       >
         {children}
       </div>
@@ -62,18 +69,20 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
           to { opacity: 1; }
         }
         @keyframes slideUp {
-          from { 
+          from {
             opacity: 0;
-            transform: translateY(20px) scale(0.95);
+            transform: translate(-50%, calc(-50% + 20px)) scale(0.95);
           }
-          to { 
+          to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translate(-50%, -50%) scale(1);
           }
         }
       `}</style>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 }
 
 export function DialogTrigger({ children, className = "", onClick }: DialogTriggerProps) {

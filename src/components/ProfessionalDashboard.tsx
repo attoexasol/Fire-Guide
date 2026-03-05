@@ -16,7 +16,8 @@ import {
   Flame,
   Briefcase,
   TrendingUp,
-  FileText
+  FileText,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
@@ -33,6 +34,7 @@ import { ProfessionalNotifications } from "./ProfessionalNotifications";
 import { ProfessionalProfileContent } from "./ProfessionalProfileContent";
 import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
 import { ProfessionalAvailabilityContent } from "./ProfessionalAvailabilityContent";
+import { ProfessionalCustomQuoteContent } from "./ProfessionalCustomQuoteContent";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface ProfessionalDashboardProps {
@@ -40,12 +42,12 @@ interface ProfessionalDashboardProps {
   onNavigateToReports: () => void;
 }
 
-type ProfessionalView = "dashboard" | "profile" | "pricing-overview" | "availability" | "bookings" | "payments" | "verification" | "settings" | "notifications";
+type ProfessionalView = "dashboard" | "profile" | "pricing-overview" | "availability" | "bookings" | "payments" | "custom-quote" | "verification" | "settings" | "notifications";
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
   const navigate = useNavigate();
   const { view } = useParams<{ view?: string }>();
-  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing-overview", "availability", "bookings", "payments", "verification", "settings", "notifications"];
+  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing-overview", "availability", "bookings", "payments", "custom-quote", "verification", "settings", "notifications"];
   
   // Determine current view from URL parameter, default to "dashboard"
   // Support legacy "pricing" route → redirect to pricing-overview
@@ -79,6 +81,7 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     { id: "availability" as ProfessionalView, label: "Availability", icon: Clock },
     { id: "bookings" as ProfessionalView, label: "Bookings", icon: Calendar },
     { id: "payments" as ProfessionalView, label: "Payments", icon: CreditCard },
+    { id: "custom-quote" as ProfessionalView, label: "Custom Quote", icon: MessageCircle },
     { id: "verification" as ProfessionalView, label: "Verification Status", icon: ShieldCheck },
     { id: "notifications" as ProfessionalView, label: "Notifications", icon: Bell },
     { id: "settings" as ProfessionalView, label: "Settings", icon: Settings },
@@ -394,6 +397,8 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         return <ProfessionalBookings onViewDetails={(id) => console.log("View booking:", id)} />;
       case "payments":
         return <ProfessionalPayments />;
+      case "custom-quote":
+        return <ProfessionalCustomQuoteContent />;
       case "verification":
         return <ProfessionalVerification />;
       case "settings":

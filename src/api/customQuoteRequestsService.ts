@@ -6,12 +6,23 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
+/** Request body for custom quote store; base fields optional so Fire Marshal can send only people. */
 export interface CustomQuoteRequestData {
-  building_type: string;
-  people_count: string;
-  floors: number;
-  assessment_type: string;
-  notes?: string;
+  building_type?: string;
+  people_count?: string;
+  floors?: number;
+  /** Fire Alarm custom: number of smoke/heat detectors */
+  smoke_detectors?: number;
+  /** Fire Alarm custom: number of manual call points */
+  call_point?: number;
+  /** Fire Alarm custom: number of fire alarm panels */
+  panels?: number;
+  /** Fire Extinguisher custom: number of extinguishers */
+  extinguisher?: number;
+  /** Emergency Lighting custom: number of emergency lights */
+  emergency_light?: number;
+  /** Fire Marshal Training custom: number of people for training */
+  people?: number;
 }
 
 export interface CustomQuoteStoreResponse {
@@ -136,6 +147,56 @@ export const getAllCustomQuoteRequests = async (apiToken: string): Promise<Admin
 };
 
 /**
+ * Professional's custom quote requests (for Professional Dashboard)
+ * POST /custom-quote-requests/professional-requests
+ * Body: { api_token }
+ */
+export interface ProfessionalQuoteRequestItem {
+  id: number;
+  service_id: number;
+  user_id: number | null;
+  professional_id: number;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  request_data: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  service?: { id: number; service_name: string };
+  user?: { id: number; full_name: string; email: string } | null;
+}
+
+export interface ProfessionalCustomQuoteResponse {
+  status: boolean;
+  message: string;
+  professional?: { id: number; full_name: string; email: string };
+  requests?: ProfessionalQuoteRequestItem[];
+}
+
+export const getProfessionalCustomQuoteRequests = async (
+  apiToken: string
+): Promise<ProfessionalCustomQuoteResponse> => {
+  try {
+    const response = await apiClient.post<ProfessionalCustomQuoteResponse>(
+      '/custom-quote-requests/professional-requests',
+      { api_token: apiToken }
+    );
+    const data = response.data;
+    if (!data?.status) {
+      throw new Error((data as { message?: string })?.message || 'Fetch failed');
+    }
+    return data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const msg = err.response?.data?.message ?? err.response?.data?.error ?? err.message;
+      throw new Error(typeof msg === 'string' ? msg : 'Failed to fetch professional quote requests');
+    }
+    throw err;
+  }
+};
+
+/**
  * Fetch current user's custom quote requests
  * POST /custom-quote-requests/my-requests
  * Body: { api_token }
@@ -163,7 +224,8 @@ export const getMyQuoteRequests = async (apiToken: string): Promise<MyQuoteReque
 /**
  * Create a custom quote request
  * POST https://fireguide.attoexasolutions.com/api/custom-quote-requests/store
- * Body: { api_token? (optional), service_id, customer_name, customer_email, customer_phone, request_data }
+ * Body: { api_token?, service_id, customer_name, customer_email, customer_phone, request_data }
+ * request_data: { building_type, people_count, floors } only.
  */
 export const storeCustomQuoteRequest = async (
   apiToken: string | null,
@@ -174,20 +236,30 @@ export const storeCustomQuoteRequest = async (
   requestData: CustomQuoteRequestData
 ): Promise<CustomQuoteStoreResponse> => {
   try {
-  const payload: Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       service_id: serviceId,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone,
-      request_data: requestData,
+      request_data: {
+        ...(requestData.building_type != null && { building_type: requestData.building_type }),
+        ...(requestData.people_count != null && { people_count: requestData.people_count }),
+        ...(requestData.floors != null && { floors: requestData.floors }),
+        ...(requestData.smoke_detectors != null && { smoke_detectors: requestData.smoke_detectors }),
+        ...(requestData.call_point != null && { call_point: requestData.call_point }),
+        ...(requestData.panels != null && { panels: requestData.panels }),
+        ...(requestData.extinguisher != null && { extinguisher: requestData.extinguisher }),
+        ...(requestData.emergency_light != null && { emergency_light: requestData.emergency_light }),
+        ...(requestData.people != null && { people: requestData.people }),
+      },
     };
-  if (apiToken) {
-    payload.api_token = apiToken;
-  }
-  const response = await apiClient.post<CustomQuoteStoreResponse>(
-    '/custom-quote-requests/store',
-    payload
-  );
+    if (apiToken) {
+      payload.api_token = apiToken;
+    }
+    const response = await apiClient.post<CustomQuoteStoreResponse>(
+      '/custom-quote-requests/store',
+      payload
+    );
   const data = response.data;
   if (!data?.status) {
     throw new Error((data as { message?: string })?.message || 'Submit failed');

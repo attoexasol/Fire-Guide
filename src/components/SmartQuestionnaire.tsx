@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Flame, ChevronRight, Building2, Users, Layers, Calendar, FileText, ChevronLeft, Loader2, HelpCircle, Clock } from "lucide-react";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -6,7 +7,7 @@ import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
-import { fetchPropertyTypes, PropertyTypeResponse, fetchApproximatePeople, ApproximatePeopleResponse, formatPeopleOptionLabel, getPeopleOptionSortKey, fetchFloorPricing, FloorPricingItem, fetchFraDurations, FraDurationItem } from "../api/servicesService";
+import { fetchPropertyTypes, PropertyTypeResponse, fetchApproximatePeople, ApproximatePeopleResponse, formatPeopleOptionLabel, getPeopleOptionSortKey, fetchFloorPricing, FloorPricingItem, fetchFraDurations, FraDurationItem, fetchFireAlarmOptions, FireAlarmOptionItem, fetchExtinguisherServiceOptions, ExtinguisherServiceOptionItem, fetchEmergencyLightOptions, EmergencyLightServiceOptionItem, fetchMarshalOptions, MarshalServiceOptionItem, fetchFireConsultationOptions, ConsultationOptionItem } from "../api/servicesService";
 import { storeCustomQuoteRequest } from "../api/customQuoteRequestsService";
 import { getApiToken, getUserFullName, getUserEmail, getUserPhone } from "../lib/auth";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ interface SmartQuestionnaireProps {
     duration_id?: number;
     detector_count?: string;
     isCustomQuote?: boolean;
-    request_data?: { building_type: string; people_count: string; floors: number; assessment_type: string; notes?: string; detectors?: string };
+    request_data?: { building_type: string; people_count: string; floors: number };
     service_id?: number;
   }) => void;
   onBack: () => void;
@@ -35,6 +36,7 @@ interface SmartQuestionnaireProps {
 }
 
 export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete, onBack, bottomContent }: SmartQuestionnaireProps) {
+  const navigate = useNavigate();
   const isFireAlarmService = (serviceName?.toLowerCase().includes("alarm") ?? false);
   const isFireRiskAssessmentService = ((serviceName?.toLowerCase().includes("risk") && serviceName?.toLowerCase().includes("assessment")) ?? false);
   const isFireExtinguisherService = (serviceName?.toLowerCase().includes("extinguisher") ?? false);
@@ -67,6 +69,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     customExtinguisherFloors: "",
     extinguisherTypesKnow: "",
     extinguisherTypesList: "",
+    extinguisherTypeId: "",
     extinguisherLastServiced: "",
     emergencyLightsCount: "",
     customEmergencyLightsCount: "",
@@ -96,15 +99,41 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   const [fraDurations, setFraDurations] = useState<FraDurationItem[]>([]);
   const [loadingFraDurations, setLoadingFraDurations] = useState<boolean>(true);
   const [submittingCustomQuote, setSubmittingCustomQuote] = useState(false);
+  const [fireAlarmDetectorsOptions, setFireAlarmDetectorsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmCallPointsOptions, setFireAlarmCallPointsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmFloorsOptions, setFireAlarmFloorsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmPanelsOptions, setFireAlarmPanelsOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmSystemTypeOptions, setFireAlarmSystemTypeOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [fireAlarmLastServiceOptions, setFireAlarmLastServiceOptions] = useState<FireAlarmOptionItem[]>([]);
+  const [loadingFireAlarmOptions, setLoadingFireAlarmOptions] = useState(false);
+  const [extinguisherCountOptions, setExtinguisherCountOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [extinguisherFloorOptions, setExtinguisherFloorOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [extinguisherTypeOptions, setExtinguisherTypeOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [extinguisherLastServiceOptions, setExtinguisherLastServiceOptions] = useState<ExtinguisherServiceOptionItem[]>([]);
+  const [loadingExtinguisherOptions, setLoadingExtinguisherOptions] = useState(false);
+  const [emergencyLightCountOptions, setEmergencyLightCountOptions] = useState<EmergencyLightServiceOptionItem[]>([]);
+  const [emergencyLightFloorOptions, setEmergencyLightFloorOptions] = useState<EmergencyLightServiceOptionItem[]>([]);
+  const [emergencyLightTypeOptions, setEmergencyLightTypeOptions] = useState<EmergencyLightServiceOptionItem[]>([]);
+  const [emergencyLightTestOptions, setEmergencyLightTestOptions] = useState<EmergencyLightServiceOptionItem[]>([]);
+  const [loadingEmergencyLightOptions, setLoadingEmergencyLightOptions] = useState(false);
+  const [marshalPeopleOptions, setMarshalPeopleOptions] = useState<MarshalServiceOptionItem[]>([]);
+  const [marshalPlaceOptions, setMarshalPlaceOptions] = useState<MarshalServiceOptionItem[]>([]);
+  const [marshalBuildingTypeOptions, setMarshalBuildingTypeOptions] = useState<MarshalServiceOptionItem[]>([]);
+  const [marshalExperienceOptions, setMarshalExperienceOptions] = useState<MarshalServiceOptionItem[]>([]);
+  const [loadingMarshalOptions, setLoadingMarshalOptions] = useState(false);
+  const [consultationModeOptions, setConsultationModeOptions] = useState<ConsultationOptionItem[]>([]);
+  const [consultationHourOptions, setConsultationHourOptions] = useState<ConsultationOptionItem[]>([]);
+  const [loadingConsultationOptions, setLoadingConsultationOptions] = useState(false);
 
   const CUSTOM_PEOPLE_OPTION_VALUE = "More than 500 people";
-  const CUSTOM_FLOORS_OPTION_VALUE = "__custom__"; // "5+ Floors (enter number)" – like people custom option
+  const CUSTOM_FLOORS_OPTION_VALUE = "More than 5 floors"; // Same approach as people: one custom option that shows custom input
   const isMoreThan500People = (value: string) =>
     /more than 500|500\+|501\+/i.test(value) || value.toLowerCase().includes("500");
   const showCustomPeopleInput = isMoreThan500People(formData.approximatePeopleId);
   const peopleCountDisplay = showCustomPeopleInput && formData.customPeopleCount.trim()
     ? formData.customPeopleCount.trim()
     : formData.approximatePeopleId;
+  const isCustomFloorsOption = formData.numberOfFloors === CUSTOM_FLOORS_OPTION_VALUE;
   const floorOptions = useMemo(() => {
     const seen = new Set<string>();
     return floorPricing.filter((item) => {
@@ -113,47 +142,65 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       return true;
     });
   }, [floorPricing]);
-  const showCustomDetectorInput = formData.detectorCount === "100+";
+  const CUSTOM_FA_DETECTORS = "__custom_fa_detectors__";
+  const CUSTOM_FA_CALL_POINTS = "__custom_fa_call_points__";
+  const CUSTOM_FA_FLOORS = "__custom_fa_floors__";
+  const CUSTOM_FA_PANELS = "__custom_fa_panels__";
+  const showCustomDetectorInput = formData.detectorCount === CUSTOM_FA_DETECTORS;
   const detectorDisplay = showCustomDetectorInput && formData.customDetectorCount.trim()
     ? formData.customDetectorCount.trim()
-    : formData.detectorCount;
-  const showCustomManualCallPointsInput = formData.manualCallPoints === "20+";
+    : (fireAlarmDetectorsOptions.find((o) => String(o.id) === formData.detectorCount)?.value ?? formData.detectorCount);
+  const showCustomManualCallPointsInput = formData.manualCallPoints === CUSTOM_FA_CALL_POINTS;
   const manualCallPointsDisplay = showCustomManualCallPointsInput && formData.customManualCallPoints.trim()
     ? formData.customManualCallPoints.trim()
-    : formData.manualCallPoints;
-  const showCustomFireAlarmFloorsInput = formData.fireAlarmFloors === "7+";
+    : (fireAlarmCallPointsOptions.find((o) => String(o.id) === formData.manualCallPoints)?.value ?? formData.manualCallPoints);
+  const showCustomFireAlarmFloorsInput = formData.fireAlarmFloors === CUSTOM_FA_FLOORS;
   const fireAlarmFloorsDisplay = showCustomFireAlarmFloorsInput && formData.customFireAlarmFloors.trim()
     ? formData.customFireAlarmFloors.trim()
-    : formData.fireAlarmFloors;
-  const showCustomFireAlarmPanelsInput = formData.fireAlarmPanels === "3+";
+    : (fireAlarmFloorsOptions.find((o) => String(o.id) === formData.fireAlarmFloors)?.value ?? formData.fireAlarmFloors);
+  const showCustomFireAlarmPanelsInput = formData.fireAlarmPanels === CUSTOM_FA_PANELS;
   const fireAlarmPanelsDisplay = showCustomFireAlarmPanelsInput && formData.customFireAlarmPanels.trim()
     ? formData.customFireAlarmPanels.trim()
-    : formData.fireAlarmPanels;
-  const showCustomExtinguisherInput = formData.extinguisherCount === "40+";
+    : (fireAlarmPanelsOptions.find((o) => String(o.id) === formData.fireAlarmPanels)?.value ?? formData.fireAlarmPanels);
+  const alarmSystemTypeDisplay = fireAlarmSystemTypeOptions.find((o) => String(o.id) === formData.alarmSystemType)?.value ?? formData.alarmSystemType;
+  const lastServicedDisplay = formData.lastServiced === "__skip__" || !formData.lastServiced
+    ? ""
+    : (fireAlarmLastServiceOptions.find((o) => String(o.id) === formData.lastServiced)?.value ?? formData.lastServiced);
+  const CUSTOM_EXT_COUNT = "__custom_ext_count__";
+  const CUSTOM_EXT_FLOORS = "__custom_ext_floors__";
+  const showCustomExtinguisherInput = formData.extinguisherCount === CUSTOM_EXT_COUNT;
   const extinguisherCountDisplay = showCustomExtinguisherInput && formData.customExtinguisherCount.trim()
     ? formData.customExtinguisherCount.trim()
-    : formData.extinguisherCount;
-  const showCustomExtinguisherFloorsInput = formData.extinguisherFloors === "7+";
+    : (extinguisherCountOptions.find((o) => String(o.id) === formData.extinguisherCount)?.value ?? formData.extinguisherCount);
+  const showCustomExtinguisherFloorsInput = formData.extinguisherFloors === CUSTOM_EXT_FLOORS;
   const extinguisherFloorsDisplay = showCustomExtinguisherFloorsInput && formData.customExtinguisherFloors.trim()
     ? formData.customExtinguisherFloors.trim()
-    : formData.extinguisherFloors;
-  const showCustomEmergencyLightsInput = formData.emergencyLightsCount === "100+";
+    : (extinguisherFloorOptions.find((o) => String(o.id) === formData.extinguisherFloors)?.value ?? formData.extinguisherFloors);
+  const extinguisherTypeDisplay = formData.extinguisherTypeId && formData.extinguisherTypeId !== "__skip__"
+    ? (extinguisherTypeOptions.find((o) => String(o.id) === formData.extinguisherTypeId)?.value ?? "")
+    : "";
+  const extinguisherLastServicedDisplay = formData.extinguisherLastServiced && formData.extinguisherLastServiced !== "__skip__"
+    ? (extinguisherLastServiceOptions.find((o) => String(o.id) === formData.extinguisherLastServiced)?.value ?? formData.extinguisherLastServiced)
+    : "";
+  const CUSTOM_EL_LIGHTS = "__custom_el_lights__";
+  const CUSTOM_EL_FLOORS = "__custom_el_floors__";
+  const showCustomEmergencyLightsInput = formData.emergencyLightsCount === CUSTOM_EL_LIGHTS;
   const emergencyLightsCountDisplay = showCustomEmergencyLightsInput && formData.customEmergencyLightsCount.trim()
     ? formData.customEmergencyLightsCount.trim()
-    : formData.emergencyLightsCount;
-  const showCustomEmergencyLightsFloorsInput = formData.emergencyLightsFloors === "7+";
+    : (emergencyLightCountOptions.find((o) => String(o.id) === formData.emergencyLightsCount)?.value ?? formData.emergencyLightsCount);
+  const showCustomEmergencyLightsFloorsInput = formData.emergencyLightsFloors === CUSTOM_EL_FLOORS;
   const emergencyLightsFloorsDisplay = showCustomEmergencyLightsFloorsInput && formData.customEmergencyLightsFloors.trim()
     ? formData.customEmergencyLightsFloors.trim()
-    : formData.emergencyLightsFloors;
+    : (emergencyLightFloorOptions.find((o) => String(o.id) === formData.emergencyLightsFloors)?.value ?? formData.emergencyLightsFloors);
   const showCustomConsultationHoursInput = formData.consultationHours === "4+";
   const consultationHoursDisplay = showCustomConsultationHoursInput && formData.customConsultationHours.trim()
     ? formData.customConsultationHours.trim()
     : formData.consultationHours;
-  const showCustomTrainingPeopleInput = formData.trainingPeopleCount === "40+";
+  const CUSTOM_MARSHAL_PEOPLE = "__custom_marshal_people__";
+  const showCustomTrainingPeopleInput = formData.trainingPeopleCount === CUSTOM_MARSHAL_PEOPLE || formData.trainingPeopleCount === "40+";
   const trainingPeopleCountDisplay = showCustomTrainingPeopleInput && formData.customTrainingPeopleCount.trim()
     ? formData.customTrainingPeopleCount.trim()
-    : formData.trainingPeopleCount;
-  const isCustomFloorsOption = formData.numberOfFloors === "7+" || formData.numberOfFloors === "5+" || formData.numberOfFloors === CUSTOM_FLOORS_OPTION_VALUE;
+    : (marshalPeopleOptions.find((o) => String(o.id) === formData.trainingPeopleCount)?.value ?? formData.trainingPeopleCount);
   const showCustomFloorsInput = isCustomFloorsOption;
   const floorsDisplay = showCustomFloorsInput && formData.customFloorsCount.trim()
     ? formData.customFloorsCount.trim()
@@ -231,6 +278,130 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     loadFraDurations();
   }, []);
 
+  useEffect(() => {
+    if (!isFireAlarmService) return;
+    const token = getApiToken();
+    const load = async () => {
+      setLoadingFireAlarmOptions(true);
+      try {
+        const [detectors, callPoints, floors, panels, systemType, lastService] = await Promise.all([
+          fetchFireAlarmOptions(token, "ditectors"),
+          fetchFireAlarmOptions(token, "call_points"),
+          fetchFireAlarmOptions(token, "floors"),
+          fetchFireAlarmOptions(token, "alarm_panels"),
+          fetchFireAlarmOptions(token, "system_type"),
+          fetchFireAlarmOptions(token, "last_service"),
+        ]);
+        setFireAlarmDetectorsOptions(detectors);
+        setFireAlarmCallPointsOptions(callPoints);
+        setFireAlarmFloorsOptions(floors);
+        setFireAlarmPanelsOptions(panels);
+        setFireAlarmSystemTypeOptions(systemType);
+        setFireAlarmLastServiceOptions(lastService);
+      } catch (e) {
+        console.error("Error loading fire alarm options:", e);
+      } finally {
+        setLoadingFireAlarmOptions(false);
+      }
+    };
+    load();
+  }, [isFireAlarmService]);
+
+  useEffect(() => {
+    if (!isFireExtinguisherService) return;
+    const load = async () => {
+      setLoadingExtinguisherOptions(true);
+      try {
+        const token = getApiToken() ?? "";
+        const [extinguisher, floor, metarials, lastService] = await Promise.all([
+          fetchExtinguisherServiceOptions(token, "extinguisher"),
+          fetchExtinguisherServiceOptions(token, "floor"),
+          fetchExtinguisherServiceOptions(token, "metarials"),
+          fetchExtinguisherServiceOptions(token, "last_service"),
+        ]);
+        setExtinguisherCountOptions(extinguisher);
+        setExtinguisherFloorOptions(floor);
+        setExtinguisherTypeOptions(metarials);
+        setExtinguisherLastServiceOptions(lastService);
+      } catch (e) {
+        console.error("Error loading fire extinguisher options:", e);
+      } finally {
+        setLoadingExtinguisherOptions(false);
+      }
+    };
+    load();
+  }, [isFireExtinguisherService]);
+
+  useEffect(() => {
+    if (!isEmergencyLightingService) return;
+    const load = async () => {
+      setLoadingEmergencyLightOptions(true);
+      try {
+        const [light, floor, lightType, lightTest] = await Promise.all([
+          fetchEmergencyLightOptions("light"),
+          fetchEmergencyLightOptions("floor"),
+          fetchEmergencyLightOptions("light_type"),
+          fetchEmergencyLightOptions("light_test"),
+        ]);
+        setEmergencyLightCountOptions(light);
+        setEmergencyLightFloorOptions(floor);
+        setEmergencyLightTypeOptions(lightType);
+        setEmergencyLightTestOptions(lightTest);
+      } catch (e) {
+        console.error("Error loading emergency light options:", e);
+      } finally {
+        setLoadingEmergencyLightOptions(false);
+      }
+    };
+    load();
+  }, [isEmergencyLightingService]);
+
+  useEffect(() => {
+    if (!isFireMarshalTrainingService) return;
+    const load = async () => {
+      setLoadingMarshalOptions(true);
+      try {
+        const apiToken = getApiToken();
+        const [people, place, buildingType, experience] = await Promise.all([
+          fetchMarshalOptions(apiToken ?? "", "people"),
+          fetchMarshalOptions(apiToken ?? "", "training_place"),
+          fetchMarshalOptions(apiToken ?? "", "building_type"),
+          fetchMarshalOptions(apiToken ?? "", "experience"),
+        ]);
+        setMarshalPeopleOptions(people);
+        setMarshalPlaceOptions(place);
+        setMarshalBuildingTypeOptions(buildingType);
+        setMarshalExperienceOptions(experience);
+      } catch (e) {
+        console.error("Error loading fire marshal options:", e);
+      } finally {
+        setLoadingMarshalOptions(false);
+      }
+    };
+    load();
+  }, [isFireMarshalTrainingService]);
+
+  useEffect(() => {
+    if (!isFireSafetyConsultationService) return;
+    const load = async () => {
+      setLoadingConsultationOptions(true);
+      try {
+        const apiToken = getApiToken() ?? "";
+        const [mode, hour] = await Promise.all([
+          fetchFireConsultationOptions(apiToken, "mode"),
+          fetchFireConsultationOptions(apiToken, "hour"),
+        ]);
+        setConsultationModeOptions(mode);
+        setConsultationHourOptions(hour);
+      } catch (e) {
+        console.error("Error loading fire consultation options:", e);
+      } finally {
+        setLoadingConsultationOptions(false);
+      }
+    };
+    load();
+  }, [isFireSafetyConsultationService]);
+
   const updateFormData = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
   };
@@ -266,7 +437,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     const isCustom = formData.propertyTypeId === "__custom__";
     const propertyTypeDisplay = isCustom ? formData.customPropertyType.trim() : formData.propertyTypeId;
     const floors = isFireAlarmService
-      ? (showCustomFireAlarmFloorsInput ? parseInt(formData.customFireAlarmFloors, 10) : parseInt(formData.fireAlarmFloors, 10))
+      ? (showCustomFireAlarmFloorsInput ? parseInt(formData.customFireAlarmFloors, 10) : parseInt(formData.fireAlarmFloors, 10)) || 0
       : isFireExtinguisherService
         ? (showCustomExtinguisherFloorsInput ? parseInt(formData.customExtinguisherFloors, 10) : parseInt(formData.extinguisherFloors, 10))
         : isEmergencyLightingService
@@ -274,43 +445,57 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
           : isFireMarshalTrainingService
             ? 1
             : (showCustomFloorsInput ? parseInt(formData.customFloorsCount, 10) : parseInt(formData.numberOfFloors, 10));
+    const smokeDetectors = isFireAlarmService
+      ? (showCustomDetectorInput ? parseInt(formData.customDetectorCount, 10) : parseInt(formData.detectorCount, 10)) || 0
+      : undefined;
+    const callPoint = isFireAlarmService
+      ? (showCustomManualCallPointsInput ? parseInt(formData.customManualCallPoints, 10) : parseInt(formData.manualCallPoints, 10)) || 0
+      : undefined;
+    const panels = isFireAlarmService
+      ? (showCustomFireAlarmPanelsInput ? parseInt(formData.customFireAlarmPanels, 10) : parseInt(formData.fireAlarmPanels, 10)) || 0
+      : undefined;
+    const extinguisherCount = isFireExtinguisherService
+      ? (showCustomExtinguisherInput ? parseInt(formData.customExtinguisherCount, 10) : parseInt(formData.extinguisherCount, 10)) || 0
+      : undefined;
+    const extinguisherFloorsNum = isFireExtinguisherService
+      ? (showCustomExtinguisherFloorsInput ? parseInt(formData.customExtinguisherFloors, 10) : parseInt(formData.extinguisherFloors, 10)) || 0
+      : undefined;
+    const emergencyLightCount = isEmergencyLightingService
+      ? (showCustomEmergencyLightsInput ? parseInt(formData.customEmergencyLightsCount, 10) : parseInt(formData.emergencyLightsCount, 10)) || 0
+      : undefined;
+    const emergencyFloorsNum = isEmergencyLightingService
+      ? (showCustomEmergencyLightsFloorsInput ? parseInt(formData.customEmergencyLightsFloors, 10) : parseInt(formData.emergencyLightsFloors, 10)) || 0
+      : undefined;
+    const marshalPeopleNum = isFireMarshalTrainingService
+      ? (showCustomTrainingPeopleInput ? parseInt(formData.customTrainingPeopleCount, 10) : parseInt(formData.trainingPeopleCount, 10)) || 0
+      : undefined;
     setSubmittingCustomQuote(true);
     try {
+      const requestData: Parameters<typeof storeCustomQuoteRequest>[5] = isFireMarshalTrainingService
+        ? { people: marshalPeopleNum ?? 0 }
+        : {
+            building_type: propertyTypeDisplay || "Not specified",
+            people_count: peopleCountDisplay || formData.approximatePeopleId || "Not specified",
+            floors: isEmergencyLightingService
+              ? (isNaN(emergencyFloorsNum ?? 0) ? 0 : (emergencyFloorsNum ?? 0))
+              : isFireExtinguisherService
+                ? (isNaN(extinguisherFloorsNum ?? 0) ? 0 : (extinguisherFloorsNum ?? 0))
+                : (isNaN(floors) ? 0 : floors),
+            ...(isFireAlarmService && { smoke_detectors: smokeDetectors, call_point: callPoint, panels }),
+            ...(isFireExtinguisherService && extinguisherCount != null && { extinguisher: extinguisherCount }),
+            ...(isEmergencyLightingService && emergencyLightCount != null && { emergency_light: emergencyLightCount }),
+          };
       await storeCustomQuoteRequest(
         getApiToken(),
         resolvedServiceId,
         name,
         email,
         phone,
-        {
-          building_type: propertyTypeDisplay || "Not specified",
-          people_count: peopleCountDisplay || formData.approximatePeopleId || "Not specified",
-          floors: isNaN(floors) ? 0 : floors,
-          assessment_type: "Standard",
-          notes: formData.accessNotes.trim() || undefined,
-          ...(isFireAlarmService && detectorDisplay && { detectors: detectorDisplay }),
-          ...(isFireAlarmService && manualCallPointsDisplay && { manual_call_points: manualCallPointsDisplay }),
-          ...(isFireAlarmService && fireAlarmFloorsDisplay && { fire_alarm_floors: fireAlarmFloorsDisplay }),
-          ...(isFireAlarmService && fireAlarmPanelsDisplay && { fire_alarm_panels: fireAlarmPanelsDisplay }),
-          ...(isFireAlarmService && formData.alarmSystemType && { alarm_system_type: formData.alarmSystemType }),
-          ...(isFireAlarmService && formData.lastServiced && formData.lastServiced !== "__skip__" && { last_serviced: formData.lastServiced }),
-          ...(isFireExtinguisherService && extinguisherCountDisplay && { extinguisher_count: extinguisherCountDisplay }),
-          ...(isFireExtinguisherService && extinguisherFloorsDisplay && { extinguisher_floors: extinguisherFloorsDisplay }),
-          ...(isFireExtinguisherService && formData.extinguisherTypesKnow && { extinguisher_types_known: formData.extinguisherTypesKnow }),
-          ...(isFireExtinguisherService && formData.extinguisherTypesList && { extinguisher_types: formData.extinguisherTypesList }),
-          ...(isFireExtinguisherService && formData.extinguisherLastServiced && { extinguisher_last_serviced: formData.extinguisherLastServiced }),
-          ...(isEmergencyLightingService && emergencyLightsCountDisplay && { emergency_lights_count: emergencyLightsCountDisplay }),
-          ...(isEmergencyLightingService && emergencyLightsFloorsDisplay && { emergency_lights_floors: emergencyLightsFloorsDisplay }),
-          ...(isEmergencyLightingService && formData.emergencyLightingType && formData.emergencyLightingType !== "__skip__" && { emergency_lighting_type: formData.emergencyLightingType }),
-          ...(isEmergencyLightingService && formData.emergencyLightingTestFrequency && formData.emergencyLightingTestFrequency !== "__skip__" && { emergency_lighting_test_frequency: formData.emergencyLightingTestFrequency }),
-          ...(isFireMarshalTrainingService && trainingPeopleCountDisplay && { training_people_count: trainingPeopleCountDisplay }),
-          ...(isFireMarshalTrainingService && formData.trainingLocation && { training_location: formData.trainingLocation }),
-          ...(isFireMarshalTrainingService && formData.buildingTypeForTraining && { building_type: formData.buildingTypeForTraining }),
-          ...(isFireMarshalTrainingService && formData.staffTrainingBefore && formData.staffTrainingBefore !== "__skip__" && { staff_training_before: formData.staffTrainingBefore }),
-        }
+        requestData
       );
       toast.success("Custom quote request submitted successfully. We'll contact you soon.");
-      onBack();
+      // Custom flow only: redirect to services page after successful custom quote API call
+      navigate("/services");
       return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit custom quote request.");
@@ -321,8 +506,51 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   };
 
   const handleNext = async () => {
-    // Generic/FRA: call API only after step 3 (custom floor number), not on step 2 (people).
-    if (currentStep === 3 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && showCustomFloorsInput && formData.customFloorsCount.trim()) {
+    // Fire Risk Assessment: when user selected 5+ floors and entered a number, trigger store API on Next (step 3).
+    if (currentStep === 3 && isFireRiskAssessmentService && showCustomFloorsInput && formData.customFloorsCount.trim()) {
+      const resolvedServiceId = serviceId ?? (typeof service === "string" && /^\d+$/.test(service) ? parseInt(service, 10) : undefined);
+      if (!resolvedServiceId) {
+        toast.error("Unable to submit: please go back and select a service.");
+        return;
+      }
+      const name = getUserFullName()?.trim() ?? "";
+      const email = getUserEmail()?.trim() ?? "";
+      const phone = getUserPhone()?.trim() ?? "";
+      const buildingType = formData.propertyTypeId === "__custom__"
+        ? formData.customPropertyType.trim()
+        : (propertyTypes.find((pt) => pt.property_type_name === formData.propertyTypeId)?.property_type_name ?? formData.propertyTypeId);
+      const peopleCount = peopleCountDisplay || formData.approximatePeopleId || "";
+      const floors = parseInt(formData.customFloorsCount, 10);
+      if (isNaN(floors) || floors < 1) {
+        toast.error("Please enter a valid number of floors.");
+        return;
+      }
+      setSubmittingCustomQuote(true);
+      try {
+        await storeCustomQuoteRequest(
+          getApiToken(),
+          resolvedServiceId,
+          name,
+          email,
+          phone,
+          {
+            building_type: buildingType || "Not specified",
+            people_count: peopleCount || "Not specified",
+            floors,
+          }
+        );
+        toast.success("Custom quote request submitted successfully. We'll contact you soon.");
+        // Custom flow only: redirect to services page after successful custom quote API call
+        navigate("/services");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to submit quote request.");
+      } finally {
+        setSubmittingCustomQuote(false);
+      }
+      return;
+    }
+    // Generic: call API after step 3 when custom floor number entered (non-FRA flow).
+    if (currentStep === 3 && !isFireAlarmService && !isFireExtinguisherService && !isEmergencyLightingService && !isFireSafetyConsultationService && !isFireMarshalTrainingService && !isFireRiskAssessmentService && showCustomFloorsInput && formData.customFloorsCount.trim()) {
       const submitted = await submitCustomQuoteNow();
       if (submitted) return;
     }
@@ -336,7 +564,12 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       const submitted = await submitCustomQuoteNow();
       if (submitted) return;
     }
-    // Emergency Lighting custom: call API only after step 2 (floors), not on step 1.
+    // Emergency Lighting custom: call API immediately after both custom inputs (emergency_light and floors) are completed (step 2).
+    if (currentStep === 2 && isEmergencyLightingService && showCustomEmergencyLightsInput && formData.customEmergencyLightsCount.trim() && showCustomEmergencyLightsFloorsInput && formData.customEmergencyLightsFloors.trim()) {
+      const submitted = await submitCustomQuoteNow();
+      if (submitted) return;
+    }
+    // Emergency Lighting custom (one custom only): call API after step 2 when in custom quote flow.
     if (currentStep === 2 && isEmergencyLightingCustomQuote) {
       const submitted = await submitCustomQuoteNow();
       if (submitted) return;
@@ -366,10 +599,10 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   const isStepValid = () => {
     if (isFireAlarmService) {
       switch (currentStep) {
-        case 1: return formData.detectorCount === "100+" ? formData.customDetectorCount.trim() !== "" : formData.detectorCount !== "";
-        case 2: return formData.manualCallPoints === "20+" ? formData.customManualCallPoints.trim() !== "" : formData.manualCallPoints !== "";
-        case 3: return formData.fireAlarmFloors === "7+" ? formData.customFireAlarmFloors.trim() !== "" : formData.fireAlarmFloors !== "";
-        case 4: return formData.fireAlarmPanels === "3+" ? formData.customFireAlarmPanels.trim() !== "" : formData.fireAlarmPanels !== "";
+        case 1: return formData.detectorCount === CUSTOM_FA_DETECTORS ? formData.customDetectorCount.trim() !== "" : formData.detectorCount !== "";
+        case 2: return formData.manualCallPoints === CUSTOM_FA_CALL_POINTS ? formData.customManualCallPoints.trim() !== "" : formData.manualCallPoints !== "";
+        case 3: return formData.fireAlarmFloors === CUSTOM_FA_FLOORS ? formData.customFireAlarmFloors.trim() !== "" : formData.fireAlarmFloors !== "";
+        case 4: return formData.fireAlarmPanels === CUSTOM_FA_PANELS ? formData.customFireAlarmPanels.trim() !== "" : formData.fireAlarmPanels !== "";
         case 5: return formData.alarmSystemType !== "";
         case 6: return true; // Last serviced optional
         case 7: return formData.assessmentDate !== "";
@@ -379,9 +612,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     }
     if (isFireExtinguisherService) {
       switch (currentStep) {
-        case 1: return formData.extinguisherCount === "40+" ? formData.customExtinguisherCount.trim() !== "" : formData.extinguisherCount !== "";
-        case 2: return formData.extinguisherFloors === "7+" ? formData.customExtinguisherFloors.trim() !== "" : formData.extinguisherFloors !== "";
-        case 3: return formData.extinguisherTypesKnow !== "";
+        case 1: return formData.extinguisherCount === CUSTOM_EXT_COUNT ? formData.customExtinguisherCount.trim() !== "" : formData.extinguisherCount !== "";
+        case 2: return formData.extinguisherFloors === CUSTOM_EXT_FLOORS ? formData.customExtinguisherFloors.trim() !== "" : formData.extinguisherFloors !== "";
+        case 3: return true; // Type optional (can be __skip__)
         case 4: return true; // Last serviced optional
         case 5: return formData.assessmentDate !== "";
         case 6: return true; // Access notes optional
@@ -390,8 +623,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     }
     if (isEmergencyLightingService) {
       switch (currentStep) {
-        case 1: return formData.emergencyLightsCount === "100+" ? formData.customEmergencyLightsCount.trim() !== "" : formData.emergencyLightsCount !== "";
-        case 2: return formData.emergencyLightsFloors === "7+" ? formData.customEmergencyLightsFloors.trim() !== "" : formData.emergencyLightsFloors !== "";
+        case 1: return formData.emergencyLightsCount === CUSTOM_EL_LIGHTS ? formData.customEmergencyLightsCount.trim() !== "" : formData.emergencyLightsCount !== "";
+        case 2: return formData.emergencyLightsFloors === CUSTOM_EL_FLOORS ? formData.customEmergencyLightsFloors.trim() !== "" : formData.emergencyLightsFloors !== "";
         case 3: return true; // Lighting type optional
         case 4: return true; // Test frequency optional
         case 5: return formData.assessmentDate !== "";
@@ -410,7 +643,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     }
     if (isFireMarshalTrainingService) {
       switch (currentStep) {
-        case 1: return formData.trainingPeopleCount === "40+" ? formData.customTrainingPeopleCount.trim() !== "" : formData.trainingPeopleCount !== "";
+        case 1: return (formData.trainingPeopleCount === CUSTOM_MARSHAL_PEOPLE || formData.trainingPeopleCount === "40+") ? formData.customTrainingPeopleCount.trim() !== "" : formData.trainingPeopleCount !== "";
         case 2: return formData.trainingLocation !== "";
         case 3: return formData.buildingTypeForTraining !== "";
         case 4: return true; // Staff training before optional
@@ -503,19 +736,11 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
               building_type: propertyTypeDisplay || "Not specified",
               people_count: peopleCountDisplayForComplete,
               floors: isNaN(floors) ? 0 : floors,
-              assessment_type: "Standard",
-              notes: formData.accessNotes.trim() || undefined,
-              ...(isFireAlarmService && detectorDisplay && { detectors: detectorDisplay }),
-              ...(isFireAlarmService && manualCallPointsDisplay && { manual_call_points: manualCallPointsDisplay }),
-              ...(isFireAlarmService && fireAlarmFloorsDisplay && { fire_alarm_floors: fireAlarmFloorsDisplay }),
-              ...(isFireAlarmService && fireAlarmPanelsDisplay && { fire_alarm_panels: fireAlarmPanelsDisplay }),
-              ...(isFireAlarmService && formData.alarmSystemType && { alarm_system_type: formData.alarmSystemType }),
-              ...(isFireAlarmService && formData.lastServiced && formData.lastServiced !== "__skip__" && { last_serviced: formData.lastServiced }),
-              ...(isFireRiskAssessmentService && formData.fraAssessmentType && { fra_assessment_type: formData.fraAssessmentType }),
             }
           );
           toast.success("Custom quote request submitted successfully. We'll contact you soon.");
-          onBack();
+          // Custom flow only: redirect to services page after successful custom quote API call
+          navigate("/services");
         } catch (err) {
           toast.error(err instanceof Error ? err.message : "Failed to submit custom quote request.");
         } finally {
@@ -549,12 +774,11 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     if (isFireAlarmService && detectorDisplay) parts.push(`Detectors: ${detectorDisplay}`);
     if (isFireAlarmService && manualCallPointsDisplay) parts.push(`Manual call points: ${manualCallPointsDisplay}`);
     if (isFireAlarmService && fireAlarmPanelsDisplay) parts.push(`Fire alarm panels: ${fireAlarmPanelsDisplay}`);
-    if (isFireAlarmService && formData.alarmSystemType) parts.push(`Alarm system: ${formData.alarmSystemType}`);
-    if (isFireAlarmService && formData.lastServiced && formData.lastServiced !== "__skip__") parts.push(`Last serviced: ${formData.lastServiced}`);
+    if (isFireAlarmService && alarmSystemTypeDisplay) parts.push(`Alarm system: ${alarmSystemTypeDisplay}`);
+    if (isFireAlarmService && lastServicedDisplay) parts.push(`Last serviced: ${lastServicedDisplay}`);
     if (isFireExtinguisherService && extinguisherCountDisplay) parts.push(`Fire extinguishers: ${extinguisherCountDisplay}`);
-    if (isFireExtinguisherService && formData.extinguisherTypesKnow) parts.push(`Extinguisher types known: ${formData.extinguisherTypesKnow}`);
-    if (isFireExtinguisherService && formData.extinguisherTypesList) parts.push(`Extinguisher types: ${formData.extinguisherTypesList}`);
-    if (isFireExtinguisherService && formData.extinguisherLastServiced) parts.push(`Last serviced: ${formData.extinguisherLastServiced}`);
+    if (isFireExtinguisherService && extinguisherTypeDisplay) parts.push(`Extinguisher type: ${extinguisherTypeDisplay}`);
+    if (isFireExtinguisherService && extinguisherLastServicedDisplay) parts.push(`Last serviced: ${extinguisherLastServicedDisplay}`);
     if (isEmergencyLightingService && emergencyLightsCountDisplay) parts.push(`Emergency lights: ${emergencyLightsCountDisplay}`);
     if (isEmergencyLightingService && formData.emergencyLightingType && formData.emergencyLightingType !== "__skip__") parts.push(`Lighting type: ${formData.emergencyLightingType}`);
     if (isEmergencyLightingService && formData.emergencyLightingTestFrequency && formData.emergencyLightingTestFrequency !== "__skip__") parts.push(`Test frequency: ${formData.emergencyLightingTestFrequency}`);
@@ -562,7 +786,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
     const accessNote = parts.join(". ");
 
     const isCustomQuote = isFireAlarmService
-      ? showCustomFireAlarmFloorsInput
+      ? (showCustomDetectorInput || showCustomManualCallPointsInput || showCustomFireAlarmFloorsInput || showCustomFireAlarmPanelsInput)
       : isFireExtinguisherService
         ? showCustomExtinguisherInput || showCustomExtinguisherFloorsInput
         : isEmergencyLightingService
@@ -573,7 +797,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
               ? showCustomTrainingPeopleInput
               : (formData.propertyTypeId === "__custom__" || isMoreThan500People(formData.approximatePeopleId) || showCustomFloorsInput);
     const floorsNum = isFireAlarmService
-      ? (showCustomFireAlarmFloorsInput ? parseInt(formData.customFireAlarmFloors, 10) : parseInt(formData.fireAlarmFloors, 10))
+      ? (showCustomFireAlarmFloorsInput ? parseInt(formData.customFireAlarmFloors, 10) : parseInt(formData.fireAlarmFloors, 10)) || 0
       : isFireExtinguisherService
         ? (showCustomExtinguisherFloorsInput ? parseInt(formData.customExtinguisherFloors, 10) : parseInt(formData.extinguisherFloors, 10))
         : isEmergencyLightingService
@@ -613,11 +837,43 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       ...(isEmergencyLightingService && emergencyLightsCountDisplay && { emergency_lights_count: emergencyLightsCountDisplay }),
       ...(isFireSafetyConsultationService && formData.consultationType && { consultation_type: formData.consultationType }),
       ...(isFireSafetyConsultationService && consultationHoursDisplay && { consultation_hours: consultationHoursDisplay }),
+      ...(isFireSafetyConsultationService && {
+        mode_id: (() => { const v = formData.consultationType; const num = parseInt(String(v), 10); if (!Number.isNaN(num)) return num; const opt = consultationModeOptions.find((o) => String(o.id) === v) ?? consultationModeOptions.find((o) => (o.value || "").trim() === v); return opt?.id ?? consultationModeOptions[0]?.id ?? 1; })(),
+        hour_id: (() => { const v = formData.consultationHours === "4+" ? formData.customConsultationHours.trim() || "4" : formData.consultationHours; const num = parseInt(String(v), 10); if (!Number.isNaN(num)) return num; const opt = consultationHourOptions.find((o) => String(o.id) === v) ?? consultationHourOptions.find((o) => (o.value || "").trim() === v); return opt?.id ?? consultationHourOptions[0]?.id ?? 1; })(),
+      }),
       ...(isFireMarshalTrainingService && trainingPeopleCountDisplay && { training_people_count: trainingPeopleCountDisplay }),
       ...(isFireMarshalTrainingService && formData.trainingLocation && { training_location: formData.trainingLocation }),
       ...(isFireMarshalTrainingService && formData.buildingTypeForTraining && { building_type: formData.buildingTypeForTraining }),
       ...(isFireMarshalTrainingService && formData.staffTrainingBefore && formData.staffTrainingBefore !== "__skip__" && { staff_training_before: formData.staffTrainingBefore }),
       ...(isFireRiskAssessmentService && formData.fraAssessmentType && { fra_assessment_type: formData.fraAssessmentType }),
+      ...(isFireAlarmService && {
+        is_fire_alarm: true,
+        fire_alarm_smoke_detector_id: parseInt(String(formData.detectorCount), 10) || 0,
+        fire_alarm_call_point_id: parseInt(String(formData.manualCallPoints), 10) || 0,
+        fire_alarm_floor_id: parseInt(String(formData.fireAlarmFloors), 10) || 0,
+        fire_alarm_panel_id: parseInt(String(formData.fireAlarmPanels), 10) || 0,
+        fire_alarm_system_type_id: parseInt(String(formData.alarmSystemType), 10) || 0,
+        fire_alarm_last_service_id: formData.lastServiced && formData.lastServiced !== "__skip__" ? (parseInt(String(formData.lastServiced), 10) || 0) : 0,
+      }),
+      ...(isFireExtinguisherService && {
+        is_fire_extinguisher: true,
+        extinguisher_id: parseInt(String(formData.extinguisherCount), 10) || 0,
+        floor_id: parseInt(String(formData.extinguisherFloors), 10) || 0,
+        type_id: formData.extinguisherTypeId && formData.extinguisherTypeId !== "__skip__" ? (parseInt(String(formData.extinguisherTypeId), 10) || 0) : 0,
+        last_service_id: formData.extinguisherLastServiced && formData.extinguisherLastServiced !== "__skip__" ? (parseInt(String(formData.extinguisherLastServiced), 10) || 0) : 0,
+      }),
+      ...(isEmergencyLightingService && {
+        emergency_light_id: (() => { const id = parseInt(String(formData.emergencyLightsCount), 10); return Number.isNaN(id) ? 0 : id; })(),
+        emergency_floor_id: (() => { const id = parseInt(String(formData.emergencyLightsFloors), 10); return Number.isNaN(id) ? 0 : id; })(),
+        emergency_light_type_id: formData.emergencyLightingType && formData.emergencyLightingType !== "__skip__" ? (parseInt(String(formData.emergencyLightingType), 10) || 0) : (emergencyLightTypeOptions[0]?.id ?? 0),
+        emergency_light_test_id: formData.emergencyLightingTestFrequency && formData.emergencyLightingTestFrequency !== "__skip__" ? (parseInt(String(formData.emergencyLightingTestFrequency), 10) || 0) : (emergencyLightTestOptions[0]?.id ?? 0),
+      }),
+      ...(isFireMarshalTrainingService && {
+        people_id: (() => { const v = formData.trainingPeopleCount; const num = parseInt(String(v), 10); if (!Number.isNaN(num)) return num; const opt = marshalPeopleOptions.find((o) => String(o.id) === v) ?? marshalPeopleOptions.find((o) => (o.value || "").trim() === v); return opt?.id ?? marshalPeopleOptions[0]?.id ?? 1; })(),
+        place_id: (() => { const v = formData.trainingLocation; const num = parseInt(String(v), 10); if (!Number.isNaN(num)) return num; const opt = marshalPlaceOptions.find((o) => String(o.id) === v) ?? marshalPlaceOptions.find((o) => (o.value || "").trim() === v); return opt?.id ?? marshalPlaceOptions[0]?.id ?? 1; })(),
+        building_type_id: (() => { const v = formData.buildingTypeForTraining; const num = parseInt(String(v), 10); if (!Number.isNaN(num)) return num; const opt = marshalBuildingTypeOptions.find((o) => String(o.id) === v) ?? marshalBuildingTypeOptions.find((o) => (o.value || "").trim() === v); return opt?.id ?? marshalBuildingTypeOptions[0]?.id ?? 1; })(),
+        experience_id: (() => { const v = formData.staffTrainingBefore; if (!v || v === "__skip__") return marshalExperienceOptions[0]?.id ?? 1; const num = parseInt(String(v), 10); if (!Number.isNaN(num)) return num; const opt = marshalExperienceOptions.find((o) => String(o.id) === v) ?? marshalExperienceOptions.find((o) => (o.value || "").trim() === v); return opt?.id ?? marshalExperienceOptions[0]?.id ?? 1; })(),
+      }),
       ...(isCustomQuote && {
         isCustomQuote: true,
         service_id: resolvedServiceId,
@@ -625,30 +881,6 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
           building_type: propertyTypeDisplay || "Not specified",
           people_count: peopleCountDisplayForComplete,
           floors: isNaN(floorsNum) ? 0 : floorsNum,
-          assessment_type: "Standard",
-          notes: formData.accessNotes.trim() || undefined,
-          ...(isFireAlarmService && detectorDisplay && { detectors: detectorDisplay }),
-          ...(isFireAlarmService && manualCallPointsDisplay && { manual_call_points: manualCallPointsDisplay }),
-          ...(isFireAlarmService && fireAlarmFloorsDisplay && { fire_alarm_floors: fireAlarmFloorsDisplay }),
-          ...(isFireAlarmService && fireAlarmPanelsDisplay && { fire_alarm_panels: fireAlarmPanelsDisplay }),
-          ...(isFireAlarmService && formData.alarmSystemType && { alarm_system_type: formData.alarmSystemType }),
-          ...(isFireAlarmService && formData.lastServiced && formData.lastServiced !== "__skip__" && { last_serviced: formData.lastServiced }),
-          ...(isFireExtinguisherService && extinguisherCountDisplay && { extinguisher_count: extinguisherCountDisplay }),
-          ...(isFireExtinguisherService && extinguisherFloorsDisplay && { extinguisher_floors: extinguisherFloorsDisplay }),
-          ...(isFireExtinguisherService && formData.extinguisherTypesKnow && { extinguisher_types_known: formData.extinguisherTypesKnow }),
-          ...(isFireExtinguisherService && formData.extinguisherTypesList && { extinguisher_types: formData.extinguisherTypesList }),
-          ...(isFireExtinguisherService && formData.extinguisherLastServiced && { extinguisher_last_serviced: formData.extinguisherLastServiced }),
-          ...(isEmergencyLightingService && emergencyLightsCountDisplay && { emergency_lights_count: emergencyLightsCountDisplay }),
-          ...(isEmergencyLightingService && emergencyLightsFloorsDisplay && { emergency_lights_floors: emergencyLightsFloorsDisplay }),
-          ...(isEmergencyLightingService && formData.emergencyLightingType && formData.emergencyLightingType !== "__skip__" && { emergency_lighting_type: formData.emergencyLightingType }),
-          ...(isEmergencyLightingService && formData.emergencyLightingTestFrequency && formData.emergencyLightingTestFrequency !== "__skip__" && { emergency_lighting_test_frequency: formData.emergencyLightingTestFrequency }),
-          ...(isFireSafetyConsultationService && formData.consultationType && { consultation_type: formData.consultationType }),
-          ...(isFireSafetyConsultationService && consultationHoursDisplay && { consultation_hours: consultationHoursDisplay }),
-          ...(isFireMarshalTrainingService && trainingPeopleCountDisplay && { training_people_count: trainingPeopleCountDisplay }),
-          ...(isFireMarshalTrainingService && formData.trainingLocation && { training_location: formData.trainingLocation }),
-          ...(isFireMarshalTrainingService && formData.buildingTypeForTraining && { building_type: formData.buildingTypeForTraining }),
-          ...(isFireMarshalTrainingService && formData.staffTrainingBefore && formData.staffTrainingBefore !== "__skip__" && { staff_training_before: formData.staffTrainingBefore }),
-          ...(isFireRiskAssessmentService && formData.fraAssessmentType && { fra_assessment_type: formData.fraAssessmentType }),
         },
       }),
     });
@@ -825,12 +1057,20 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.consultationType}
                     onValueChange={(value) => updateFormData("consultationType", value)}
                   >
-                    <SelectTrigger id="consultationType" className="w-full">
-                      <SelectValue placeholder="Choose consultation type" />
+                    <SelectTrigger id="consultationType" className="w-full" disabled={loadingConsultationOptions}>
+                      <span className="block truncate text-left">
+                        {loadingConsultationOptions ? "Loading..." : (consultationModeOptions.find((o) => String(o.id) === formData.consultationType)?.value ?? (consultationModeOptions.length ? "Choose consultation type" : formData.consultationType || "Choose consultation type"))}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Phone / Video call">Phone / Video call</SelectItem>
-                      <SelectItem value="On-site visit">On-site visit</SelectItem>
+                      {consultationModeOptions.length > 0 ? consultationModeOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      )) : (
+                        <>
+                          <SelectItem value="Phone / Video call">Phone / Video call</SelectItem>
+                          <SelectItem value="On-site visit">On-site visit</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -852,15 +1092,28 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.consultationHours}
                     onValueChange={(value) => updateFormData("consultationHours", value)}
                   >
-                    <SelectTrigger id="consultationHours" className="w-full">
-                      <SelectValue placeholder="Choose hours" />
+                    <SelectTrigger id="consultationHours" className="w-full" disabled={loadingConsultationOptions}>
+                      <span className="block truncate text-left">
+                        {loadingConsultationOptions ? "Loading..." : (consultationHourOptions.find((o) => String(o.id) === formData.consultationHours)?.value ?? (consultationHourOptions.length ? (formData.consultationHours === "4+" ? "More than 4 hours → Custom Quote" : "Choose hours") : formData.consultationHours || "Choose hours"))}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 hour</SelectItem>
-                      <SelectItem value="2">2 hours</SelectItem>
-                      <SelectItem value="3">3 hours</SelectItem>
-                      <SelectItem value="4">4 hours</SelectItem>
-                      <SelectItem value="4+">More than 4 hours → Custom Quote</SelectItem>
+                      {consultationHourOptions.length > 0 ? (
+                        <>
+                          {consultationHourOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                          ))}
+                          <SelectItem value="4+">More than 4 hours → Custom Quote</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="1">1 hour</SelectItem>
+                          <SelectItem value="2">2 hours</SelectItem>
+                          <SelectItem value="3">3 hours</SelectItem>
+                          <SelectItem value="4">4 hours</SelectItem>
+                          <SelectItem value="4+">More than 4 hours → Custom Quote</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                   {showCustomConsultationHoursInput && (
@@ -896,15 +1149,23 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.trainingPeopleCount}
                     onValueChange={(value) => updateFormData("trainingPeopleCount", value)}
                   >
-                    <SelectTrigger id="trainingPeopleCount" className="w-full">
-                      <SelectValue placeholder="Choose number of people" />
+                    <SelectTrigger id="trainingPeopleCount" className="w-full" disabled={loadingMarshalOptions}>
+                      <span className="block truncate text-left">
+                        {loadingMarshalOptions ? "Loading..." : (marshalPeopleOptions.find((o) => String(o.id) === formData.trainingPeopleCount)?.value ?? marshalPeopleOptions.length ? "Choose number of people" : formData.trainingPeopleCount || "Choose number of people")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1-5">1-5 people</SelectItem>
-                      <SelectItem value="6-10">6-10 people</SelectItem>
-                      <SelectItem value="11-20">11-20 people</SelectItem>
-                      <SelectItem value="21-40">21-40 people</SelectItem>
-                      <SelectItem value="40+">More than 40 → Custom Quote</SelectItem>
+                      {marshalPeopleOptions.length > 0 ? marshalPeopleOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      )) : (
+                        <>
+                          <SelectItem value="1-5">1-5 people</SelectItem>
+                          <SelectItem value="6-10">6-10 people</SelectItem>
+                          <SelectItem value="11-20">11-20 people</SelectItem>
+                          <SelectItem value="21-40">21-40 people</SelectItem>
+                        </>
+                      )}
+                      <SelectItem value={CUSTOM_MARSHAL_PEOPLE}>More than 40 (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomTrainingPeopleInput && (
@@ -940,12 +1201,20 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.trainingLocation}
                     onValueChange={(value) => updateFormData("trainingLocation", value)}
                   >
-                    <SelectTrigger id="trainingLocation" className="w-full">
-                      <SelectValue placeholder="Choose location" />
+                    <SelectTrigger id="trainingLocation" className="w-full" disabled={loadingMarshalOptions}>
+                      <span className="block truncate text-left">
+                        {loadingMarshalOptions ? "Loading..." : (marshalPlaceOptions.find((o) => String(o.id) === formData.trainingLocation)?.value ?? marshalPlaceOptions.length ? "Choose location" : formData.trainingLocation || "Choose location")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="At our premises (on-site)">At our premises (on-site)</SelectItem>
-                      <SelectItem value="Online (video call)">Online (video call)</SelectItem>
+                      {marshalPlaceOptions.length > 0 ? marshalPlaceOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      )) : (
+                        <>
+                          <SelectItem value="At our premises (on-site)">At our premises (on-site)</SelectItem>
+                          <SelectItem value="Online (video call)">Online (video call)</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -967,17 +1236,25 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.buildingTypeForTraining}
                     onValueChange={(value) => updateFormData("buildingTypeForTraining", value)}
                   >
-                    <SelectTrigger id="buildingTypeForTraining" className="w-full">
-                      <SelectValue placeholder="Choose building type" />
+                    <SelectTrigger id="buildingTypeForTraining" className="w-full" disabled={loadingMarshalOptions}>
+                      <span className="block truncate text-left">
+                        {loadingMarshalOptions ? "Loading..." : (marshalBuildingTypeOptions.find((o) => String(o.id) === formData.buildingTypeForTraining)?.value ?? marshalBuildingTypeOptions.length ? "Choose building type" : formData.buildingTypeForTraining || "Choose building type")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Office">Office</SelectItem>
-                      <SelectItem value="Shop / Retail">Shop / Retail</SelectItem>
-                      <SelectItem value="Warehouse">Warehouse</SelectItem>
-                      <SelectItem value="School">School</SelectItem>
-                      <SelectItem value="Care Home">Care Home</SelectItem>
-                      <SelectItem value="Healthcare">Healthcare</SelectItem>
-                      <SelectItem value="Factory / Industrial">Factory / Industrial</SelectItem>
+                      {marshalBuildingTypeOptions.length > 0 ? marshalBuildingTypeOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      )) : (
+                        <>
+                          <SelectItem value="Office">Office</SelectItem>
+                          <SelectItem value="Shop / Retail">Shop / Retail</SelectItem>
+                          <SelectItem value="Warehouse">Warehouse</SelectItem>
+                          <SelectItem value="School">School</SelectItem>
+                          <SelectItem value="Care Home">Care Home</SelectItem>
+                          <SelectItem value="Healthcare">Healthcare</SelectItem>
+                          <SelectItem value="Factory / Industrial">Factory / Industrial</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -999,13 +1276,21 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.staffTrainingBefore}
                     onValueChange={(value) => updateFormData("staffTrainingBefore", value)}
                   >
-                    <SelectTrigger id="staffTrainingBefore" className="w-full">
-                      <SelectValue placeholder="Choose (optional)" />
+                    <SelectTrigger id="staffTrainingBefore" className="w-full" disabled={loadingMarshalOptions}>
+                      <span className="block truncate text-left">
+                        {loadingMarshalOptions ? "Loading..." : (formData.staffTrainingBefore === "__skip__" ? "Skip (optional)" : marshalExperienceOptions.find((o) => String(o.id) === formData.staffTrainingBefore)?.value ?? (marshalExperienceOptions.length ? "Choose (optional)" : formData.staffTrainingBefore || "Choose (optional)"))}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>
-                      <SelectItem value="Yes (refresher training)">Yes (refresher training)</SelectItem>
-                      <SelectItem value="No (first time)">No (first time)</SelectItem>
+                      {marshalExperienceOptions.length > 0 ? marshalExperienceOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      )) : (
+                        <>
+                          <SelectItem value="Yes (refresher training)">Yes (refresher training)</SelectItem>
+                          <SelectItem value="No (first time)">No (first time)</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1027,15 +1312,20 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.emergencyLightsCount}
                     onValueChange={(value) => updateFormData("emergencyLightsCount", value)}
                   >
-                    <SelectTrigger id="emergencyLightsCount" className="w-full">
-                      <SelectValue placeholder="Choose number of lights" />
+                    <SelectTrigger id="emergencyLightsCount" className="w-full" disabled={loadingEmergencyLightOptions}>
+                      <span className="block truncate text-left">
+                        {loadingEmergencyLightOptions ? "Loading..." : (emergencyLightCountOptions.find((o) => String(o.id) === formData.emergencyLightsCount)?.value ?? "Choose number of lights")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1-10">1-10 lights</SelectItem>
-                      <SelectItem value="11-25">11-25 lights</SelectItem>
-                      <SelectItem value="26-50">26-50 lights</SelectItem>
-                      <SelectItem value="51-100">51-100 lights</SelectItem>
-                      <SelectItem value="100+">More than 100 (Custom Quote)</SelectItem>
+                      {emergencyLightCountOptions.length === 0 && !loadingEmergencyLightOptions ? (
+                        <SelectItem value="">No options available</SelectItem>
+                      ) : (
+                        emergencyLightCountOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                        ))
+                      )}
+                      <SelectItem value={CUSTOM_EL_LIGHTS}>More than 100 (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomEmergencyLightsInput && (
@@ -1071,14 +1361,20 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.emergencyLightsFloors}
                     onValueChange={(value) => updateFormData("emergencyLightsFloors", value)}
                   >
-                    <SelectTrigger id="emergencyLightsFloors" className="w-full">
-                      <SelectValue placeholder="Choose number of floors" />
+                    <SelectTrigger id="emergencyLightsFloors" className="w-full" disabled={loadingEmergencyLightOptions}>
+                      <span className="block truncate text-left">
+                        {loadingEmergencyLightOptions ? "Loading..." : (emergencyLightFloorOptions.find((o) => String(o.id) === formData.emergencyLightsFloors)?.value ?? "Choose number of floors")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 floor</SelectItem>
-                      <SelectItem value="2-3">2-3 floors</SelectItem>
-                      <SelectItem value="4-6">4-6 floors</SelectItem>
-                      <SelectItem value="7+">7+ floors (Custom Quote)</SelectItem>
+                      {emergencyLightFloorOptions.length === 0 && !loadingEmergencyLightOptions ? (
+                        <SelectItem value="">No options available</SelectItem>
+                      ) : (
+                        emergencyLightFloorOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                        ))
+                      )}
+                      <SelectItem value={CUSTOM_EL_FLOORS}>7+ floors (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomEmergencyLightsFloorsInput && (
@@ -1114,14 +1410,16 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.emergencyLightingType}
                     onValueChange={(value) => updateFormData("emergencyLightingType", value)}
                   >
-                    <SelectTrigger id="emergencyLightingType" className="w-full">
-                      <SelectValue placeholder="Choose (optional)" />
+                    <SelectTrigger id="emergencyLightingType" className="w-full" disabled={loadingEmergencyLightOptions}>
+                      <span className="block truncate text-left">
+                        {loadingEmergencyLightOptions ? "Loading..." : (formData.emergencyLightingType === "__skip__" ? "Skip (optional)" : emergencyLightTypeOptions.find((o) => String(o.id) === formData.emergencyLightingType)?.value ?? "Choose (optional)")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>
-                      <SelectItem value="Self-contained lights">Self-contained lights</SelectItem>
-                      <SelectItem value="Central battery system">Central battery system</SelectItem>
-                      <SelectItem value="Not sure">Not sure</SelectItem>
+                      {emergencyLightTypeOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-gray-500">Central battery systems take longer. Self-contained → +£0, Central battery → +£100.</p>
@@ -1144,14 +1442,16 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.emergencyLightingTestFrequency}
                     onValueChange={(value) => updateFormData("emergencyLightingTestFrequency", value)}
                   >
-                    <SelectTrigger id="emergencyLightingTestFrequency" className="w-full">
-                      <SelectValue placeholder="Choose (optional)" />
+                    <SelectTrigger id="emergencyLightingTestFrequency" className="w-full" disabled={loadingEmergencyLightOptions}>
+                      <span className="block truncate text-left">
+                        {loadingEmergencyLightOptions ? "Loading..." : (formData.emergencyLightingTestFrequency === "__skip__" ? "Skip (optional)" : emergencyLightTestOptions.find((o) => String(o.id) === formData.emergencyLightingTestFrequency)?.value ?? "Choose (optional)")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>
-                      <SelectItem value="Monthly flick test">Monthly flick test</SelectItem>
-                      <SelectItem value="6-monthly">6-monthly</SelectItem>
-                      <SelectItem value="Annual (3-hour) test">Annual (3-hour) test</SelectItem>
+                      {emergencyLightTestOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-gray-500">Annual (3-hour) tests take much longer. Monthly → +£0, 6-monthly → +£40, Annual → +£120.</p>
@@ -1174,29 +1474,29 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.extinguisherCount}
                     onValueChange={(value) => updateFormData("extinguisherCount", value)}
                   >
-                    <SelectTrigger id="extinguisherCount" className="w-full">
-                      <SelectValue placeholder="Choose number of extinguishers" />
+                    <SelectTrigger id="extinguisherCount" className="w-full" disabled={loadingExtinguisherOptions}>
+                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose number of extinguishers"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1-5">1-5 extinguishers</SelectItem>
-                      <SelectItem value="6-10">6-10 extinguishers</SelectItem>
-                      <SelectItem value="11-20">11-20 extinguishers</SelectItem>
-                      <SelectItem value="21-40">21-40 extinguishers</SelectItem>
-                      <SelectItem value="40+">More than 40 (Custom Quote)</SelectItem>
+                      {extinguisherCountOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_EXT_COUNT}>More than 40 (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomExtinguisherInput && (
                     <div className="mt-4 space-y-2">
-                      <Label htmlFor="customExtinguisherCount">Enter number of extinguishers</Label>
+                      <Label htmlFor="customExtinguisherCount">Enter number of fire extinguishers</Label>
                       <Input
                         id="customExtinguisherCount"
                         type="text"
-                        placeholder="e.g. 50, 60"
+                        inputMode="numeric"
+                        placeholder="e.g. 50, 60, 80"
                         value={formData.customExtinguisherCount}
                         onChange={(e) => updateFormData("customExtinguisherCount", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of extinguishers for more than 40 (Custom Quote)</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of fire extinguishers</p>
                     </div>
                   )}
                 </div>
@@ -1218,14 +1518,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.extinguisherFloors}
                     onValueChange={(value) => updateFormData("extinguisherFloors", value)}
                   >
-                    <SelectTrigger id="extinguisherFloors" className="w-full">
-                      <SelectValue placeholder="Choose number of floors" />
+                    <SelectTrigger id="extinguisherFloors" className="w-full" disabled={loadingExtinguisherOptions}>
+                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose number of floors"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 floor</SelectItem>
-                      <SelectItem value="2-3">2-3 floors</SelectItem>
-                      <SelectItem value="4-6">4-6 floors</SelectItem>
-                      <SelectItem value="7+">7+ floors (Custom Quote)</SelectItem>
+                      {extinguisherFloorOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_EXT_FLOORS}>7+ floors (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomExtinguisherFloorsInput && (
@@ -1234,61 +1534,44 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                       <Input
                         id="customExtinguisherFloors"
                         type="text"
-                        placeholder="e.g. 10, 12, 15"
+                        inputMode="numeric"
+                        placeholder="e.g. 8, 10, 12"
                         value={formData.customExtinguisherFloors}
                         onChange={(e) => updateFormData("customExtinguisherFloors", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of floors for 7+ (Custom Quote)</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of floors (include all levels, basements, and ground floor)</p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Step 3: Do you know the types of extinguishers? */}
+            {/* Step 3: Extinguisher type (optional) */}
             {currentStep === 3 && isFireExtinguisherService && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
                     <HelpCircle className="w-8 h-8 text-red-600" />
                   </div>
-                  <h2 className="text-[#0A1A2F]">Question 3: Do you know the types of extinguishers?</h2>
+                  <h2 className="text-[#0A1A2F]">Question 3 (OPTIONAL): What type of extinguisher?</h2>
                 </div>
                 <div className="space-y-2">
-                  <Label>Select option</Label>
+                  <Label htmlFor="extinguisherTypeId">Select type</Label>
                   <Select
-                    value={formData.extinguisherTypesKnow}
-                    onValueChange={(value) => updateFormData("extinguisherTypesKnow", value)}
+                    value={formData.extinguisherTypeId}
+                    onValueChange={(value) => updateFormData("extinguisherTypeId", value)}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose Yes or No" />
+                    <SelectTrigger id="extinguisherTypeId" className="w-full" disabled={loadingExtinguisherOptions}>
+                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose (optional)"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Yes">Yes</SelectItem>
-                      <SelectItem value="No">No</SelectItem>
+                      <SelectItem value="__skip__">Skip / Not sure</SelectItem>
+                      {extinguisherTypeOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {formData.extinguisherTypesKnow === "Yes" && (
-                    <div className="mt-4 space-y-2">
-                      <Label>Select types (if known)</Label>
-                      <div className="flex flex-wrap gap-4 pt-2">
-                        {EXTINGUISHER_TYPES.map((type) => (
-                          <label key={type} className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox
-                              checked={formData.extinguisherTypesList.split(",").map((t) => t.trim()).includes(type)}
-                              onCheckedChange={() => toggleExtinguisherType(type)}
-                            />
-                            <span className="text-sm">{type}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <p className="text-sm text-gray-500">Standard mix → +£0. Many CO₂ or Wet Chemical → +£40</p>
-                    </div>
-                  )}
-                  {formData.extinguisherTypesKnow === "No" && (
-                    <p className="text-sm text-gray-500">If No, we assume standard mix → +£0</p>
-                  )}
                 </div>
               </div>
             )}
@@ -1308,14 +1591,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.extinguisherLastServiced}
                     onValueChange={(value) => updateFormData("extinguisherLastServiced", value)}
                   >
-                    <SelectTrigger id="extinguisherLastServiced" className="w-full">
-                      <SelectValue placeholder="Choose (optional)" />
+                    <SelectTrigger id="extinguisherLastServiced" className="w-full" disabled={loadingExtinguisherOptions}>
+                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose (optional)"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>
-                      <SelectItem value="Within last 12 months">Within last 12 months</SelectItem>
-                      <SelectItem value="Over 12 months">Over 12 months</SelectItem>
-                      <SelectItem value="Never / Not sure">Never / Not sure</SelectItem>
+                      {extinguisherLastServiceOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-gray-500">Old or missed services take longer.</p>
@@ -1338,15 +1621,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.detectorCount}
                     onValueChange={(value) => updateFormData("detectorCount", value)}
                   >
-                    <SelectTrigger id="detectorCount" className="w-full">
-                      <SelectValue placeholder="Choose number of detectors" />
+                    <SelectTrigger id="detectorCount" className="w-full" disabled={loadingFireAlarmOptions}>
+                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of detectors"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1-10">1-10 detectors</SelectItem>
-                      <SelectItem value="11-25">11-25 detectors</SelectItem>
-                      <SelectItem value="26-50">26-50 detectors</SelectItem>
-                      <SelectItem value="51-100">51-100 detectors</SelectItem>
-                      <SelectItem value="100+">More than 100 (Custom Quote)</SelectItem>
+                      {fireAlarmDetectorsOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_FA_DETECTORS}>More than 100 (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomDetectorInput && (
@@ -1355,12 +1637,13 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                       <Input
                         id="customDetectorCount"
                         type="text"
-                        placeholder="e.g. 150, 200"
+                        inputMode="numeric"
+                        placeholder="e.g. 150, 200, 250"
                         value={formData.customDetectorCount}
                         onChange={(e) => updateFormData("customDetectorCount", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of detectors for more than 100 (Custom Quote)</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of smoke/heat detectors</p>
                     </div>
                   )}
                 </div>
@@ -1382,28 +1665,29 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.manualCallPoints}
                     onValueChange={(value) => updateFormData("manualCallPoints", value)}
                   >
-                    <SelectTrigger id="manualCallPoints" className="w-full">
-                      <SelectValue placeholder="Choose number of call points" />
+                    <SelectTrigger id="manualCallPoints" className="w-full" disabled={loadingFireAlarmOptions}>
+                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of call points"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1-5">1-5 call points</SelectItem>
-                      <SelectItem value="6-10">6-10 call points</SelectItem>
-                      <SelectItem value="11-20">11-20 call points</SelectItem>
-                      <SelectItem value="20+">More than 20 (Custom Quote)</SelectItem>
+                      {fireAlarmCallPointsOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_FA_CALL_POINTS}>More than 20 (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomManualCallPointsInput && (
                     <div className="mt-4 space-y-2">
-                      <Label htmlFor="customManualCallPoints">Enter number of call points</Label>
+                      <Label htmlFor="customManualCallPoints">Enter number of manual call points</Label>
                       <Input
                         id="customManualCallPoints"
                         type="text"
-                        placeholder="e.g. 25, 30"
+                        inputMode="numeric"
+                        placeholder="e.g. 25, 30, 40"
                         value={formData.customManualCallPoints}
                         onChange={(e) => updateFormData("customManualCallPoints", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of call points for more than 20 (Custom Quote)</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of manual call points</p>
                     </div>
                   )}
                 </div>
@@ -1431,13 +1715,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                       onValueChange={(value) => updateFormData("numberOfFloors", value)}
                     >
                       <SelectTrigger id="numberOfFloors" className="w-full">
-                        <span>
-                          {formData.numberOfFloors === CUSTOM_FLOORS_OPTION_VALUE
-                            ? "5+ Floors (enter number)"
-                            : formData.numberOfFloors
-                              ? floorOptions.find((o) => o.floor === formData.numberOfFloors)?.label ?? formData.numberOfFloors
-                              : "Choose number of floors"}
-                        </span>
+                        <SelectValue placeholder="Choose number of floors" />
                       </SelectTrigger>
                       <SelectContent>
                         {floorOptions.length === 0 ? (
@@ -1449,7 +1727,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                           </SelectItem>
                         ))}
                         <SelectItem value={CUSTOM_FLOORS_OPTION_VALUE}>
-                          5+ Floors (enter number)
+                          More
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1460,12 +1738,13 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                       <Input
                         id="customFloorsCount"
                         type="text"
+                        inputMode="numeric"
                         placeholder="e.g. 10, 12, 15"
                         value={formData.customFloorsCount}
                         onChange={(e) => updateFormData("customFloorsCount", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of floors. After entering, click Next to submit a custom quote request.</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of floors (optional)</p>
                     </div>
                   )}
                   <p className="text-sm text-gray-500">Include all levels, basements, and ground floor</p>
@@ -1533,14 +1812,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.fireAlarmFloors}
                     onValueChange={(value) => updateFormData("fireAlarmFloors", value)}
                   >
-                    <SelectTrigger id="fireAlarmFloors" className="w-full">
-                      <SelectValue placeholder="Choose number of floors" />
+                    <SelectTrigger id="fireAlarmFloors" className="w-full" disabled={loadingFireAlarmOptions}>
+                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of floors"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 floor</SelectItem>
-                      <SelectItem value="2-3">2-3 floors</SelectItem>
-                      <SelectItem value="4-6">4-6 floors</SelectItem>
-                      <SelectItem value="7+">7+ floors (Custom Quote)</SelectItem>
+                      {fireAlarmFloorsOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_FA_FLOORS}>7+ floors (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomFireAlarmFloorsInput && (
@@ -1549,12 +1828,13 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                       <Input
                         id="customFireAlarmFloors"
                         type="text"
-                        placeholder="e.g. 10, 12, 15"
+                        inputMode="numeric"
+                        placeholder="e.g. 8, 10, 12"
                         value={formData.customFireAlarmFloors}
                         onChange={(e) => updateFormData("customFireAlarmFloors", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of floors for buildings with 7+ floors (Custom Quote)</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of floors (include all levels, basements, and ground floor)</p>
                     </div>
                   )}
                 </div>
@@ -1576,27 +1856,29 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.fireAlarmPanels}
                     onValueChange={(value) => updateFormData("fireAlarmPanels", value)}
                   >
-                    <SelectTrigger id="fireAlarmPanels" className="w-full">
-                      <SelectValue placeholder="Choose number of panels" />
+                    <SelectTrigger id="fireAlarmPanels" className="w-full" disabled={loadingFireAlarmOptions}>
+                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of panels"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 panel</SelectItem>
-                      <SelectItem value="2">2 panels</SelectItem>
-                      <SelectItem value="3+">3+ panels (Custom Quote)</SelectItem>
+                      {fireAlarmPanelsOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_FA_PANELS}>3+ panels (Custom Quote)</SelectItem>
                     </SelectContent>
                   </Select>
                   {showCustomFireAlarmPanelsInput && (
                     <div className="mt-4 space-y-2">
-                      <Label htmlFor="customFireAlarmPanels">Enter number of panels</Label>
+                      <Label htmlFor="customFireAlarmPanels">Enter number of fire alarm panels</Label>
                       <Input
                         id="customFireAlarmPanels"
                         type="text"
-                        placeholder="e.g. 4, 5"
+                        inputMode="numeric"
+                        placeholder="e.g. 4, 5, 6"
                         value={formData.customFireAlarmPanels}
                         onChange={(e) => updateFormData("customFireAlarmPanels", e.target.value)}
                         className="w-full"
                       />
-                      <p className="text-sm text-gray-500">Enter the number of panels for 3+ (Custom Quote)</p>
+                      <p className="text-sm text-gray-500">Enter the approximate number of fire alarm panels</p>
                     </div>
                   )}
                 </div>
@@ -1618,13 +1900,13 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.alarmSystemType}
                     onValueChange={(value) => updateFormData("alarmSystemType", value)}
                   >
-                    <SelectTrigger id="alarmSystemType" className="w-full">
-                      <SelectValue placeholder="Choose alarm system type" />
+                    <SelectTrigger id="alarmSystemType" className="w-full" disabled={loadingFireAlarmOptions}>
+                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose alarm system type"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Conventional">Conventional</SelectItem>
-                      <SelectItem value="Addressable">Addressable</SelectItem>
-                      <SelectItem value="Not sure">Not sure</SelectItem>
+                      {fireAlarmSystemTypeOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1646,14 +1928,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     value={formData.lastServiced}
                     onValueChange={(value) => updateFormData("lastServiced", value)}
                   >
-                    <SelectTrigger id="lastServiced" className="w-full">
-                      <SelectValue placeholder="Choose (optional)" />
+                    <SelectTrigger id="lastServiced" className="w-full" disabled={loadingFireAlarmOptions}>
+                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose (optional)"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>
-                      <SelectItem value="Within last 6 months">Within last 6 months</SelectItem>
-                      <SelectItem value="Over 12 months">Over 12 months</SelectItem>
-                      <SelectItem value="Never / Not sure">Never / Not sure</SelectItem>
+                      {fireAlarmLastServiceOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>{opt.value}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -16,7 +16,7 @@ interface BookingFlowProps {
   /** When price API fails on Book Now, pass message so summary can show it */
   initialPricingError?: string;
   isCustomQuote?: boolean;
-  customQuoteRequestData?: { building_type: string; people_count: string; floors: number; assessment_type: string; notes?: string };
+  customQuoteRequestData?: { building_type: string; people_count: string; floors: number };
   serviceIdForQuote?: number;
 }
 

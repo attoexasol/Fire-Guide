@@ -362,13 +362,16 @@ const apiClient = axios.create({
   timeout: 10000, // 10 seconds timeout
 });
 
-// On 401 (expired/invalid token), log out and redirect to home so user must log in again
+// On 401 (expired/invalid token), log out and redirect to home so user must log in again.
+// Do NOT redirect for public booking endpoints (e.g. selected_services/store) so Location → Compare flow works without login.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const requestUrl = error?.config?.url || '';
     const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register') || requestUrl.includes('/send_otp') || requestUrl.includes('/verify_otp') || requestUrl.includes('/reset_password');
-    if (!isAuthEndpoint && isTokenExpiredError(error)) {
+    const isPublicBookingEndpoint =
+      requestUrl.includes('selected_services/store') || requestUrl.includes('fire-alarm/selected-servie/create') || requestUrl.includes('fire-extingusher/selected-servie/create') || requestUrl.includes('fire-emergency-light/selected-servie/create') || requestUrl.includes('fire-marshal/selected-servie/create') || requestUrl.includes('fire-marshal/get-marshal') || requestUrl.includes('fire-consultation/selected-servie/create') || requestUrl.includes('fire-consultation/get-consultation') || requestUrl.includes('emergency-lighting-testing/get-emergency-light');
+    if (!isAuthEndpoint && !isPublicBookingEndpoint && isTokenExpiredError(error)) {
       handleTokenExpired();
       return Promise.reject(error);
     }
@@ -378,16 +381,17 @@ apiClient.interceptors.response.use(
 
 /**
  * Fire Alarm: fetch options for dropdowns (detectors, call_points, floors, alarm_panels, system_type, last_service).
- * POST /fire-alarm/get-alarm  Body: { api_token, type }
+ * POST /fire-alarm/get-alarm  Body: { api_token?, type }
  * Response: { status: true, message: string, data: [{ id, type, value, ... }] } — "value" is shown in dropdowns.
+ * api_token optional for guest/public booking flow.
  */
 export const fetchFireAlarmOptions = async (
-  apiToken: string,
+  apiToken: string | null,
   type: string
 ): Promise<FireAlarmOptionItem[]> => {
   try {
     const response = await apiClient.post<FireAlarmGetAlarmResponse>('/fire-alarm/get-alarm', {
-      api_token: apiToken,
+      ...(apiToken != null && apiToken !== '' && { api_token: apiToken }),
       type,
     });
     const raw = response.data as FireAlarmGetAlarmResponse | { data?: unknown };
@@ -1948,6 +1952,371 @@ export const storeSelectedService = async (data: SelectedServiceStoreRequest): P
         throw {
           success: false,
           message: error.response.data?.message || 'Failed to store selected service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Fire Alarm: create selected service when user clicks Book Now on Compare Professionals.
+ * POST /fire-alarm/selected-service/create (or selected-servie/create per backend)
+ * Body: api_token? (when logged in), professional_id, service_id, smoke_detector_id, call_point_id,
+ *       floor_id, panel_id, system_type_id, last_service_id, access_note, post_code, search_radius.
+ */
+export interface FireAlarmSelectedServiceCreateRequest {
+  api_token?: string;
+  professional_id: number;
+  service_id: number;
+  smoke_detector_id: number;
+  call_point_id: number;
+  floor_id: number;
+  panel_id: number;
+  system_type_id: number;
+  last_service_id: number;
+  access_note: string;
+  post_code: string;
+  search_radius: string;
+}
+
+export interface FireAlarmSelectedServiceCreateResponse {
+  status: string;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    customer_id?: number | null;
+    service_id?: number;
+    [key: string]: unknown;
+  };
+}
+
+export const createFireAlarmSelectedService = async (
+  data: FireAlarmSelectedServiceCreateRequest
+): Promise<FireAlarmSelectedServiceCreateResponse> => {
+  try {
+    const response = await apiClient.post<FireAlarmSelectedServiceCreateResponse>(
+      '/fire-alarm/selected-servie/create',
+      data
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating fire alarm selected service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create fire alarm selected service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Fire Extinguisher Selected Service create (Book Now flow).
+ * POST /fire-extingusher/selected-servie/create
+ * Body: api_token?, professional_id, service_id, extinguisher_id, floor_id, type_id, last_service_id, access_note, post_code, search_radius, preffered_date
+ */
+export interface FireExtinguisherSelectedServiceCreateRequest {
+  api_token?: string;
+  professional_id: number;
+  service_id: number;
+  extinguisher_id: number;
+  floor_id: number;
+  type_id: number;
+  last_service_id: number;
+  access_note: string;
+  post_code: string;
+  search_radius: string;
+  preffered_date: string;
+}
+
+export interface FireExtinguisherSelectedServiceCreateResponse {
+  status: string;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    customer_id?: number | null;
+    service_id?: number;
+    [key: string]: unknown;
+  };
+}
+
+export const createFireExtinguisherSelectedService = async (
+  data: FireExtinguisherSelectedServiceCreateRequest
+): Promise<FireExtinguisherSelectedServiceCreateResponse> => {
+  try {
+    const response = await apiClient.post<FireExtinguisherSelectedServiceCreateResponse>(
+      '/fire-extingusher/selected-servie/create',
+      data
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating fire extinguisher selected service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create fire extinguisher selected service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Emergency Light: create selected service when user clicks Book Now (service_id 39).
+ * POST /fire-emergency-light/selected-servie/create
+ * Body: api_token?, professional_id, service_id, light_id, floor_id, light_type_id, light_test_id, access_note, post_code, search_radius, preffered_date
+ */
+export interface EmergencyLightSelectedServiceCreateRequest {
+  api_token?: string;
+  professional_id: number;
+  service_id: number;
+  light_id: number;
+  floor_id: number;
+  light_type_id: number;
+  light_test_id: number;
+  access_note: string;
+  post_code: string;
+  search_radius: string;
+  preffered_date: string;
+}
+
+export interface EmergencyLightSelectedServiceCreateResponse {
+  status: string;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    customer_id?: number | null;
+    service_id?: number;
+    [key: string]: unknown;
+  };
+}
+
+export const createEmergencyLightSelectedService = async (
+  data: EmergencyLightSelectedServiceCreateRequest
+): Promise<EmergencyLightSelectedServiceCreateResponse> => {
+  try {
+    const body: Record<string, unknown> = {
+      professional_id: Number(data.professional_id),
+      service_id: Number(data.service_id),
+      light_id: Number(data.light_id),
+      floor_id: Number(data.floor_id),
+      light_type_id: Number(data.light_type_id),
+      light_test_id: Number(data.light_test_id),
+      access_note: String(data.access_note ?? ''),
+      post_code: String(data.post_code ?? ''),
+      search_radius: String(data.search_radius ?? ''),
+      preffered_date: String(data.preffered_date ?? ''),
+    };
+    if (data.api_token) body.api_token = data.api_token;
+    const response = await apiClient.post<EmergencyLightSelectedServiceCreateResponse>(
+      '/fire-emergency-light/selected-servie/create',
+      body
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating emergency light selected service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create emergency light selected service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Fire Marshal (Warden Training): create selected service when user clicks Book Now (service_id 45).
+ * POST /fire-marshal/selected-servie/create
+ * Body: api_token?, professional_id, service_id, people_id, place_id, building_type_id, experience_id, access_note, post_code, search_radius, preffered_date
+ */
+export interface FireMarshalSelectedServiceCreateRequest {
+  api_token?: string;
+  professional_id: number;
+  service_id: number;
+  people_id: number;
+  place_id: number;
+  building_type_id: number;
+  experience_id: number;
+  access_note: string;
+  post_code: string;
+  search_radius: string;
+  preffered_date: string;
+}
+
+export interface FireMarshalSelectedServiceCreateResponse {
+  status: string;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    [key: string]: unknown;
+  };
+}
+
+export const createFireMarshalSelectedService = async (
+  data: FireMarshalSelectedServiceCreateRequest
+): Promise<FireMarshalSelectedServiceCreateResponse> => {
+  try {
+    const body: Record<string, unknown> = {
+      professional_id: Number(data.professional_id),
+      service_id: Number(data.service_id),
+      people_id: Number(data.people_id),
+      place_id: Number(data.place_id),
+      building_type_id: Number(data.building_type_id),
+      experience_id: Number(data.experience_id),
+      access_note: String(data.access_note ?? ''),
+      post_code: String(data.post_code ?? ''),
+      search_radius: String(data.search_radius ?? ''),
+      preffered_date: String(data.preffered_date ?? ''),
+    };
+    if (data.api_token) body.api_token = data.api_token;
+    const response = await apiClient.post<FireMarshalSelectedServiceCreateResponse>(
+      '/fire-marshal/selected-servie/create',
+      body
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating fire marshal selected service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create fire marshal selected service',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Fire Safety Consultation: create selected service when user clicks Book Now (service_id 46).
+ * POST /fire-consultation/selected-servie/create
+ * Body: api_token?, professional_id, service_id, mode_id, hour_id, access_note, post_code, search_radius, preffered_date
+ */
+export interface FireConsultationSelectedServiceCreateRequest {
+  api_token?: string;
+  professional_id: number;
+  service_id: number;
+  mode_id: number;
+  hour_id: number;
+  access_note: string;
+  post_code: string;
+  search_radius: string;
+  preffered_date: string;
+}
+
+export interface FireConsultationSelectedServiceCreateResponse {
+  status: string;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    [key: string]: unknown;
+  };
+}
+
+export const createFireConsultationSelectedService = async (
+  data: FireConsultationSelectedServiceCreateRequest
+): Promise<FireConsultationSelectedServiceCreateResponse> => {
+  try {
+    const body: Record<string, unknown> = {
+      professional_id: Number(data.professional_id),
+      service_id: Number(data.service_id),
+      mode_id: Number(data.mode_id),
+      hour_id: Number(data.hour_id),
+      access_note: String(data.access_note ?? ''),
+      post_code: String(data.post_code ?? ''),
+      search_radius: String(data.search_radius ?? ''),
+      preffered_date: String(data.preffered_date ?? ''),
+    };
+    if (data.api_token) body.api_token = data.api_token;
+    const response = await apiClient.post<FireConsultationSelectedServiceCreateResponse>(
+      '/fire-consultation/selected-servie/create',
+      body
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating fire consultation selected service:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to create fire consultation selected service',
           error: error.response.data?.error || error.message,
           status: error.response.status,
         };

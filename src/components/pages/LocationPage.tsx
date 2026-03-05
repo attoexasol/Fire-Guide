@@ -12,11 +12,16 @@ export default function LocationPage() {
     <LocationPageComponent
       serviceId={serviceIdNum}
       questionnaireData={questionnaireData}
-      onContinue={() => navigate("/professionals/compare")}
+      onContinue={() => {
+        // Navigate to Compare Professionals page (professional list)
+        navigate("/professionals/compare", { replace: false });
+      }}
       onBack={() => navigate(`/services/${serviceId || selectedService}/questionnaire`)}
       onStoreSuccess={(createdId, locationData) => {
         if (createdId != null && createdId > 0) setSelectedServiceId(createdId);
         setLocationSearchData(locationData);
+        // Navigate to professional list immediately after persisting; ensures correct screen opens
+        navigate("/professionals/compare", { replace: false });
       }}
     />
   );
