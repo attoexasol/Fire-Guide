@@ -166,6 +166,294 @@ export const calculatePriceForBooking = async (
   }
 };
 
+/**
+ * Add FRA to cart and get calculated price
+ * POST /add-to-cart/fra
+ * Body: { professional_id, session_id }
+ * Returns service_price, platform_fee_percent, platform_fee_amount, total_price for display in Booking Summary.
+ */
+export interface AddToCartFraRequest {
+  professional_id: number;
+  session_id: number;
+}
+
+export interface AddToCartFraResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
+}
+
+export const addToCartFra = async (
+  data: AddToCartFraRequest
+): Promise<AddToCartFraResponse> => {
+  try {
+    const response = await apiClient.post<AddToCartFraResponse>(
+      '/add-to-cart/fra',
+      { professional_id: data.professional_id, session_id: data.session_id }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error adding FRA to cart:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Add Fire Alarm to cart and get calculated price
+ * POST /add-to-cart/fire-alarm
+ * Body: { professional_id, session_id }
+ * Returns service_price, platform_fee_percent, platform_fee_amount, total_price for display in Booking Summary.
+ */
+export interface AddToCartFireAlarmRequest {
+  professional_id: number;
+  session_id: number;
+}
+
+export interface AddToCartFireAlarmResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
+}
+
+export const addToCartFireAlarm = async (
+  data: AddToCartFireAlarmRequest
+): Promise<AddToCartFireAlarmResponse> => {
+  try {
+    const response = await apiClient.post<AddToCartFireAlarmResponse>(
+      '/add-to-cart/fire-alarm',
+      { professional_id: data.professional_id, session_id: data.session_id }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error adding Fire Alarm to cart:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Add Fire Extinguisher to cart and get calculated price
+ * POST /add-to-cart/fire-extinguisher
+ * Body: { professional_id, session_id }
+ * Returns service_price, platform_fee_percent, platform_fee_amount, total_price for display in Booking Summary.
+ */
+export interface AddToCartFireExtinguisherRequest {
+  professional_id: number;
+  session_id: number;
+}
+
+export interface AddToCartFireExtinguisherResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
+}
+
+export const addToCartFireExtinguisher = async (
+  data: AddToCartFireExtinguisherRequest
+): Promise<AddToCartFireExtinguisherResponse> => {
+  try {
+    const response = await apiClient.post<AddToCartFireExtinguisherResponse>(
+      '/add-to-cart/fire-extinguisher',
+      { professional_id: data.professional_id, session_id: data.session_id }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error adding Fire Extinguisher to cart:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Add Fire Emergency Light (Emergency Lighting Test) to cart and get calculated price
+ * POST /add-to-cart/fire-emergency-light
+ * Body: { professional_id, session_id }
+ * Returns service_price, platform_fee_percent, platform_fee_amount, total_price for display in Booking Summary.
+ */
+export interface AddToCartFireEmergencyLightRequest {
+  professional_id: number;
+  session_id: number;
+}
+
+export interface AddToCartFireEmergencyLightResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
+}
+
+export const addToCartFireEmergencyLight = async (
+  data: AddToCartFireEmergencyLightRequest
+): Promise<AddToCartFireEmergencyLightResponse> => {
+  try {
+    const response = await apiClient.post<AddToCartFireEmergencyLightResponse>(
+      '/add-to-cart/fire-emergency-light',
+      { professional_id: data.professional_id, session_id: data.session_id }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error adding Fire Emergency Light to cart:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Add Fire Marshal to cart and get calculated price
+ * POST /add-to-cart/fire-marshal
+ * Body: { professional_id, session_id }
+ * Returns service_price, platform_fee_percent, platform_fee_amount, total_price for display in Booking Summary.
+ */
+export interface AddToCartFireMarshalRequest {
+  professional_id: number;
+  session_id: number;
+}
+
+export interface AddToCartFireMarshalResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
+}
+
+export const addToCartFireMarshal = async (
+  data: AddToCartFireMarshalRequest
+): Promise<AddToCartFireMarshalResponse> => {
+  try {
+    const response = await apiClient.post<AddToCartFireMarshalResponse>(
+      '/add-to-cart/fire-marshal',
+      { professional_id: data.professional_id, session_id: data.session_id }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error adding Fire Marshal to cart:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Add Fire Safety Consultation to cart and get calculated price
+ * POST /add-to-cart/fire-consultation
+ * Body: { professional_id, session_id }
+ * Returns service_price, platform_fee_percent, platform_fee_amount, total_price for display in Booking Summary.
+ */
+export interface AddToCartFireConsultationRequest {
+  professional_id: number;
+  session_id: number;
+}
+
+export interface AddToCartFireConsultationResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    session_id?: number;
+    professional_id?: number;
+    service_id?: number;
+    service_price: number;
+    platform_fee_percent: string;
+    platform_fee_amount: number;
+    total_price: number;
+  };
+}
+
+export const addToCartFireConsultation = async (
+  data: AddToCartFireConsultationRequest
+): Promise<AddToCartFireConsultationResponse> => {
+  try {
+    const response = await apiClient.post<AddToCartFireConsultationResponse>(
+      '/add-to-cart/fire-consultation',
+      { professional_id: data.professional_id, session_id: data.session_id }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error adding Fire Consultation to cart:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw {
+        success: false,
+        message: error.response.data?.message || 'Failed to calculate price',
+        error: error.response.data?.error || error.message,
+        status: error.response.status,
+      };
+    }
+    throw error;
+  }
+};
+
 // TypeScript types for Upcoming Bookings API
 export interface UpcomingBookingItem {
   id?: number | string;

@@ -505,7 +505,9 @@ export function CustomerDetailsForm({
                             <span className="text-gray-900">£{pricing.servicePrice.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Platform fee</span>
+                            <span className="text-gray-600">
+                              Platform fee{pricing.platformFeePercent != null && pricing.platformFeePercent !== "" ? ` (${pricing.platformFeePercent}%)` : ""}
+                            </span>
                             <span className="text-gray-900">£{pricing.platformFee.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between pt-2 border-t">

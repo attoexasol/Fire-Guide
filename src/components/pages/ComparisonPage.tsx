@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { getApiToken } from "../../lib/auth";
 import { ComparisonResults } from "../ComparisonResults";
-import { calculatePriceForBooking } from "../../api/bookingService";
+import { calculatePriceForBooking, addToCartFra, addToCartFireAlarm, addToCartFireExtinguisher, addToCartFireEmergencyLight, addToCartFireMarshal, addToCartFireConsultation } from "../../api/bookingService";
 import { storeSelectedService, createFireAlarmSelectedService, createFireExtinguisherSelectedService, createEmergencyLightSelectedService, createFireMarshalSelectedService, createFireConsultationSelectedService } from "../../api/servicesService";
 import { toast } from "sonner";
 
@@ -246,24 +246,118 @@ export default function ComparisonPage() {
           }
         }
 
-        // 2) Fetch price for booking with { professional_id, session_id, service_id }
-        let bookingPricing: { servicePrice: number; platformFee: number; total: number } | undefined;
+        // 2) Fetch price: FRA uses add-to-cart/fra, Fire Alarm uses add-to-cart/fire-alarm (professional_id, session_id); others use calculate-price/for-booking
+        const isFRA = !isFireAlarm && !isFireExtinguisher && !isEmergencyLighting && !isFireMarshal && !isFireConsultation;
+        let bookingPricing: { servicePrice: number; platformFee: number; total: number; platformFeePercent?: string } | undefined;
         let bookingPricingError: string | undefined;
         if (serviceId != null && sessionId != null) {
           try {
-            const res = await calculatePriceForBooking({
-              professional_id: professional.id,
-              session_id: sessionId,
-              service_id: serviceId,
-            });
-            if (res?.status && res?.data) {
-              bookingPricing = {
-                servicePrice: res.data.service_price,
-                platformFee: res.data.platform_fee_amount,
-                total: res.data.total_price,
-              };
-            } else if (res?.status === false && res?.message) {
-              bookingPricingError = res.message;
+            if (isFRA) {
+              const res = await addToCartFra({
+                professional_id: professional.id,
+                session_id: Number(sessionId),
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount ?? 0,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
+            } else if (isFireAlarm) {
+              const res = await addToCartFireAlarm({
+                professional_id: professional.id,
+                session_id: Number(sessionId),
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount ?? 0,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
+            } else if (isFireExtinguisher) {
+              const res = await addToCartFireExtinguisher({
+                professional_id: professional.id,
+                session_id: Number(sessionId),
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount ?? 0,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
+            } else if (isEmergencyLighting) {
+              const res = await addToCartFireEmergencyLight({
+                professional_id: professional.id,
+                session_id: Number(sessionId),
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount ?? 0,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
+            } else if (isFireMarshal) {
+              const res = await addToCartFireMarshal({
+                professional_id: professional.id,
+                session_id: Number(sessionId),
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount ?? 0,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
+            } else if (isFireConsultation) {
+              const res = await addToCartFireConsultation({
+                professional_id: professional.id,
+                session_id: Number(sessionId),
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount ?? 0,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
+            } else {
+              const res = await calculatePriceForBooking({
+                professional_id: professional.id,
+                session_id: sessionId,
+                service_id: serviceId,
+              });
+              if (res?.status && res?.data) {
+                bookingPricing = {
+                  servicePrice: res.data.service_price,
+                  platformFee: res.data.platform_fee_amount,
+                  total: res.data.total_price,
+                  platformFeePercent: res.data.platform_fee_percent,
+                };
+              } else if (res?.status === false && res?.message) {
+                bookingPricingError = res.message;
+              }
             }
           } catch (err: any) {
             bookingPricingError = err?.message || err?.error || "Unable to load price. Please try again.";

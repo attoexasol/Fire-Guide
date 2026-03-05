@@ -12,7 +12,7 @@ interface BookingFlowProps {
   professionalId?: number | null;
   bookingProfessional?: any;
   /** When user clicks Book Now, price is fetched and passed here so Booking Summary shows API values immediately */
-  initialPricing?: { servicePrice: number; platformFee: number; total: number };
+  initialPricing?: { servicePrice: number; platformFee: number; total: number; platformFeePercent?: string };
   /** When price API fails on Book Now, pass message so summary can show it */
   initialPricingError?: string;
   isCustomQuote?: boolean;
@@ -56,11 +56,12 @@ export interface BookingData {
     latitude?: number;
     professionalBookingId?: number | null;
   };
-  // Pricing
+  // Pricing (service_price, platform_fee_percent, total_price from add-to-cart/fra or calculate-price API)
   pricing: {
     servicePrice: number;
     platformFee: number;
     total: number;
+    platformFeePercent?: string;
   };
   /** When set, API failed to get price (e.g. base price not configured); show in summary instead of amounts */
   pricingErrorMessage?: string;

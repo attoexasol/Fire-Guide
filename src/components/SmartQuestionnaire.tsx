@@ -1151,7 +1151,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                   >
                     <SelectTrigger id="trainingPeopleCount" className="w-full" disabled={loadingMarshalOptions}>
                       <span className="block truncate text-left">
-                        {loadingMarshalOptions ? "Loading..." : (marshalPeopleOptions.find((o) => String(o.id) === formData.trainingPeopleCount)?.value ?? marshalPeopleOptions.length ? "Choose number of people" : formData.trainingPeopleCount || "Choose number of people")}
+                        {loadingMarshalOptions ? "Loading..." : (formData.trainingPeopleCount === CUSTOM_MARSHAL_PEOPLE || formData.trainingPeopleCount === "40+" ? "More than 40 (Custom Quote)" : marshalPeopleOptions.find((o) => String(o.id) === formData.trainingPeopleCount)?.value ?? (marshalPeopleOptions.length ? "Choose number of people" : formData.trainingPeopleCount || "Choose number of people"))}
                       </span>
                     </SelectTrigger>
                     <SelectContent>
@@ -1314,7 +1314,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                   >
                     <SelectTrigger id="emergencyLightsCount" className="w-full" disabled={loadingEmergencyLightOptions}>
                       <span className="block truncate text-left">
-                        {loadingEmergencyLightOptions ? "Loading..." : (emergencyLightCountOptions.find((o) => String(o.id) === formData.emergencyLightsCount)?.value ?? "Choose number of lights")}
+                        {loadingEmergencyLightOptions ? "Loading..." : (formData.emergencyLightsCount === CUSTOM_EL_LIGHTS ? "More than 100 (Custom Quote)" : emergencyLightCountOptions.find((o) => String(o.id) === formData.emergencyLightsCount)?.value ?? "Choose number of lights")}
                       </span>
                     </SelectTrigger>
                     <SelectContent>
@@ -1363,7 +1363,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                   >
                     <SelectTrigger id="emergencyLightsFloors" className="w-full" disabled={loadingEmergencyLightOptions}>
                       <span className="block truncate text-left">
-                        {loadingEmergencyLightOptions ? "Loading..." : (emergencyLightFloorOptions.find((o) => String(o.id) === formData.emergencyLightsFloors)?.value ?? "Choose number of floors")}
+                        {loadingEmergencyLightOptions ? "Loading..." : (formData.emergencyLightsFloors === CUSTOM_EL_FLOORS ? "7+ floors (Custom Quote)" : emergencyLightFloorOptions.find((o) => String(o.id) === formData.emergencyLightsFloors)?.value ?? "Choose number of floors")}
                       </span>
                     </SelectTrigger>
                     <SelectContent>
@@ -1475,7 +1475,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("extinguisherCount", value)}
                   >
                     <SelectTrigger id="extinguisherCount" className="w-full" disabled={loadingExtinguisherOptions}>
-                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose number of extinguishers"} />
+                      <span className="block truncate text-left">
+                        {loadingExtinguisherOptions ? "Loading..." : (formData.extinguisherCount === CUSTOM_EXT_COUNT ? "More than 40 (Custom Quote)" : extinguisherCountOptions.find((o) => String(o.id) === formData.extinguisherCount)?.value ?? "Choose number of extinguishers")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {extinguisherCountOptions.map((opt) => (
@@ -1519,7 +1521,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("extinguisherFloors", value)}
                   >
                     <SelectTrigger id="extinguisherFloors" className="w-full" disabled={loadingExtinguisherOptions}>
-                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose number of floors"} />
+                      <span className="block truncate text-left">
+                        {loadingExtinguisherOptions ? "Loading..." : (formData.extinguisherFloors === CUSTOM_EXT_FLOORS ? "7+ floors (Custom Quote)" : extinguisherFloorOptions.find((o) => String(o.id) === formData.extinguisherFloors)?.value ?? "Choose number of floors")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {extinguisherFloorOptions.map((opt) => (
@@ -1622,7 +1626,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("detectorCount", value)}
                   >
                     <SelectTrigger id="detectorCount" className="w-full" disabled={loadingFireAlarmOptions}>
-                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of detectors"} />
+                      <span className="block truncate text-left">
+                        {loadingFireAlarmOptions ? "Loading..." : (formData.detectorCount === CUSTOM_FA_DETECTORS ? "More than 100 (Custom Quote)" : fireAlarmDetectorsOptions.find((o) => String(o.id) === formData.detectorCount)?.value ?? "Choose number of detectors")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {fireAlarmDetectorsOptions.map((opt) => (
@@ -1666,7 +1672,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("manualCallPoints", value)}
                   >
                     <SelectTrigger id="manualCallPoints" className="w-full" disabled={loadingFireAlarmOptions}>
-                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of call points"} />
+                      <span className="block truncate text-left">
+                        {loadingFireAlarmOptions ? "Loading..." : (formData.manualCallPoints === CUSTOM_FA_CALL_POINTS ? "More than 20 (Custom Quote)" : fireAlarmCallPointsOptions.find((o) => String(o.id) === formData.manualCallPoints)?.value ?? "Choose number of call points")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {fireAlarmCallPointsOptions.map((opt) => (
@@ -1715,7 +1723,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                       onValueChange={(value) => updateFormData("numberOfFloors", value)}
                     >
                       <SelectTrigger id="numberOfFloors" className="w-full">
-                        <SelectValue placeholder="Choose number of floors" />
+                        <span className="block truncate text-left">
+                          {!formData.numberOfFloors ? "Choose number of floors" : formData.numberOfFloors === CUSTOM_FLOORS_OPTION_VALUE ? "More" : (floorOptions.find((o) => o.floor === formData.numberOfFloors)?.label ?? formData.numberOfFloors)}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
                         {floorOptions.length === 0 ? (
@@ -1813,7 +1823,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("fireAlarmFloors", value)}
                   >
                     <SelectTrigger id="fireAlarmFloors" className="w-full" disabled={loadingFireAlarmOptions}>
-                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of floors"} />
+                      <span className="block truncate text-left">
+                        {loadingFireAlarmOptions ? "Loading..." : (formData.fireAlarmFloors === CUSTOM_FA_FLOORS ? "7+ floors (Custom Quote)" : fireAlarmFloorsOptions.find((o) => String(o.id) === formData.fireAlarmFloors)?.value ?? "Choose number of floors")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {fireAlarmFloorsOptions.map((opt) => (
@@ -1857,7 +1869,9 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("fireAlarmPanels", value)}
                   >
                     <SelectTrigger id="fireAlarmPanels" className="w-full" disabled={loadingFireAlarmOptions}>
-                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose number of panels"} />
+                      <span className="block truncate text-left">
+                        {loadingFireAlarmOptions ? "Loading..." : (formData.fireAlarmPanels === CUSTOM_FA_PANELS ? "3+ panels (Custom Quote)" : fireAlarmPanelsOptions.find((o) => String(o.id) === formData.fireAlarmPanels)?.value ?? "Choose number of panels")}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {fireAlarmPanelsOptions.map((opt) => (
