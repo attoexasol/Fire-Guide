@@ -58,10 +58,13 @@ export function AdminCustomQuoteContent() {
   const [professionals, setProfessionals] = useState<ProfessionalResponse[]>([]);
   const [professionalsLoading, setProfessionalsLoading] = useState(false);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("");
+  const [assignQuotedPrice, setAssignQuotedPrice] = useState<string>("");
   const [assignLoading, setAssignLoading] = useState(false);
   const [hoverRecordId, setHoverRecordId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const HOVER_CLOSE_DELAY_MS = 400;
+  const ITEMS_PER_PAGE = 10;
 
   const scheduleClose = useCallback(() => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
@@ -126,6 +129,22 @@ export function AdminCustomQuoteContent() {
     return matchesSearch && matchesFilter;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE));
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  const startItem = filteredRecords.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
   const statusStyle = (status: string): CSSProperties => {
     switch (status?.toLowerCase()) {
       case "pending":
@@ -136,6 +155,9 @@ export function AdminCustomQuoteContent() {
         return { backgroundColor: "#d1fae5", color: "#047857", border: "1px solid #6ee7b7" };
       case "assigned":
         return { backgroundColor: "#ede9fe", color: "#5b21b6", border: "1px solid #c4b5fd" };
+      case "accept":
+      case "accepted":
+        return { backgroundColor: "#dcfce7", color: "#166534", border: "1px solid #22c55e" };
       default:
         return { backgroundColor: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0" };
     }
@@ -232,12 +254,18 @@ export function AdminCustomQuoteContent() {
       toast.error("Please select a professional");
       return;
     }
+    const price = parseFloat(assignQuotedPrice.replace(/[^0-9.]/g, ""));
+    if (Number.isNaN(price) || price < 0) {
+      toast.error("Please enter a valid quoted price (0 or greater)");
+      return;
+    }
     setAssignLoading(true);
     try {
-      await assignProfessionalToQuoteRequest(token, assignRecord.id, profId);
-      toast.success("Professional assigned successfully");
+      await assignProfessionalToQuoteRequest(token, assignRecord.id, profId, price);
+      toast.success("Professional assigned and price updated successfully");
       setAssignRecord(null);
       setSelectedProfessionalId("");
+      setAssignQuotedPrice("");
       fetchRecords();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to assign professional");
@@ -310,11 +338,12 @@ export function AdminCustomQuoteContent() {
                       <th className="text-left p-4 text-sm font-medium text-gray-700">Status</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-700">Date</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-700">Professional</th>
+                      <th className="text-left p-4 text-sm font-medium text-gray-700">Quoted Price</th>
                       <th className="text-right p-4 text-sm font-medium text-gray-700 w-12">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredRecords.map((record) => {
+                    {paginatedRecords.map((record) => {
                       const rd = parseRequestData(record.request_data);
                       return (
                         <tr key={record.id} className="hover:bg-gray-50">
@@ -346,6 +375,13 @@ export function AdminCustomQuoteContent() {
                           <td className="p-4">
                             <p className="text-sm text-gray-700">
                               {record.professional?.name ?? "—"}
+                            </p>
+                          </td>
+                          <td className="p-4">
+                            <p className="text-sm text-gray-700 font-medium">
+                              {record.quoted_price != null && record.quoted_price !== ""
+                                ? `£${Number(record.quoted_price).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : "—"}
                             </p>
                           </td>
                           <td className="p-4 text-right">
@@ -402,7 +438,7 @@ export function AdminCustomQuoteContent() {
               </div>
 
               <div className="md:hidden space-y-4">
-                {filteredRecords.map((record) => {
+                {paginatedRecords.map((record) => {
                   const rd = parseRequestData(record.request_data);
                   return (
                     <div
@@ -472,10 +508,45 @@ export function AdminCustomQuoteContent() {
                       {record.professional?.name && (
                         <p className="text-xs text-gray-600">Professional: {record.professional.name}</p>
                       )}
+                      {record.quoted_price != null && record.quoted_price !== "" && (
+                        <p className="text-xs text-gray-600 font-medium">
+                          Quoted price: £{Number(record.quoted_price).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
               </div>
+
+              {/* Pagination */}
+              {filteredRecords.length > ITEMS_PER_PAGE && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">
+                    Showing {startItem}–{endItem} of {filteredRecords.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-gray-600 px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>
@@ -579,6 +650,19 @@ export function AdminCustomQuoteContent() {
                     {detailsRecord.professional.email && (
                       <p className="text-sm text-gray-600">{detailsRecord.professional.email}</p>
                     )}
+                  </div>
+                )}
+                {(detailsRecord.quoted_price != null && detailsRecord.quoted_price !== "") && (
+                  <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <FileCheck className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <p className="font-semibold text-gray-800">Quoted Price</p>
+                    </div>
+                    <p className="text-gray-900 font-medium text-lg">
+                      £{Number(detailsRecord.quoted_price).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 )}
               </div>
@@ -702,6 +786,7 @@ export function AdminCustomQuoteContent() {
           if (!open) {
             setAssignRecord(null);
             setSelectedProfessionalId("");
+            setAssignQuotedPrice("");
           }
         }}
       >
@@ -740,6 +825,22 @@ export function AdminCustomQuoteContent() {
                   <p className="text-sm text-gray-500 mt-2">No professionals available.</p>
                 )}
               </div>
+              <div>
+                <Label htmlFor="assign-quoted-price">Quoted Price (£)</Label>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">£</span>
+                  <Input
+                    id="assign-quoted-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={assignQuotedPrice}
+                    onChange={(e) => setAssignQuotedPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+                    className="w-full pl-8"
+                  />
+                </div>
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -748,7 +849,7 @@ export function AdminCustomQuoteContent() {
             </Button>
             <Button
               onClick={handleAssignSubmit}
-              disabled={!selectedProfessionalId || assignLoading || professionalsLoading}
+              disabled={!selectedProfessionalId || assignLoading || professionalsLoading || assignQuotedPrice.trim() === ""}
             >
               {assignLoading ? (
                 <>

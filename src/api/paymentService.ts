@@ -3,22 +3,22 @@ import axios from 'axios';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // TypeScript types for Payment Invoice Store request
+// POST payment_invoice/store — initiates payment; response includes payment_url for redirect to Stripe Checkout
 export interface PaymentInvoiceStoreRequest {
   api_token: string;
-  card_number: string;
-  cardholder_name: string;
-  expiry_date: string; // Format: YYYY-MM-DD
-  cvv: number;
-  is_terms_privacy: boolean;
   professional_booking_id: number;
-  /** Total to pay from Order Summary (same as calculate-price/for-booking total) */
+  /** Total to pay (same as Order Summary total) */
   price: number;
 }
 
 export interface PaymentInvoiceStoreResponse {
   status: string;
   message: string;
-  data?: any;
+  data?: {
+    tx_ref?: string;
+    payment_url?: string;
+    [key: string]: unknown;
+  };
 }
 
 // Create axios instance with base configuration

@@ -35,7 +35,7 @@ export function PaymentPage({
   const [cardName, setCardName] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
-  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [processing, setProcessing] = useState(false);
 
@@ -70,26 +70,8 @@ export function PaymentPage({
   };
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!cardName.trim()) {
-      newErrors.cardName = "Cardholder name is required";
-    }
-    if (cardNumber.replace(/\s/g, "").length !== 16) {
-      newErrors.cardNumber = "Please enter a valid card number";
-    }
-    if (!expiryDate.match(/^\d{2}\/\d{2}$/)) {
-      newErrors.expiryDate = "Please enter a valid expiry date";
-    }
-    if (cvv.length !== 3) {
-      newErrors.cvv = "Please enter a valid CVV";
-    }
-    if (!isTermsAccepted) {
-      newErrors.terms = "You must agree to the Terms of Service and Privacy Policy";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors({});
+    return true;
   };
 
   // Convert MM/YY to YYYY-MM-DD format for API
@@ -119,31 +101,26 @@ export function PaymentPage({
     }
 
     setProcessing(true);
-    
+
     try {
-      // Convert expiry date from MM/YY to YYYY-MM-DD
-      const expiryDateFormatted = convertExpiryDate(expiryDate);
-      
-      // Prepare payment data — price from Order Summary (bookingData.pricing.total)
       const paymentData = {
         api_token: token,
-        card_number: cardNumber.replace(/\s/g, ""), // Remove spaces
-        cardholder_name: cardName,
-        expiry_date: expiryDateFormatted,
-        cvv: parseInt(cvv, 10),
-        is_terms_privacy: isTermsAccepted,
         professional_booking_id: bookingData.customer.professionalBookingId,
         price: bookingData.pricing.total,
       };
 
-      // Submit payment
       const response = await storePaymentInvoice(paymentData);
-      
+
+      if (response.status === "success" && response.data?.payment_url) {
+        toast.success("Redirecting to secure payment...");
+        window.location.href = response.data.payment_url;
+        return;
+      }
       if (response.status === "success") {
-        toast.success("Payment processed successfully!");
+        toast.success(response.message || "Payment initiated successfully.");
         onPaymentComplete();
       } else {
-        throw new Error(response.message || "Failed to process payment");
+        throw new Error(response.message || "Failed to initiate payment");
       }
     } catch (error: any) {
       console.error("Payment processing error:", error);
@@ -203,170 +180,11 @@ export function PaymentPage({
             Back to Details
           </Button>
 
-          <h1 className="text-[#0A1A2F] mb-8">Secure Payment</h1>
+          <h1 className="text-[#0A1A2F] mb-8">Order Summary</h1>
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left Column - Payment Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Security Badge */}
-              <Card className="bg-green-50 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                      <Lock className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-green-900">Secure Payment</p>
-                      <p className="text-sm text-green-700">Your payment information is encrypted and secure</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Payment Form */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-[#0A1A2F] flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    Card Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Card Number */}
-                    <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Card Number *</Label>
-                      <div className="relative">
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                          id="cardNumber"
-                          placeholder="1234 5678 9012 3456"
-                          value={cardNumber}
-                          onChange={(e) => updateCardNumber(e.target.value)}
-                          className={`pl-10 ${errors.cardNumber ? "border-red-500" : ""}`}
-                        />
-                      </div>
-                      {errors.cardNumber && (
-                        <p className="text-sm text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.cardNumber}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Cardholder Name */}
-                    <div className="space-y-2">
-                      <Label htmlFor="cardName">Cardholder Name *</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                          id="cardName"
-                          placeholder="Name on card"
-                          value={cardName}
-                          onChange={(e) => {
-                            setCardName(e.target.value);
-                            if (errors.cardName) setErrors({ ...errors, cardName: "" });
-                          }}
-                          className={`pl-10 ${errors.cardName ? "border-red-500" : ""}`}
-                        />
-                      </div>
-                      {errors.cardName && (
-                        <p className="text-sm text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.cardName}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Expiry and CVV */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="expiryDate">Expiry Date *</Label>
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="expiryDate"
-                            placeholder="MM/YY"
-                            value={expiryDate}
-                            onChange={(e) => updateExpiryDate(e.target.value)}
-                            className={`pl-10 ${errors.expiryDate ? "border-red-500" : ""}`}
-                          />
-                        </div>
-                        {errors.expiryDate && (
-                          <p className="text-sm text-red-600 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
-                            {errors.expiryDate}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cvv">CVV *</Label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="cvv"
-                            type="password"
-                            placeholder="123"
-                            value={cvv}
-                            onChange={(e) => updateCvv(e.target.value)}
-                            maxLength={3}
-                            className={`pl-10 ${errors.cvv ? "border-red-500" : ""}`}
-                          />
-                        </div>
-                        {errors.cvv && (
-                          <p className="text-sm text-red-600 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
-                            {errors.cvv}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Security Info */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-                      <Lock className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-blue-900">
-                        We don't store your card details. All payments are processed securely through Stripe.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Terms */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={isTermsAccepted}
-                      onChange={(e) => {
-                        setIsTermsAccepted(e.target.checked);
-                        if (errors.terms) setErrors({ ...errors, terms: "" });
-                      }}
-                      className={`mt-1 w-4 h-4 border-gray-300 rounded text-red-600 focus:ring-red-500 ${errors.terms ? "border-red-500" : ""}`}
-                    />
-                    <label htmlFor="terms" className="text-sm text-gray-700">
-                      I agree to the{" "}
-                      <a href="#" className="text-red-600 hover:underline">Terms of Service</a>
-                      {" "}and{" "}
-                      <a href="#" className="text-red-600 hover:underline">Privacy Policy</a>.
-                      I understand that payment will be charged immediately upon confirmation.
-                    </label>
-                  </div>
-                  {errors.terms && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-2">
-                      <AlertCircle className="w-3 h-3" />
-                      {errors.terms}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column - Order Summary */}
-            <div className="lg:col-span-1">
+          <div className="w-full max-w-3xl">
+            {/* Order Summary - full width */}
+            <div className="w-full">
               <div className="sticky top-6 space-y-6">
                 <Card>
                   <CardHeader>

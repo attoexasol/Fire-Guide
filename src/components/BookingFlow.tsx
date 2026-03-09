@@ -10,6 +10,10 @@ interface BookingFlowProps {
   selectedService?: string;
   selectedProfessional?: any;
   professionalId?: number | null;
+  /** Service ID from Book response (for professional_booking/store). */
+  serviceId?: number;
+  /** Session ID from selected_services/store (for professional_booking/store). */
+  sessionId?: number;
   bookingProfessional?: any;
   /** When user clicks Book Now, price is fetched and passed here so Booking Summary shows API values immediately */
   initialPricing?: { servicePrice: number; platformFee: number; total: number; platformFeePercent?: string };
@@ -71,7 +75,7 @@ export interface BookingData {
 
 const defaultPricing = { servicePrice: 285, platformFee: 15, total: 300 };
 
-export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessional, initialPricing, initialPricingError, isCustomQuote, customQuoteRequestData, serviceIdForQuote }: BookingFlowProps) {
+export function BookingFlow({ onBack, onConfirm, professionalId, serviceId, sessionId, bookingProfessional, initialPricing, initialPricingError, isCustomQuote, customQuoteRequestData, serviceIdForQuote }: BookingFlowProps) {
   const [currentStep, setCurrentStep] = useState<BookingStep>("appointment");
   
   // Default professional data (fallback)
@@ -185,6 +189,8 @@ export function BookingFlow({ onBack, onConfirm, professionalId, bookingProfessi
             service={bookingData.service}
             professional={bookingData.professional}
             professionalId={bookingData.professionalId}
+            serviceId={serviceId}
+            sessionId={sessionId}
             selectedDate={bookingData.selectedDate}
             selectedTime={bookingData.selectedTime}
             pricing={bookingData.pricing}

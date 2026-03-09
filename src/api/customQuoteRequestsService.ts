@@ -76,6 +76,8 @@ export interface AdminQuoteRequestItem {
   status: string;
   created_at: string;
   updated_at: string;
+  /** Quoted price from assign-professional (e.g. "120.00") */
+  quoted_price?: string | null;
   service?: { id: number; service_name: string };
   user?: { id: number; full_name: string; email: string } | null;
   professional?: { id: number; name: string; email?: string } | null;
@@ -306,17 +308,18 @@ export const updateQuoteRequestStatus = async (
 /**
  * Assign a professional to a custom quote request (admin)
  * POST /custom-quote-requests/assign-professional
- * Body: { api_token, id, professional_id }
+ * Body: { api_token, id, professional_id, quoted_price }
  */
 export const assignProfessionalToQuoteRequest = async (
   apiToken: string,
   quoteRequestId: number,
-  professionalId: number
+  professionalId: number,
+  quotedPrice: number
 ): Promise<AdminQuoteRequestSingleResponse> => {
   try {
     const response = await apiClient.post<AdminQuoteRequestSingleResponse>(
       '/custom-quote-requests/assign-professional',
-      { api_token: apiToken, id: quoteRequestId, professional_id: professionalId }
+      { api_token: apiToken, id: quoteRequestId, professional_id: professionalId, quoted_price: quotedPrice }
     );
     const data = response.data;
     if (!data?.status) {

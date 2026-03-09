@@ -3,10 +3,15 @@ import axios from 'axios';
 import { getApiToken, handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // TypeScript types for Professional Booking Store request
+// POST /professional_booking/store — service_id and professional_id from Book response; date/time and form fields from Select Your Appointment.
 export interface ProfessionalBookingStoreRequest {
   api_token?: string;
-  selected_date: string;
-  selected_time: string;
+  /** Service being booked (from response when Book was clicked). */
+  service_id: number;
+  selected_date: string; // YYYY-MM-DD
+  selected_time: string; // e.g. "10:30 AM"
+  /** Session ID from selected_services/store (or service-specific create) when user clicked Book. */
+  session_id?: number;
   first_name: string;
   last_name: string;
   email: string;
@@ -18,6 +23,7 @@ export interface ProfessionalBookingStoreRequest {
   post_code: string;
   additional_notes?: string;
   professional_id: number;
+  /** Total price (service + platform fee) — same as Booking Summary total. */
   price?: string | number;
   /** When present, backend links this booking to an existing custom quote request. */
   custom_quote_request_id?: number;

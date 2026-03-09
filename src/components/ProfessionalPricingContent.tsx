@@ -2698,23 +2698,6 @@ export function ProfessionalPricingContent() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2 flex-shrink-0 flex items-end">
-                    <Button
-                      type="button"
-                      onClick={saveEmergencyLightPriceNow}
-                      disabled={savingEmergencyLightPrice || !emergencyLightValue || emergencyLightValue === "no-data"}
-                      className="w-full md:w-auto bg-red-600 hover:bg-red-700 h-12 px-4 md:px-6 font-medium disabled:opacity-70"
-                    >
-                      {savingEmergencyLightPrice ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Create now"
-                      )}
-                    </Button>
-                  </div>
                 </div>
 
                 {/* Row 3: Select emergency light floor – Price */}

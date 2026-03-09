@@ -27,6 +27,10 @@ interface CustomerDetailsFormProps {
   service: BookingData["service"];
   professional: BookingData["professional"];
   professionalId?: number | null;
+  /** Service ID from Book response (sent in professional_booking/store). */
+  serviceId?: number | null;
+  /** Session ID from selected_services/store (sent in professional_booking/store). */
+  sessionId?: number | null;
   selectedDate: string;
   selectedTime: string;
   pricing: BookingData["pricing"];
@@ -45,6 +49,8 @@ export function CustomerDetailsForm({
   service,
   professional,
   professionalId,
+  serviceId,
+  sessionId,
   selectedDate,
   selectedTime,
   pricing,
@@ -128,6 +134,10 @@ export function CustomerDetailsForm({
       toast.error("Professional ID is missing. Please try again.");
       return;
     }
+    if (serviceId == null || serviceId === undefined) {
+      toast.error("Service is missing. Please start from the service search and try again.");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -172,6 +182,7 @@ export function CustomerDetailsForm({
       const isCustomQuoteWithId = useCustomQuoteFlow && customQuoteRequestId != null;
 
       const bookingPayload: ProfessionalBookingStoreRequest = {
+        service_id: serviceId,
         selected_date: selectedDate,
         selected_time: selectedTime,
         first_name: formData.firstName,
@@ -185,10 +196,13 @@ export function CustomerDetailsForm({
         post_code: formData.postcode,
         additional_notes: formData.notes || "",
         professional_id: professionalId,
-        price: isCustomQuoteWithId ? "0" : String(pricing.total),
+        price: isCustomQuoteWithId ? 0 : Number(pricing.total),
       };
       if (token) {
         bookingPayload.api_token = token;
+      }
+      if (sessionId != null) {
+        bookingPayload.session_id = sessionId;
       }
       if (isCustomQuoteWithId && customQuoteRequestId != null) {
         bookingPayload.custom_quote_request_id = customQuoteRequestId;

@@ -278,7 +278,9 @@ export function CustomerDashboard({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Notifications state
@@ -2098,37 +2100,48 @@ export function CustomerDashboard({
           <div className="space-y-4 mt-4">
             <div>
               <Label htmlFor="currentPassword">Current Password</Label>
-              <div className="relative mt-2">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="relative mt-2 overflow-visible">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <Input
                   id="currentPassword"
-                  type={showPassword ? "text" : "password"}
+                  type={showCurrentPassword ? "text" : "password"}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   placeholder="Enter current password"
                 />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={(e) => { e.preventDefault(); setShowCurrentPassword((p) => !p); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 rounded"
+                  aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
             <div>
               <Label htmlFor="newPassword">New Password</Label>
-              <div className="relative mt-2">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="relative mt-2 overflow-visible">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <Input
                   id="newPassword"
-                  type={showPassword ? "text" : "password"}
+                  type={showNewPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   placeholder="Enter new password"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                  onClick={(e) => { e.preventDefault(); setShowNewPassword((p) => !p); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 rounded"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               <p className="text-sm text-gray-500 mt-1">Must be at least 8 characters</p>
@@ -2136,16 +2149,25 @@ export function CustomerDashboard({
 
             <div>
               <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <div className="relative mt-2">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="relative mt-2 overflow-visible">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <Input
                   id="confirmPassword"
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   placeholder="Confirm new password"
                 />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={(e) => { e.preventDefault(); setShowConfirmPassword((p) => !p); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 rounded"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -2157,6 +2179,9 @@ export function CustomerDashboard({
                   setCurrentPassword("");
                   setNewPassword("");
                   setConfirmPassword("");
+                  setShowCurrentPassword(false);
+                  setShowNewPassword(false);
+                  setShowConfirmPassword(false);
                 }}
                 disabled={isChangingPassword}
               >

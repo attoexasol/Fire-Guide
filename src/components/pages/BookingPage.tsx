@@ -5,6 +5,8 @@ import { BookingFlow } from "../BookingFlow";
 
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
+const BOOKING_SERVICE_ID_KEY = 'fireguide_booking_service_id';
+const BOOKING_SESSION_ID_KEY = 'fireguide_booking_session_id';
 const QUESTIONNAIRE_STORAGE_KEY = 'fireguide_questionnaire_data';
 
 function getQuestionnaireData(questionnaireData: any) {
@@ -31,13 +33,23 @@ export default function BookingPage() {
   } = useApp();
   const questionnaireData = getQuestionnaireData(contextQuestionnaireData);
 
-  // Restore professional data from sessionStorage or location state on mount/reload
+  // Restore professional, service, and session data from sessionStorage or location state on mount/reload
   useEffect(() => {
     // First, try location state (from immediate navigation)
-    const locationState = location.state as { professional?: any; professionalId?: number } | null;
-    if (locationState?.professional) {
-      setBookingProfessional(locationState.professional);
-      setSelectedProfessionalId(locationState.professionalId || null);
+    const state = location.state as { professional?: any; professionalId?: number; serviceId?: number; sessionId?: number } | null;
+    if (state?.professional) {
+      setBookingProfessional(state.professional);
+      setSelectedProfessionalId(state.professionalId ?? null);
+      if (state.serviceId != null) {
+        try {
+          sessionStorage.setItem(BOOKING_SERVICE_ID_KEY, String(state.serviceId));
+        } catch (_) {}
+      }
+      if (state.sessionId != null) {
+        try {
+          sessionStorage.setItem(BOOKING_SESSION_ID_KEY, String(state.sessionId));
+        } catch (_) {}
+      }
       return;
     }
 
@@ -45,7 +57,6 @@ export default function BookingPage() {
     try {
       const storedProfessional = sessionStorage.getItem(BOOKING_PROFESSIONAL_KEY);
       const storedProfessionalId = sessionStorage.getItem(BOOKING_PROFESSIONAL_ID_KEY);
-      
       if (storedProfessional) {
         const professional = JSON.parse(storedProfessional);
         setBookingProfessional(professional);
@@ -85,9 +96,28 @@ export default function BookingPage() {
   const locationState = location.state as {
     bookingPricing?: { servicePrice: number; platformFee: number; total: number };
     bookingPricingError?: string;
+    serviceId?: number;
+    sessionId?: number;
   } | null;
   const initialPricing = locationState?.bookingPricing;
   const initialPricingError = locationState?.bookingPricingError;
+  const resolvedServiceId = locationState?.serviceId ?? (() => {
+    try {
+      const stored = sessionStorage.getItem(BOOKING_SERVICE_ID_KEY);
+      return stored ? parseInt(stored, 10) : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  const resolvedSessionId = locationState?.sessionId ?? (() => {
+    try {
+      const stored = sessionStorage.getItem(BOOKING_SESSION_ID_KEY);
+      return stored ? parseInt(stored, 10) : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
 
   return (
     <BookingFlow
@@ -99,6 +129,8 @@ export default function BookingPage() {
       selectedService={selectedService}
       selectedProfessional={selectedProfessional}
       professionalId={resolvedProfessionalId}
+      serviceId={resolvedServiceId}
+      sessionId={resolvedSessionId}
       bookingProfessional={resolvedProfessional}
       initialPricing={initialPricing}
       initialPricingError={initialPricingError}

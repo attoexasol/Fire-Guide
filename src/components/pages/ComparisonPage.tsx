@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
+const BOOKING_SESSION_ID_KEY = 'fireguide_booking_session_id';
 const SELECTED_PROFESSIONAL_KEY = 'fireguide_selected_professional';
 const SELECTED_PROFESSIONAL_ID_KEY = 'fireguide_selected_professional_id';
 
@@ -23,6 +24,16 @@ function getIsCustomQuote() {
     }
   } catch (_) {}
   return false;
+}
+
+/** Extract session_id from "Selected service created successfully" (or similar) API response. Used for next request (price + professional_booking/store). */
+function getSessionIdFromResponse(response: { data?: { session_id?: number; id?: number; [key: string]: unknown } } | null | undefined): number | string | undefined {
+  const data = response?.data;
+  if (data == null) return undefined;
+  const raw = data.session_id ?? data.id ?? (typeof data === 'object' && (data as any).selected_service?.session_id) ?? (data as any).selected_service?.id;
+  if (raw == null || raw === '') return undefined;
+  const num = typeof raw === 'string' ? parseInt(raw, 10) : raw;
+  return Number.isNaN(num) ? raw : num;
 }
 
 export default function ComparisonPage() {
@@ -115,12 +126,7 @@ export default function ComparisonPage() {
                 post_code: locationSearchData.post_code,
                 search_radius: locationSearchData.search_radius,
               });
-              const data = alarmRes?.data;
-              const rawSession = data?.session_id ?? data?.id;
-              if (rawSession != null && rawSession !== '') {
-                const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
-                sessionId = Number.isNaN(num) ? rawSession : num;
-              }
+              sessionId = getSessionIdFromResponse(alarmRes) ?? sessionId;
             } else if (isFireExtinguisher) {
               const extRes = await createFireExtinguisherSelectedService({
                 ...(apiToken && { api_token: apiToken }),
@@ -135,12 +141,7 @@ export default function ComparisonPage() {
                 search_radius: locationSearchData.search_radius,
                 preffered_date: questionnaireData.preferred_date ?? "",
               });
-              const data = extRes?.data;
-              const rawSession = data?.session_id ?? data?.id;
-              if (rawSession != null && rawSession !== '') {
-                const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
-                sessionId = Number.isNaN(num) ? rawSession : num;
-              }
+              sessionId = getSessionIdFromResponse(extRes) ?? sessionId;
             } else if (isEmergencyLighting) {
               const req = (questionnaireData as { request_data?: { emergency_light_type_id?: number; emergency_light_test_id?: number } })?.request_data;
               const lightTypeIdRaw = q?.emergency_light_type_id ?? req?.emergency_light_type_id;
@@ -160,12 +161,7 @@ export default function ComparisonPage() {
                 search_radius: locationSearchData.search_radius,
                 preffered_date: questionnaireData.preferred_date ?? "",
               });
-              const data = elRes?.data;
-              const rawSession = data?.session_id ?? data?.id;
-              if (rawSession != null && rawSession !== '') {
-                const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
-                sessionId = Number.isNaN(num) ? rawSession : num;
-              }
+              sessionId = getSessionIdFromResponse(elRes) ?? sessionId;
             } else if (isFireMarshal) {
               const marshalReq = (questionnaireData as { request_data?: { people_id?: number; place_id?: number; building_type_id?: number; experience_id?: number } })?.request_data;
               const peopleId = q?.people_id ?? marshalReq?.people_id;
@@ -185,12 +181,7 @@ export default function ComparisonPage() {
                 search_radius: locationSearchData.search_radius,
                 preffered_date: questionnaireData.preferred_date ?? "",
               });
-              const data = marshalRes?.data;
-              const rawSession = data?.session_id ?? data?.id;
-              if (rawSession != null && rawSession !== '') {
-                const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
-                sessionId = Number.isNaN(num) ? rawSession : num;
-              }
+              sessionId = getSessionIdFromResponse(marshalRes) ?? sessionId;
             } else if (isFireConsultation) {
               const consultReq = (questionnaireData as { request_data?: { mode_id?: number; hour_id?: number } })?.request_data;
               const modeId = q?.mode_id ?? consultReq?.mode_id;
@@ -206,12 +197,7 @@ export default function ComparisonPage() {
                 search_radius: locationSearchData.search_radius,
                 preffered_date: questionnaireData.preferred_date ?? "",
               });
-              const data = consultRes?.data;
-              const rawSession = data?.session_id ?? data?.id;
-              if (rawSession != null && rawSession !== '') {
-                const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
-                sessionId = Number.isNaN(num) ? rawSession : num;
-              }
+              sessionId = getSessionIdFromResponse(consultRes) ?? sessionId;
             } else {
               const floorId = questionnaireData.number_of_floors_id;
               const number_of_floors = floorId != null ? String(floorId) : (questionnaireData.number_of_floors ?? "");
@@ -229,16 +215,7 @@ export default function ComparisonPage() {
                 search_radius: locationSearchData.search_radius,
                 professional_id: professional.id,
               });
-              const data = storeRes?.data;
-              const rawSession =
-                data?.session_id ??
-                data?.id ??
-                (typeof data === 'object' && data !== null && (data as any).selected_service?.session_id) ??
-                (typeof data === 'object' && data !== null && (data as any).selected_service?.id);
-              if (rawSession != null && rawSession !== '') {
-                const num = typeof rawSession === 'string' ? parseInt(rawSession, 10) : rawSession;
-                sessionId = Number.isNaN(num) ? rawSession : num;
-              }
+              sessionId = getSessionIdFromResponse(storeRes) ?? sessionId;
             }
           } catch (err: any) {
             console.error(isFireAlarm ? 'Failed to create fire alarm selected service' : isFireExtinguisher ? 'Failed to create fire extinguisher selected service' : isEmergencyLighting ? 'Failed to create emergency light selected service' : 'Failed to store selected service with professional:', err);
@@ -369,10 +346,17 @@ export default function ComparisonPage() {
         }
 
         startTransition(() => {
+          if (sessionId != null) {
+            try {
+              sessionStorage.setItem(BOOKING_SESSION_ID_KEY, String(sessionId));
+            } catch (_) {}
+          }
           navigate("/booking", {
             state: {
               professional,
               professionalId: professional.id,
+              serviceId: serviceId != null ? Number(serviceId) : undefined,
+              sessionId: sessionId != null ? Number(sessionId) : undefined,
               // Don't pass price for custom quote so booking flow shows "Wait for admin" and doesn't go to payment
               ...(bookingPricing && !isCustomQuote && { bookingPricing }),
               ...(bookingPricingError && { bookingPricingError }),
