@@ -1,34 +1,44 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase, Loader2 } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase, Loader2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
-import { fetchQualifications, QualificationCertificationResponse } from "../api/qualificationsService";
-import { fetchInsuranceCoverages, InsuranceItem } from "../api/insuranceService";
-import { fetchExperiences, ExperienceResponse } from "../api/experiencesService";
-import { fetchReviews, ReviewResponse } from "../api/reviewsService";
-import { fetchAvailableDates, AvailableDateItem } from "../api/availableDatesService";
+import { fetchProfessionalProfileCertifications, ProfessionalProfileCertificationItem } from "../api/qualificationsService";
+import { fetchProfessionalProfileInsurance, ProfessionalProfileInsuranceData } from "../api/insuranceService";
+import { fetchProfessionalProfileExperiences, ProfessionalProfileExperienceData } from "../api/experiencesService";
+import { fetchProfessionalProfileReviews, ProfessionalProfileReviewItem } from "../api/reviewsService";
+import { fetchProfessionalProfileAvailableDates, ProfessionalProfileAvailableDateItem } from "../api/availableDatesService";
+import { fetchProfessionalProfilePricing, ProfessionalProfilePricingItem } from "../api/professionalsService";
 import { toast } from "sonner";
 
 interface ProfessionalProfileProps {
   professional: any;
+  /** Professional ID from URL (from Professional List API, passed when View Profile is clicked) */
+  professionalIdFromUrl?: number;
   onBook: () => void;
   onBack: () => void;
 }
 
-export function ProfessionalProfile({ professional, onBook, onBack }: ProfessionalProfileProps) {
+export function ProfessionalProfile({ professional, professionalIdFromUrl, onBook, onBack }: ProfessionalProfileProps) {
+  const { professionalId: urlProfessionalId } = useParams<{ professionalId?: string }>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [qualifications, setQualifications] = useState<QualificationCertificationResponse[]>([]);
+  const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
+  const [certificationsModalOpen, setCertificationsModalOpen] = useState(false);
+  const [profileCertifications, setProfileCertifications] = useState<ProfessionalProfileCertificationItem[]>([]);
   const [isLoadingQualifications, setIsLoadingQualifications] = useState(true);
-  const [insuranceCoverage, setInsuranceCoverage] = useState<InsuranceItem[]>([]);
+  const [profileInsurance, setProfileInsurance] = useState<ProfessionalProfileInsuranceData | null>(null);
   const [isLoadingInsurance, setIsLoadingInsurance] = useState(true);
-  const [experiences, setExperiences] = useState<ExperienceResponse[]>([]);
+  const [profileExperience, setProfileExperience] = useState<ProfessionalProfileExperienceData | null>(null);
   const [isLoadingExperiences, setIsLoadingExperiences] = useState(true);
-  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [reviews, setReviews] = useState<ProfessionalProfileReviewItem[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
-  const [availableDatesData, setAvailableDatesData] = useState<AvailableDateItem[]>([]);
+  const [availableDatesData, setAvailableDatesData] = useState<ProfessionalProfileAvailableDateItem[]>([]);
   const [isLoadingAvailableDates, setIsLoadingAvailableDates] = useState(true);
+  const [profilePricing, setProfilePricing] = useState<ProfessionalProfilePricingItem[]>([]);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(true);
   const [persistedProfessional, setPersistedProfessional] = useState<any>(null);
 
   // Restore professional data from sessionStorage on mount if not provided in props
@@ -48,95 +58,170 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     }
   }, [professional]);
 
-  // Fetch qualifications on component mount
+  // Resolve professional ID from URL (set when View Profile is clicked; ID comes from Professional List API)
+  const professionalId =
+    professionalIdFromUrl ??
+    ((urlProfessionalId ? parseInt(urlProfessionalId, 10) : NaN) || professional?.id) ??
+    professional?.professional_id ??
+    persistedProfessional?.id ??
+    persistedProfessional?.professional_id;
+  const professionalIdNum =
+    professionalId != null && !Number.isNaN(Number(professionalId)) ? Number(professionalId) : null;
+
+  // Call pricing API immediately when profile loads — POST with professional_id from list
   useEffect(() => {
-    const loadQualifications = async () => {
+    if (professionalIdNum == null) {
+      setIsLoadingPricing(false);
+      return;
+    }
+    let cancelled = false;
+    const loadPricing = async () => {
       try {
-        setIsLoadingQualifications(true);
-        const data = await fetchQualifications();
-        setQualifications(data);
+        setIsLoadingPricing(true);
+        const data = await fetchProfessionalProfilePricing(professionalIdNum);
+        if (!cancelled) setProfilePricing(data ?? []);
       } catch (error: any) {
-        console.error('Failed to load qualifications:', error);
-        toast.error(error.message || 'Failed to load qualifications');
+        if (!cancelled) {
+          console.error('Failed to load pricing:', error);
+          setProfilePricing([]);
+        }
       } finally {
-        setIsLoadingQualifications(false);
+        if (!cancelled) setIsLoadingPricing(false);
       }
     };
+    loadPricing();
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
 
-    loadQualifications();
-  }, []);
-
-  // Fetch insurance coverage on component mount
+  // Fetch reviews for this professional (professional-profile/reviews)
   useEffect(() => {
-    const loadInsuranceCoverage = async () => {
-      try {
-        setIsLoadingInsurance(true);
-        const data = await fetchInsuranceCoverages();
-        setInsuranceCoverage(data);
-      } catch (error: any) {
-        console.error('Failed to load insurance coverage:', error);
-        toast.error(error.message || 'Failed to load insurance coverage');
-      } finally {
-        setIsLoadingInsurance(false);
-      }
-    };
-
-    loadInsuranceCoverage();
-  }, []);
-
-  // Fetch experiences on component mount
-  useEffect(() => {
-    const loadExperiences = async () => {
-      try {
-        setIsLoadingExperiences(true);
-        const data = await fetchExperiences();
-        setExperiences(data);
-      } catch (error: any) {
-        console.error('Failed to load experiences:', error);
-        toast.error(error.message || 'Failed to load experiences');
-      } finally {
-        setIsLoadingExperiences(false);
-      }
-    };
-
-    loadExperiences();
-  }, []);
-
-  // Fetch reviews on component mount
-  useEffect(() => {
+    if (professionalIdNum == null) {
+      setReviews([]);
+      setIsLoadingReviews(false);
+      return;
+    }
+    let cancelled = false;
     const loadReviews = async () => {
       try {
         setIsLoadingReviews(true);
-        const data = await fetchReviews();
-        setReviews(data);
+        const data = await fetchProfessionalProfileReviews(professionalIdNum);
+        if (!cancelled) setReviews(data ?? []);
       } catch (error: any) {
-        console.error('Failed to load reviews:', error);
-        toast.error(error.message || 'Failed to load reviews');
+        if (!cancelled) {
+          setReviews([]);
+          toast.error(error?.message || 'Failed to load reviews');
+        }
       } finally {
-        setIsLoadingReviews(false);
+        if (!cancelled) setIsLoadingReviews(false);
       }
     };
-
     loadReviews();
-  }, []);
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
 
-  // Fetch available dates on component mount
+  // Fetch insurance for this professional (professional-profile/insurance)
   useEffect(() => {
+    if (professionalIdNum == null) {
+      setProfileInsurance(null);
+      setIsLoadingInsurance(false);
+      return;
+    }
+    let cancelled = false;
+    const loadInsurance = async () => {
+      try {
+        setIsLoadingInsurance(true);
+        const data = await fetchProfessionalProfileInsurance(professionalIdNum);
+        if (!cancelled) setProfileInsurance(data);
+      } catch (error: any) {
+        if (!cancelled) {
+          setProfileInsurance(null);
+          toast.error(error?.message || 'Failed to load insurance');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingInsurance(false);
+      }
+    };
+    loadInsurance();
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
+
+  // Fetch experience for this professional (professional-profile/experiences)
+  useEffect(() => {
+    if (professionalIdNum == null) {
+      setProfileExperience(null);
+      setIsLoadingExperiences(false);
+      return;
+    }
+    let cancelled = false;
+    const loadExperience = async () => {
+      try {
+        setIsLoadingExperiences(true);
+        const data = await fetchProfessionalProfileExperiences(professionalIdNum);
+        if (!cancelled) setProfileExperience(data);
+      } catch (error: any) {
+        if (!cancelled) {
+          setProfileExperience(null);
+          toast.error(error?.message || 'Failed to load experience');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingExperiences(false);
+      }
+    };
+    loadExperience();
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
+
+  // Fetch certifications for this professional (professional-profile/certifications)
+  useEffect(() => {
+    if (professionalIdNum == null) {
+      setProfileCertifications([]);
+      setIsLoadingQualifications(false);
+      return;
+    }
+    let cancelled = false;
+    const loadCertifications = async () => {
+      try {
+        setIsLoadingQualifications(true);
+        const data = await fetchProfessionalProfileCertifications(professionalIdNum);
+        if (!cancelled) setProfileCertifications(data ?? []);
+      } catch (error: any) {
+        if (!cancelled) {
+          setProfileCertifications([]);
+          toast.error(error?.message || 'Failed to load certifications');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingQualifications(false);
+      }
+    };
+    loadCertifications();
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
+
+  // Fetch available dates for this professional (professional-profile/available-date)
+  useEffect(() => {
+    if (professionalIdNum == null) {
+      setAvailableDatesData([]);
+      setIsLoadingAvailableDates(false);
+      return;
+    }
+    let cancelled = false;
     const loadAvailableDates = async () => {
       try {
         setIsLoadingAvailableDates(true);
-        const data = await fetchAvailableDates();
-        setAvailableDatesData(data);
+        const data = await fetchProfessionalProfileAvailableDates(professionalIdNum);
+        if (!cancelled) setAvailableDatesData(data ?? []);
       } catch (error: any) {
-        console.error('Failed to load available dates:', error);
-        toast.error(error.message || 'Failed to load available dates');
+        if (!cancelled) {
+          setAvailableDatesData([]);
+          toast.error(error?.message || 'Failed to load available dates');
+        }
       } finally {
-        setIsLoadingAvailableDates(false);
+        if (!cancelled) setIsLoadingAvailableDates(false);
       }
     };
-
     loadAvailableDates();
-  }, []);
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
 
   // Provide default professional data with proper fallbacks
   const defaultData = {
@@ -163,124 +248,6 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
       specializations: ["Commercial Properties", "Residential Buildings", "Industrial Sites", "Educational Facilities"]
     }
   };
-
-  // Map API qualifications to display format
-  const mappedQualifications = qualifications.map((qual) => ({
-    name: qual.title,
-    year: qual.certification_date ? new Date(qual.certification_date).getFullYear().toString() : new Date(qual.created_at).getFullYear().toString(),
-    id: qual.id,
-    certificationDate: qual.certification_date
-  }));
-
-  // Map API insurance coverage to display format
-  const getInsuranceData = () => {
-    const publicLiability = insuranceCoverage.find(ins => ins.title === 'Public Liability');
-    const professionalIndemnity = insuranceCoverage.find(ins => ins.title === 'Professional Indemnity');
-    
-    // Find the latest expire date for "Valid until"
-    const allExpireDates = insuranceCoverage
-      .map(ins => ins.expire_date)
-      .filter(date => date)
-      .sort()
-      .reverse();
-    const latestExpireDate = allExpireDates.length > 0 ? allExpireDates[0] : null;
-    
-    // Format expire date for display
-    const formatExpireDate = (dateStr: string | null) => {
-      if (!dateStr) return 'N/A';
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-    };
-
-    return {
-      publicLiability: publicLiability ? `£${publicLiability.price}` : defaultData.insurance.publicLiability,
-      professionalIndemnity: professionalIndemnity ? `£${professionalIndemnity.price}` : defaultData.insurance.professionalIndemnity,
-      provider: defaultData.insurance.provider, // provider_id is null in API response
-      validUntil: latestExpireDate ? formatExpireDate(latestExpireDate) : defaultData.insurance.validUntil
-    };
-  };
-
-  // Get insurance data from API
-  const insuranceData = getInsuranceData();
-
-  // Map API experiences to display format
-  const getExperienceData = () => {
-    if (experiences.length === 0) {
-      return defaultData.experience;
-    }
-
-    // Calculate years of experience from the earliest years_experience date
-    const experienceDates = experiences
-      .map(exp => exp.years_experience)
-      .filter(date => date)
-      .sort();
-    
-    const earliestDate = experienceDates.length > 0 ? new Date(experienceDates[0]) : null;
-    let yearsActive = earliestDate 
-      ? Math.max(1, Math.floor((new Date().getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 365)))
-      : defaultData.experience.yearsActive;
-
-    // Extract assessment count from assessment field
-    // Handle formats like "500+ Assessments Completed" or "15+Years Experience"
-    const extractAssessmentCount = (assessmentText: string): number => {
-      // Check if it's an assessment count (contains "Assessment" or "Assessments")
-      if (assessmentText.toLowerCase().includes('assessment')) {
-        const match = assessmentText.match(/(\d+)\+/);
-        if (match) {
-          return parseInt(match[1], 10);
-        }
-      }
-      return 0;
-    };
-
-    // Extract years from assessment field if it mentions years
-    const extractYearsFromAssessment = (assessmentText: string): number | null => {
-      // Check if it mentions years (e.g., "15+Years Experience")
-      if (assessmentText.toLowerCase().includes('year')) {
-        const match = assessmentText.match(/(\d+)\+?\s*year/i);
-        if (match) {
-          return parseInt(match[1], 10);
-        }
-      }
-      return null;
-    };
-
-    // Get the highest assessment count from all experiences
-    const assessmentCounts = experiences
-      .map(exp => extractAssessmentCount(exp.assessment))
-      .filter(count => count > 0);
-    const assessmentsCompleted = assessmentCounts.length > 0 
-      ? Math.max(...assessmentCounts)
-      : defaultData.experience.assessmentsCompleted;
-
-    // Check if years are mentioned in assessment field and use the highest
-    const yearsFromAssessment = experiences
-      .map(exp => extractYearsFromAssessment(exp.assessment))
-      .filter((years): years is number => years !== null);
-    if (yearsFromAssessment.length > 0) {
-      yearsActive = Math.max(yearsActive, Math.max(...yearsFromAssessment));
-    }
-
-    // Collect all unique specializations
-    const specializationsSet = new Set<string>();
-    experiences.forEach(exp => {
-      if (exp.specialization?.title) {
-        specializationsSet.add(exp.specialization.title);
-      }
-    });
-    const specializations = specializationsSet.size > 0
-      ? Array.from(specializationsSet)
-      : defaultData.experience.specializations;
-
-    return {
-      yearsActive,
-      assessmentsCompleted,
-      specializations
-    };
-  };
-
-  // Get experience data from API
-  const experienceData = getExperienceData();
 
   // Resolve professional data: props > persisted state > sessionStorage > defaults
   const getResolvedProfessional = () => {
@@ -328,14 +295,16 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     verified: professionalToUse.verified !== undefined ? professionalToUse.verified : defaultData.verified,
     photo: professionalToUse.photo || defaultData.photo,
     bio: professionalToUse.bio || defaultData.bio,
-    certifications: mappedQualifications.length > 0 ? mappedQualifications : (professionalToUse?.certifications || []),
-    insurance: {
-      publicLiability: insuranceData.publicLiability,
-      professionalIndemnity: insuranceData.professionalIndemnity,
-      provider: insuranceData.provider,
-      validUntil: insuranceData.validUntil
-    },
-    experience: experienceData
+    certifications: profileCertifications.length > 0
+      ? profileCertifications.map((c) => ({
+          id: c.id,
+          name: c.name,
+          year: new Date(c.created_at).getFullYear().toString(),
+          description: c.description
+        }))
+      : (professionalToUse?.certifications || []),
+    insurance: defaultData.insurance,
+    experience: defaultData.experience
   };
 
   // Map API reviews to display format
@@ -353,45 +322,46 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
     return `${Math.floor(diffDays / 365)} years ago`;
   };
 
-  const mappedReviews = reviews.map((review) => ({
-    id: review.id,
-    author: review.name,
-    date: formatReviewDate(review.created_at),
-    rating: parseFloat(review.rating) || 0,
-    text: review.feedback
+  // Show latest 3 reviews (most recent first); total count in title
+  const mappedReviews = React.useMemo(() => {
+    const sorted = [...reviews].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    return sorted.slice(0, 3).map((review) => ({
+      id: review.id,
+      author: review.name,
+      date: formatReviewDate(review.created_at),
+      rating: parseFloat(review.rating) || 0,
+      text: review.feedback
+    }));
+  }, [reviews]);
+
+  const reviewCount = reviews.length;
+
+  // Pricing from API response: size, number_of_people, price (displayed in Pricing section)
+  const pricing = profilePricing.map((item) => ({
+    service: `${item.size.charAt(0).toUpperCase() + item.size.slice(1)} property (${item.people?.number_of_people ?? item.size})`,
+    price: `£${(Number(item.price) || 0).toFixed(2)}`,
   }));
+  const minPriceFromApi = profilePricing.length > 0
+    ? Math.min(...profilePricing.map((item) => Number(item.price) || 0))
+    : null;
 
-  // Calculate review count from API data
-  const reviewCount = reviews.length > 0 ? reviews.length : prof.reviewCount;
-
-  const pricing = [
-    { service: "Small property (1-5 people)", price: "£250" },
-    { service: "Medium property (6-25 people)", price: "£450" },
-    { service: "Large property (26-100 people)", price: "£850" }
-  ];
-
-  // Transform API data to match component's expected format
-  // Group by date and collect all slots for each date
+  // Available dates from API: sort by date and show latest 3 (next 3 upcoming)
   const availableDates = useMemo(() => {
-    if (!availableDatesData || availableDatesData.length === 0) {
-      return [];
-    }
-
-    // Group by date
-    const groupedByDate = availableDatesData.reduce((acc, item) => {
-      if (!acc[item.date]) {
-        acc[item.date] = [];
-      }
-      acc[item.date].push(item.slot);
-      return acc;
-    }, {} as Record<string, string[]>);
-
-    // Convert to array format expected by component
-    return Object.entries(groupedByDate).map(([date, slots]) => ({
-      date,
-      slots
-    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    if (!availableDatesData || availableDatesData.length === 0) return [];
+    return [...availableDatesData]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 3);
   }, [availableDatesData]);
+
+  // Latest 3 certifications for the section; all shown in View More modal
+  const latestCertifications = useMemo(() => {
+    if (!profileCertifications.length) return [];
+    return [...profileCertifications]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3);
+  }, [profileCertifications]);
 
   const renderStars = (rating: number) => {
     return (
@@ -409,7 +379,7 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = new Date(dateStr + 'T12:00:00');
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
@@ -512,12 +482,12 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                 </CardContent>
               </Card>
 
-              {/* Qualifications */}
+              {/* Qualifications & Certifications — latest 3; View More opens scrollable modal */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-[#0A1A2F] flex items-center gap-2">
                     <Award className="w-5 h-5" />
-                    Qualifications & Certifications
+                    Qualifications & Certifications ({profileCertifications.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -526,22 +496,105 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                       <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
                       <span className="text-gray-600">Loading qualifications...</span>
                     </div>
-                  ) : prof.certifications.length > 0 ? (
-                    <div className="space-y-3">
-                      {prof.certifications.map((qual, index) => (
-                        <div key={qual.id || index} className="flex items-start justify-between py-3 border-b last:border-0">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Award className="w-5 h-5 text-blue-600" />
+                  ) : latestCertifications.length > 0 ? (
+                    <>
+                      <div className="space-y-3">
+                        {latestCertifications.map((cert) => {
+                          const year = new Date(cert.created_at).getFullYear();
+                          const isEvidenceUrl = cert.evidence && /^https?:\/\//i.test(cert.evidence);
+                          return (
+                            <div key={cert.id} className="flex items-start justify-between py-3 border-b last:border-0">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <Award className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{cert.name}</p>
+                                  {cert.description && (
+                                    <p className="text-sm text-gray-600 mt-0.5">{cert.description}</p>
+                                  )}
+                                  <p className="text-sm text-gray-500 mt-1">Certified {year}</p>
+                                  {cert.evidence && (
+                                    isEvidenceUrl ? (
+                                      <a
+                                        href={cert.evidence}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-red-600 hover:underline mt-1 inline-block"
+                                      >
+                                        View certificate
+                                      </a>
+                                    ) : (
+                                      <span className="text-sm text-gray-500 mt-1 block">{cert.evidence}</span>
+                                    )
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{qual.name}</p>
-                              <p className="text-sm text-gray-500">Certified {qual.year}</p>
+                          );
+                        })}
+                      </div>
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setCertificationsModalOpen(true)}>
+                        View More
+                      </Button>
+                      <Dialog open={certificationsModalOpen} onOpenChange={setCertificationsModalOpen}>
+                        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0" style={{ marginBottom: '150px' }}>
+                          <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
+                            <div className="flex items-center justify-between">
+                              <DialogTitle className="text-[#0A1A2F]">
+                                All Qualifications & Certifications ({profileCertifications.length})
+                              </DialogTitle>
+                              <button
+                                type="button"
+                                onClick={() => setCertificationsModalOpen(false)}
+                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Close"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
                             </div>
+                          </DialogHeader>
+                          <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
+                            {[...profileCertifications]
+                              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                              .map((cert) => {
+                                const year = new Date(cert.created_at).getFullYear();
+                                const isEvidenceUrl = cert.evidence && /^https?:\/\//i.test(cert.evidence);
+                                return (
+                                  <div key={cert.id} className="pb-4 border-b last:border-0 last:pb-0">
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <Award className="w-5 h-5 text-blue-600" />
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-gray-900">{cert.name}</p>
+                                        {cert.description && (
+                                          <p className="text-sm text-gray-600 mt-0.5">{cert.description}</p>
+                                        )}
+                                        <p className="text-sm text-gray-500 mt-1">Certified {year}</p>
+                                        {cert.evidence && (
+                                          isEvidenceUrl ? (
+                                            <a
+                                              href={cert.evidence}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-sm text-red-600 hover:underline mt-1 inline-block"
+                                            >
+                                              View certificate
+                                            </a>
+                                          ) : (
+                                            <span className="text-sm text-gray-500 mt-1 block">{cert.evidence}</span>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        </DialogContent>
+                      </Dialog>
+                    </>
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       <Award className="w-12 h-12 mx-auto mb-2 text-gray-300" />
@@ -551,7 +604,7 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                 </CardContent>
               </Card>
 
-              {/* Insurance */}
+              {/* Insurance — professional-profile/insurance API; multiple coverage items */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-[#0A1A2F] flex items-center gap-2">
@@ -565,22 +618,20 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                       <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
                       <span className="text-gray-600">Loading insurance coverage...</span>
                     </div>
-                  ) : insuranceCoverage.length > 0 ? (
+                  ) : profileInsurance && (profileInsurance.coverages?.length > 0 || profileInsurance.provider) ? (
                     <>
                       <div className="grid md:grid-cols-2 gap-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                          <p className="text-sm text-gray-600 mb-1">Public Liability</p>
-                          <p className="text-xl font-semibold text-gray-900">{prof.insurance.publicLiability}</p>
-                        </div>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                          <p className="text-sm text-gray-600 mb-1">Professional Indemnity</p>
-                          <p className="text-xl font-semibold text-gray-900">{prof.insurance.professionalIndemnity}</p>
-                        </div>
+                        {profileInsurance.coverages?.map((item, index) => (
+                          <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <p className="text-sm text-gray-600 mb-1">{item.title}</p>
+                            <p className="text-xl font-semibold text-gray-900">{item.price}</p>
+                          </div>
+                        ))}
                       </div>
                       <Separator className="my-4" />
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Provider: {prof.insurance.provider}</span>
-                        <span className="text-gray-600">Valid until: {prof.insurance.validUntil}</span>
+                        <span className="text-gray-600">Provider: {profileInsurance.provider}</span>
+                        <span className="text-gray-600">Valid until: {profileInsurance.valid_until}</span>
                       </div>
                     </>
                   ) : (
@@ -592,7 +643,7 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                 </CardContent>
               </Card>
 
-              {/* Experience */}
+              {/* Experience — professional-profile/experiences API */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-[#0A1A2F] flex items-center gap-2">
@@ -606,23 +657,23 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                       <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
                       <span className="text-gray-600">Loading experience data...</span>
                     </div>
-                  ) : (
+                  ) : profileExperience ? (
                     <>
                       <div className="grid md:grid-cols-2 gap-6 mb-6">
                         <div className="text-center p-4 bg-gray-50 rounded-lg">
-                          <p className="text-3xl text-red-600 mb-1">{prof.experience.yearsActive}+</p>
+                          <p className="text-3xl text-red-600 mb-1">{profileExperience.years_experience}</p>
                           <p className="text-sm text-gray-600">Years Experience</p>
                         </div>
                         <div className="text-center p-4 bg-gray-50 rounded-lg">
-                          <p className="text-3xl text-red-600 mb-1">{prof.experience.assessmentsCompleted}+</p>
+                          <p className="text-3xl text-red-600 mb-1">{profileExperience.assessments_completed}</p>
                           <p className="text-sm text-gray-600">Assessments Completed</p>
                         </div>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600 mb-3">Specializations:</p>
-                        {prof.experience.specializations.length > 0 ? (
+                        {profileExperience.specializations?.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
-                            {prof.experience.specializations.map((spec, index) => (
+                            {profileExperience.specializations.map((spec, index) => (
                               <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                                 {spec}
                               </Badge>
@@ -633,6 +684,11 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                         )}
                       </div>
                     </>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Briefcase className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">No experience data available</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -664,9 +720,43 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
                           </div>
                         ))}
                       </div>
-                      <Button variant="outline" className="w-full mt-4">
-                        View All Reviews
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setReviewsModalOpen(true)}>
+                        View More
                       </Button>
+                      {/* All Reviews Modal — scrollable */}
+                      <Dialog open={reviewsModalOpen} onOpenChange={setReviewsModalOpen}>
+                        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0" style={{marginBottom: '150px'}}>
+                          <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
+                            <div className="flex items-center justify-between">
+                              <DialogTitle className="text-[#0A1A2F]">All Reviews ({reviewCount})</DialogTitle>
+                              <button
+                                type="button"
+                                onClick={() => setReviewsModalOpen(false)}
+                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Close"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </DialogHeader>
+                          <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
+                            {[...reviews]
+                              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                              .map((review) => (
+                                <div key={review.id} className="pb-4 border-b last:border-0 last:pb-0">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div>
+                                      <p className="font-medium text-gray-900">{review.name}</p>
+                                      <p className="text-sm text-gray-500">{formatReviewDate(review.created_at)}</p>
+                                    </div>
+                                    {renderStars(parseFloat(review.rating) || 0)}
+                                  </div>
+                                  <p className="text-gray-700 text-sm">{review.feedback}</p>
+                                </div>
+                              ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </>
                   ) : (
                     <div className="text-center py-8 text-gray-500">
@@ -681,20 +771,31 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
             {/* Right Column - Booking Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-6 space-y-6">
-                {/* Pricing */}
+                {/* Pricing — API data (professional_id from Professional List → View Profile) */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-[#0A1A2F]">Pricing</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {pricing.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b last:border-0">
-                          <span className="text-sm text-gray-700">{item.service}</span>
-                          <span className="font-semibold text-gray-900">{item.price}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {isLoadingPricing ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-red-600 mr-2" />
+                        <span className="text-gray-600">Loading pricing...</span>
+                      </div>
+                    ) : pricing.length === 0 ? (
+                      <div className="text-center py-6 text-gray-500 text-sm">
+                        No pricing available
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pricing.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center py-2 border-b last:border-0">
+                            <span className="text-sm text-gray-700">{item.service}</span>
+                            <span className="font-semibold text-gray-900">{item.price}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -783,7 +884,9 @@ export function ProfessionalProfile({ professional, onBook, onBack }: Profession
           <div className="flex items-center justify-between gap-4">
             <div className="hidden md:block">
               <p className="text-sm text-gray-500">Fire Risk Assessment</p>
-              <p className="font-semibold text-gray-900">From £250</p>
+              <p className="font-semibold text-gray-900">
+                {minPriceFromApi != null ? `From £${minPriceFromApi.toFixed(2)}` : "Price on request"}
+              </p>
             </div>
             <Button className="bg-red-600 hover:bg-red-700 px-12 py-6 text-lg w-full md:w-auto" onClick={onBook}>
               Book & Pay

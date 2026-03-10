@@ -94,9 +94,9 @@ export function PaymentPage({
       return;
     }
 
-    const token = getApiToken();
+    const token = getApiToken() ?? bookingData.customer.bookingApiToken ?? null;
     if (!token) {
-      toast.error("Please log in to continue. You need to be authenticated to process payment.");
+      toast.error("Please log in to continue, or complete your booking again to process payment.");
       return;
     }
 

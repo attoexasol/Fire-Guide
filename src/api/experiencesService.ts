@@ -40,6 +40,39 @@ export interface ExperiencesApiResponse {
   data: ExperienceResponse[];
 }
 
+/**
+ * Professional profile experience — for customer-facing profile page.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/experiences
+ * Body: { professional_id }
+ * Response: { status, message, data: { years_experience, assessments_completed, specializations: string[] } }
+ */
+export interface ProfessionalProfileExperienceData {
+  years_experience: string;
+  assessments_completed: string;
+  specializations: string[];
+}
+
+export interface ProfessionalProfileExperienceResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfileExperienceData;
+}
+
+export const fetchProfessionalProfileExperiences = async (
+  professionalId: number
+): Promise<ProfessionalProfileExperienceData> => {
+  const response = await apiClient.post<ProfessionalProfileExperienceResponse>(
+    '/professional-profile/experiences',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfileExperienceData };
+  const data = payload?.data;
+  if (data && typeof data.years_experience === 'string' && Array.isArray(data.specializations)) {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch experience');
+};
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',

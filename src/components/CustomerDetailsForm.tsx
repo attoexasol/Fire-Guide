@@ -226,11 +226,19 @@ export function CustomerDetailsForm({
           return;
         }
         toast.success("Booking submitted successfully!");
+        const bookingId =
+          response.data?.booking?.id ??
+          response.data?.id ??
+          response.data?.booking_id ??
+          null;
+        const bookingApiToken =
+          typeof response.data?.api_token === "string" ? response.data.api_token : null;
         const updatedFormData = {
           ...formData,
           longitude: coordinates.longitude,
           latitude: coordinates.latitude,
-          professionalBookingId: response.data?.id || response.data?.booking_id || null
+          professionalBookingId: bookingId,
+          bookingApiToken: bookingApiToken ?? undefined,
         };
         onContinue(updatedFormData);
       } else {

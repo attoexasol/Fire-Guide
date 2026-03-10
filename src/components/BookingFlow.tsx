@@ -59,6 +59,8 @@ export interface BookingData {
     longitude?: number;
     latitude?: number;
     professionalBookingId?: number | null;
+    /** When user is not logged in, token from professional_booking/store response; used for payment_invoice/store */
+    bookingApiToken?: string | null;
   };
   // Pricing (service_price, platform_fee_percent, total_price from add-to-cart/fra or calculate-price API)
   pricing: {
@@ -177,6 +179,7 @@ export function BookingFlow({ onBack, onConfirm, professionalId, serviceId, sess
           <AppointmentSelection
             service={bookingData.service}
             professional={bookingData.professional}
+            professionalId={bookingData.professionalId}
             pricing={bookingData.pricing}
             pricingErrorMessage={bookingData.pricingErrorMessage}
             onContinue={handleAppointmentSelected}

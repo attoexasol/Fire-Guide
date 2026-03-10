@@ -90,6 +90,41 @@ export const fetchReviews = async (): Promise<ReviewResponse[]> => {
   }
 };
 
+/**
+ * Professional profile reviews — for customer-facing profile page.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/reviews
+ * Body: { professional_id }
+ * Response: { status: true, message: string, data: [{ id, name, rating, feedback, created_at }] }
+ */
+export interface ProfessionalProfileReviewItem {
+  id: number;
+  name: string;
+  rating: string;
+  feedback: string;
+  created_at: string;
+}
+
+export interface ProfessionalProfileReviewsResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfileReviewItem[];
+}
+
+export const fetchProfessionalProfileReviews = async (
+  professionalId: number
+): Promise<ProfessionalProfileReviewItem[]> => {
+  const response = await apiClient.post<ProfessionalProfileReviewsResponse>(
+    '/professional-profile/reviews',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfileReviewItem[] };
+  const data = Array.isArray(payload?.data) ? payload.data : null;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch reviews');
+};
+
 // TypeScript types for Create Review request
 export interface CreateReviewRequest {
   api_token: string;

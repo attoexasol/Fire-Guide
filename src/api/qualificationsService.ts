@@ -121,6 +121,42 @@ export interface UpdateEvidenceResponse {
   error?: string;
 }
 
+/**
+ * Professional profile certifications — for customer-facing profile page.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/certifications
+ * Body: { professional_id }
+ * Response: { status, message, data: [{ id, name, description, evidence, status, created_at }] }
+ */
+export interface ProfessionalProfileCertificationItem {
+  id: number;
+  name: string;
+  description: string;
+  evidence: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ProfessionalProfileCertificationsResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfileCertificationItem[];
+}
+
+export const fetchProfessionalProfileCertifications = async (
+  professionalId: number
+): Promise<ProfessionalProfileCertificationItem[]> => {
+  const response = await apiClient.post<ProfessionalProfileCertificationsResponse>(
+    '/professional-profile/certifications',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfileCertificationItem[] };
+  const data = Array.isArray(payload?.data) ? payload.data : null;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch certifications');
+};
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',

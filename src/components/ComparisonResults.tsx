@@ -72,7 +72,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
     }
 
     return {
-      id: apiProfessional.id,
+      id: apiProfessional.professional_id ?? apiProfessional.id,
       name: apiProfessional.name,
       photo: photoPlaceholder,
       verified: true, // Default to verified since API doesn't provide this field

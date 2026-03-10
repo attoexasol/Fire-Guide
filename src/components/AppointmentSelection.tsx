@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -11,22 +11,36 @@ import {
   CheckCircle,
   ArrowLeft,
   ChevronLeft,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  Loader2
 } from "lucide-react";
+import { fetchProfessionalProfileAvailableDates, ProfessionalProfileAvailableDateItem } from "../api/availableDatesService";
 import type { BookingData } from "./BookingFlow";
 
 interface AppointmentSelectionProps {
   service: BookingData["service"];
   professional: BookingData["professional"];
+  professionalId?: number | null;
   pricing: BookingData["pricing"];
   pricingErrorMessage?: string;
   onContinue: (date: string, time: string) => void;
   onBack: () => void;
 }
 
+/** Normalize slot string for comparison (e.g. "09:00 AM" and "9:00 AM" -> same key). */
+function normalizeSlotForComparison(slot: string): string {
+  const match = slot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return slot.trim();
+  const hour = parseInt(match[1], 10);
+  const min = match[2];
+  const ampm = match[3].toUpperCase();
+  return `${hour}:${min} ${ampm}`;
+}
+
 export function AppointmentSelection({
   service,
   professional,
+  professionalId,
   pricing,
   pricingErrorMessage,
   onContinue,
@@ -35,6 +49,36 @@ export function AppointmentSelection({
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [availableDatesData, setAvailableDatesData] = useState<ProfessionalProfileAvailableDateItem[]>([]);
+  const [isLoadingAvailableDates, setIsLoadingAvailableDates] = useState(false);
+
+  // Fetch available dates for this professional when we have professional_id
+  useEffect(() => {
+    if (professionalId == null || Number.isNaN(Number(professionalId))) {
+      setAvailableDatesData([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setIsLoadingAvailableDates(true);
+      try {
+        const data = await fetchProfessionalProfileAvailableDates(Number(professionalId));
+        if (!cancelled) setAvailableDatesData(data ?? []);
+      } catch (err) {
+        if (!cancelled) setAvailableDatesData([]);
+      } finally {
+        if (!cancelled) setIsLoadingAvailableDates(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [professionalId]);
+
+  // Clear selected time when date changes (slots may differ)
+  const handleSelectDate = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime("");
+  };
 
   type DayInfo = {
     date: string;
@@ -58,10 +102,10 @@ export function AppointmentSelection({
       days.push(null);
     }
     
-    // Add days of the month
+    // Add days of the month — use local YYYY-MM-DD so selectedDate matches API (e.g. 2026-03-10)
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const isAvailable = date >= today;
@@ -82,6 +126,14 @@ export function AppointmentSelection({
     "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
     "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"
   ];
+
+  // For the selected date, which slots are available (from API)? Missing slots will be disabled.
+  const availableSlotsForSelectedDate = React.useMemo(() => {
+    if (!selectedDate) return new Set<string>();
+    const entry = availableDatesData.find((d) => d.date === selectedDate);
+    if (!entry || !entry.slots || !Array.isArray(entry.slots)) return new Set<string>();
+    return new Set(entry.slots.map((s) => normalizeSlotForComparison(s)));
+  }, [selectedDate, availableDatesData]);
 
   const handleContinue = () => {
     if (selectedDate && selectedTime) {
@@ -228,7 +280,7 @@ export function AppointmentSelection({
                       <div key={index}>
                         {dayInfo ? (
                           <button
-                            onClick={() => dayInfo.isAvailable && setSelectedDate(dayInfo.date)}
+                            onClick={() => dayInfo.isAvailable && handleSelectDate(dayInfo.date)}
                             disabled={!dayInfo.isAvailable}
                             className={`w-full aspect-square rounded-lg text-sm transition-all ${
                               selectedDate === dayInfo.date
@@ -252,7 +304,7 @@ export function AppointmentSelection({
                 </CardContent>
               </Card>
 
-              {/* Time Slots */}
+              {/* Time Slots — only enable slots returned by API for the selected date */}
               {selectedDate && (
                 <Card>
                   <CardHeader>
@@ -262,23 +314,41 @@ export function AppointmentSelection({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Label className="mb-3 block">Available time slots for {new Date(selectedDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {timeSlots.map((slot) => (
-                        <button
-                          key={slot}
-                          onClick={() => setSelectedTime(slot)}
-                          className={`p-3 text-center rounded-lg border-2 transition-all ${
-                            selectedTime === slot
-                              ? "border-red-600 bg-red-50 text-red-600 font-semibold"
-                              : "border-gray-200 hover:border-red-300"
-                          }`}
-                        >
-                          <Clock className="w-4 h-4 inline mr-2" />
-                          {slot}
-                        </button>
-                      ))}
-                    </div>
+                    {isLoadingAvailableDates ? (
+                      <div className="flex items-center justify-center py-6 text-gray-600">
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Loading time slots…
+                      </div>
+                    ) : (
+                      <>
+                        <Label className="mb-3 block">
+                          Available time slots for {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                        </Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {timeSlots.map((slot) => {
+                            const isAvailable = availableSlotsForSelectedDate.has(normalizeSlotForComparison(slot));
+                            return (
+                              <button
+                                key={slot}
+                                type="button"
+                                onClick={() => isAvailable && setSelectedTime(slot)}
+                                disabled={!isAvailable}
+                                className={`p-3 text-center rounded-lg border-2 transition-all ${
+                                  !isAvailable
+                                    ? "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                    : selectedTime === slot
+                                    ? "border-red-600 bg-red-50 text-red-600 font-semibold"
+                                    : "border-gray-200 hover:border-red-300"
+                                }`}
+                              >
+                                <Clock className="w-4 h-4 inline mr-2" />
+                                {slot}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               )}

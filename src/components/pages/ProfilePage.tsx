@@ -51,9 +51,12 @@ export default function ProfilePage() {
     })() ||
     (professionalId ? { id: parseInt(professionalId, 10) } : null);
 
+  const professionalIdNum = professionalId ? parseInt(professionalId, 10) : null;
+
   return (
     <ProfessionalProfile
       professional={resolvedProfessional}
+      professionalIdFromUrl={professionalIdNum ?? undefined}
       onBook={() => {
         if (resolvedProfessional) {
           setBookingProfessional(resolvedProfessional);

@@ -12,7 +12,6 @@ const Testimonials = lazy(() => import("./Testimonials").then(m => ({ default: m
 const FeaturedProfessionals = lazy(() => import("./FeaturedProfessionals").then(m => ({ default: m.FeaturedProfessionals })));
 const LiveBookingFeed = lazy(() => import("./LiveBookingFeed").then(m => ({ default: m.LiveBookingFeed })));
 const PricingPreview = lazy(() => import("./PricingPreview").then(m => ({ default: m.PricingPreview })));
-const InteractiveCalculator = lazy(() => import("./InteractiveCalculator").then(m => ({ default: m.InteractiveCalculator })));
 const CoverageMap = lazy(() => import("./CoverageMap").then(m => ({ default: m.CoverageMap })));
 const SafetyCertifications = lazy(() => import("./SafetyCertifications").then(m => ({ default: m.SafetyCertifications })));
 const FAQ = lazy(() => import("./FAQ").then(m => ({ default: m.FAQ })));
@@ -92,9 +91,6 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
       </Suspense>
       <Suspense fallback={null}>
         <ServiceTimeline />
-      </Suspense>
-      <Suspense fallback={null}>
-        <InteractiveCalculator onGetQuote={onGetStarted} />
       </Suspense>
       <Suspense fallback={null}>
         <PricingPreview onGetQuote={onGetStarted} />

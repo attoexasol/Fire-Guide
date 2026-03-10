@@ -214,8 +214,43 @@ export const updateProfessionalUser = async (
       success: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
-    };1
+    };
   }
+};
+
+/**
+ * Professional profile pricing — called when View Profile is clicked.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/pricing
+ * Body: { professional_id } — use the professional ID from the Professional List API.
+ */
+export interface ProfessionalProfilePricingItem {
+  size: string;
+  price: string;
+  people: {
+    id: number;
+    number_of_people: string;
+  };
+}
+
+export interface ProfessionalProfilePricingResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfilePricingItem[];
+}
+
+export const fetchProfessionalProfilePricing = async (
+  professionalId: number
+): Promise<ProfessionalProfilePricingItem[]> => {
+  const response = await apiClient.post<ProfessionalProfilePricingResponse>(
+    '/professional-profile/pricing',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfilePricingItem[] };
+  const data = Array.isArray(payload?.data) ? payload.data : null;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch pricing');
 };
 
 // TypeScript types for Professional Identity
@@ -623,9 +658,11 @@ export const getVerificationSummary = async (
   }
 };
 
-// TypeScript types for Professional Response
+// TypeScript types for Professional Response (Professional List API)
 export interface ProfessionalResponse {
   id: number;
+  /** Some list APIs return professional_id; use id ?? professional_id for pricing API */
+  professional_id?: number;
   name: string;
   business_name?: string;
   about: string;

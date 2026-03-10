@@ -79,6 +79,38 @@ export interface DeleteAvailableDateResponse {
 }
 
 /**
+ * Professional profile available dates — for customer booking flow.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/available-date
+ * Body: { professional_id }
+ * Response: { status, message, data: [{ date: "YYYY-MM-DD", slots: ["09:00 AM", ...] }] }
+ */
+export interface ProfessionalProfileAvailableDateItem {
+  date: string;
+  slots: string[];
+}
+
+export interface ProfessionalProfileAvailableDateResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfileAvailableDateItem[];
+}
+
+export const fetchProfessionalProfileAvailableDates = async (
+  professionalId: number
+): Promise<ProfessionalProfileAvailableDateItem[]> => {
+  const response = await apiClient.post<ProfessionalProfileAvailableDateResponse>(
+    '/professional-profile/available-date',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfileAvailableDateItem[] };
+  const data = Array.isArray(payload?.data) ? payload.data : null;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch available dates');
+};
+
+/**
  * Fetch all available dates
  * @returns Promise with the API response
  */

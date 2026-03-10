@@ -47,17 +47,17 @@ export default function ComparisonPage() {
         // Update context state
         setSelectedProfessional(professional);
         
+        // Use professional ID from list (id or professional_id) for pricing API on profile page
+        const professionalId = professional.id ?? (professional as { professional_id?: number }).professional_id;
         // Persist to sessionStorage for browser reload
         try {
           sessionStorage.setItem(SELECTED_PROFESSIONAL_KEY, JSON.stringify(professional));
-          sessionStorage.setItem(SELECTED_PROFESSIONAL_ID_KEY, professional.id.toString());
+          sessionStorage.setItem(SELECTED_PROFESSIONAL_ID_KEY, String(professionalId));
         } catch (error) {
           console.error('Failed to save selected professional to sessionStorage:', error);
         }
-        
-        // Navigate with state for immediate access
         startTransition(() => {
-          navigate(`/professionals/${professional.id}`, { state: { professional, professionalId: professional.id } });
+          navigate(`/professionals/${professionalId}`, { state: { professional, professionalId } });
         });
       }}
       onBookNow={async (professional) => {

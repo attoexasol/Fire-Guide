@@ -96,6 +96,44 @@ export interface UpdateInsuranceDocumentResponse {
   error?: string;
 }
 
+/**
+ * Professional profile insurance — for customer-facing profile page.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/insurance
+ * Body: { professional_id }
+ * Response: { status, message, data: { provider, valid_until, coverages: [{ title, price }] } }
+ */
+export interface ProfessionalProfileInsuranceCoverageItem {
+  title: string;
+  price: string;
+}
+
+export interface ProfessionalProfileInsuranceData {
+  provider: string;
+  valid_until: string;
+  coverages: ProfessionalProfileInsuranceCoverageItem[];
+}
+
+export interface ProfessionalProfileInsuranceResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfileInsuranceData;
+}
+
+export const fetchProfessionalProfileInsurance = async (
+  professionalId: number
+): Promise<ProfessionalProfileInsuranceData> => {
+  const response = await apiClient.post<ProfessionalProfileInsuranceResponse>(
+    '/professional-profile/insurance',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfileInsuranceData };
+  const data = payload?.data;
+  if (data && typeof data.provider === 'string' && Array.isArray(data.coverages)) {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch insurance');
+};
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
