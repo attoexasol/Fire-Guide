@@ -219,6 +219,44 @@ export const updateProfessionalUser = async (
 };
 
 /**
+ * Professional profile details — single professional data when View Profile is clicked.
+ * POST https://fireguide.attoexasolutions.com/api/professional-profile/details
+ * Body: { professional_id }
+ * Response: { status, message, data: { name, initials, profile_image, verified, rating, total_reviews, location, response_time } }
+ */
+export interface ProfessionalProfileDetailsData {
+  name: string;
+  initials: string;
+  profile_image: string;
+  verified: boolean;
+  rating: number;
+  total_reviews: number;
+  location: string;
+  response_time: string;
+}
+
+export interface ProfessionalProfileDetailsResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalProfileDetailsData;
+}
+
+export const fetchProfessionalProfileDetails = async (
+  professionalId: number
+): Promise<ProfessionalProfileDetailsData> => {
+  const response = await apiClient.post<ProfessionalProfileDetailsResponse>(
+    '/professional-profile/details',
+    { professional_id: professionalId }
+  );
+  const payload = response.data as { status?: boolean; message?: string; data?: ProfessionalProfileDetailsData };
+  const data = payload?.data;
+  if (data && typeof data.name === 'string') {
+    return data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch professional details');
+};
+
+/**
  * Professional profile pricing — called when View Profile is clicked.
  * POST https://fireguide.attoexasolutions.com/api/professional-profile/pricing
  * Body: { professional_id } — use the professional ID from the Professional List API.
@@ -251,6 +289,145 @@ export const fetchProfessionalProfilePricing = async (
     return data;
   }
   throw new Error(payload?.message || 'Failed to fetch pricing');
+};
+
+/**
+ * Block professional booking days — professional blocks a date range.
+ * POST https://fireguide.attoexasolutions.com/api/block-professional/booking-days
+ * Body: { api_token, start_day: "YYYY-MM-DD", end_day: "YYYY-MM-DD" }
+ */
+export interface BlockBookingDaysRequest {
+  api_token: string;
+  start_day: string;
+  end_day: string;
+}
+
+export interface BlockBookingDaysResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    start_day: string;
+    end_day: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+export const blockProfessionalBookingDays = async (
+  data: BlockBookingDaysRequest
+): Promise<BlockBookingDaysResponse['data']> => {
+  const response = await apiClient.post<BlockBookingDaysResponse>(
+    '/block-professional/booking-days',
+    { api_token: data.api_token, start_day: data.start_day, end_day: data.end_day }
+  );
+  const payload = response.data as BlockBookingDaysResponse;
+  if (payload?.status === true) {
+    return payload.data;
+  }
+  throw new Error(payload?.message || 'Failed to block booking days');
+};
+
+/**
+ * Blocked booking days list — fetch all blocked ranges for the professional.
+ * POST https://fireguide.attoexasolutions.com/api/block-professional/booking-days-list
+ * Body: { api_token }
+ * Response: { status, message, data: [{ id, professional: { id, name }, start_day, end_day, created_at, updated_at }] }
+ */
+export interface BlockedBookingDayItem {
+  id: number;
+  professional: { id: number; name: string };
+  start_day: string;
+  end_day: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlockedBookingDaysListResponse {
+  status: boolean;
+  message: string;
+  data: BlockedBookingDayItem[];
+}
+
+export const getBlockedBookingDaysList = async (
+  apiToken: string
+): Promise<BlockedBookingDayItem[]> => {
+  const response = await apiClient.post<BlockedBookingDaysListResponse>(
+    '/block-professional/booking-days-list',
+    { api_token: apiToken }
+  );
+  const payload = response.data as BlockedBookingDaysListResponse;
+  if (payload?.status === true && Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+  throw new Error(payload?.message || 'Failed to fetch blocked booking days');
+};
+
+/**
+ * Blocked booking days list by professional (e.g. for booking calendar).
+ * POST .../block-professional/booking-days-list
+ * Body: { professional_id } always; { api_token } included when provided.
+ * Response: same as getBlockedBookingDaysList.
+ */
+export const getBlockedBookingDaysListForProfessional = async (
+  professionalId: number,
+  apiToken?: string | null
+): Promise<BlockedBookingDayItem[]> => {
+  const body: { professional_id: number; api_token?: string } = { professional_id: professionalId };
+  if (apiToken) body.api_token = apiToken;
+  const response = await apiClient.post<BlockedBookingDaysListResponse>(
+    '/block-professional/booking-days-list',
+    body
+  );
+  const payload = response.data as BlockedBookingDaysListResponse;
+  if (payload?.status === true && Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+  if (payload?.status === false) return [];
+  throw new Error(payload?.message || 'Failed to fetch blocked booking days');
+};
+
+/**
+ * Delete a blocked booking day.
+ * POST https://fireguide.attoexasolutions.com/api/block-professional/booking-days-delete
+ * Body: { api_token, id }
+ * Response: { status, message }
+ */
+export const deleteBlockedBookingDay = async (
+  apiToken: string,
+  id: number
+): Promise<void> => {
+  const response = await apiClient.post<{ status: boolean; message: string }>(
+    '/block-professional/booking-days-delete',
+    { api_token: apiToken, id }
+  );
+  const payload = response.data as { status?: boolean; message?: string };
+  if (payload?.status !== true) {
+    throw new Error(payload?.message || 'Failed to delete blocked booking day');
+  }
+};
+
+/**
+ * Update a blocked booking day.
+ * POST https://fireguide.attoexasolutions.com/api/block-professional/booking-days-update
+ * Body: { api_token, id, start_day, end_day } (YYYY-MM-DD)
+ * Response: { status, message, data: { id, professional_id, start_day, end_day, created_at, updated_at } }
+ */
+export const updateBlockedBookingDay = async (
+  apiToken: string,
+  id: number,
+  startDay: string,
+  endDay: string
+): Promise<void> => {
+  const response = await apiClient.post<BlockBookingDaysResponse>(
+    '/block-professional/booking-days-update',
+    { api_token: apiToken, id, start_day: startDay, end_day: endDay }
+  );
+  const payload = response.data as BlockBookingDaysResponse;
+  if (payload?.status !== true) {
+    throw new Error(payload?.message || 'Failed to update blocked booking day');
+  }
 };
 
 // TypeScript types for Professional Identity

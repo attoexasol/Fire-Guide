@@ -40,6 +40,11 @@ export default function BookingPage() {
     if (state?.professional) {
       setBookingProfessional(state.professional);
       setSelectedProfessionalId(state.professionalId ?? null);
+      if (state.professionalId != null) {
+        try {
+          sessionStorage.setItem(BOOKING_PROFESSIONAL_ID_KEY, String(state.professionalId));
+        } catch (_) {}
+      }
       if (state.serviceId != null) {
         try {
           sessionStorage.setItem(BOOKING_SERVICE_ID_KEY, String(state.serviceId));

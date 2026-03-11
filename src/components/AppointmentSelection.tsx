@@ -15,7 +15,34 @@ import {
   Loader2
 } from "lucide-react";
 import { fetchProfessionalProfileAvailableDates, ProfessionalProfileAvailableDateItem } from "../api/availableDatesService";
+import { getBlockedBookingDaysListForProfessional } from "../api/professionalsService";
+import { getApiToken } from "../lib/auth";
 import type { BookingData } from "./BookingFlow";
+
+/** Parse API date string to YYYY-MM-DD. Handles "2026-03-28 00:00:00" and "2026-03-28T00:00:00.000000Z". */
+function parseDateOnly(dateStr: string): string {
+  if (!dateStr) return "";
+  const s = dateStr.replace(" ", "T").slice(0, 10);
+  return s;
+}
+
+/** Return all YYYY-MM-DD dates between start and end (inclusive). */
+function datesInRange(startStr: string, endStr: string): string[] {
+  const start = parseDateOnly(startStr);
+  const end = parseDateOnly(endStr);
+  if (!start || !end) return [];
+  const out: string[] = [];
+  const d = new Date(start + "T12:00:00");
+  const endD = new Date(end + "T12:00:00");
+  while (d <= endD) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${day}`);
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
 
 interface AppointmentSelectionProps {
   service: BookingData["service"];
@@ -51,6 +78,7 @@ export function AppointmentSelection({
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [availableDatesData, setAvailableDatesData] = useState<ProfessionalProfileAvailableDateItem[]>([]);
   const [isLoadingAvailableDates, setIsLoadingAvailableDates] = useState(false);
+  const [blockedDatesSet, setBlockedDatesSet] = useState<Set<string>>(new Set());
 
   // Fetch available dates for this professional when we have professional_id
   useEffect(() => {
@@ -74,6 +102,33 @@ export function AppointmentSelection({
     return () => { cancelled = true; };
   }, [professionalId]);
 
+  // Fetch blocked booking days: professional_id sent dynamically; api_token sent when user is logged in.
+  useEffect(() => {
+    if (professionalId == null || Number.isNaN(Number(professionalId))) {
+      setBlockedDatesSet(new Set());
+      return;
+    }
+    const apiToken = getApiToken();
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const list = await getBlockedBookingDaysListForProfessional(Number(professionalId), apiToken);
+        if (cancelled) return;
+        const set = new Set<string>();
+        for (const item of list ?? []) {
+          for (const d of datesInRange(item.start_day, item.end_day)) {
+            set.add(d);
+          }
+        }
+        setBlockedDatesSet(set);
+      } catch {
+        if (!cancelled) setBlockedDatesSet(new Set());
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [professionalId]);
+
   // Clear selected time when date changes (slots may differ)
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -84,6 +139,7 @@ export function AppointmentSelection({
     date: string;
     day: number;
     isAvailable: boolean;
+    isBlocked: boolean;
   } | null;
 
   // Generate calendar days for current month
@@ -103,17 +159,20 @@ export function AppointmentSelection({
     }
     
     // Add days of the month — use local YYYY-MM-DD so selectedDate matches API (e.g. 2026-03-10)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const isAvailable = date >= today;
-      
+      const notPast = date >= today;
+      const isBlocked = blockedDatesSet.has(dateStr);
+      const isAvailable = notPast && !isBlocked;
+
       days.push({
         date: dateStr,
         day,
-        isAvailable
+        isAvailable,
+        isBlocked
       });
     }
     
@@ -282,6 +341,7 @@ export function AppointmentSelection({
                           <button
                             onClick={() => dayInfo.isAvailable && handleSelectDate(dayInfo.date)}
                             disabled={!dayInfo.isAvailable}
+                            title={dayInfo.isBlocked ? "Blocked – not available" : dayInfo.isAvailable ? undefined : "Past date"}
                             className={`w-full aspect-square rounded-lg text-sm transition-all ${
                               selectedDate === dayInfo.date
                                 ? "bg-red-600 text-white font-semibold"

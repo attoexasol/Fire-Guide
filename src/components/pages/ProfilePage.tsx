@@ -58,11 +58,17 @@ export default function ProfilePage() {
       professional={resolvedProfessional}
       professionalIdFromUrl={professionalIdNum ?? undefined}
       onBook={() => {
+        const id = professionalIdNum ?? resolvedProfessional?.id ?? resolvedProfessional?.professional_id ?? null;
         if (resolvedProfessional) {
           setBookingProfessional(resolvedProfessional);
-          setSelectedProfessionalId(resolvedProfessional.id);
+          setSelectedProfessionalId(id ?? undefined);
         }
-        navigate("/booking");
+        navigate("/booking", {
+          state: {
+            professional: resolvedProfessional,
+            professionalId: id ?? undefined,
+          },
+        });
       }}
       onBack={() => navigate("/professionals/compare")}
     />

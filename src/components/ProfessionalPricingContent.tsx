@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Loader2, Pencil, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import {
   fetchPropertyTypes,
@@ -3388,23 +3388,13 @@ export function ProfessionalPricingContent() {
         <TabsContent value={TAB_IDS.CONSULTANCY} className="mt-0">
           <Card className="border-0 shadow-lg overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-lg text-[#0A1A2F]">
-                    Consultancy Pricing
-                  </CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Set your base and modifier prices for Consultancy services
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConsultancyModalOpen(true)}
-                  className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                  aria-label="Edit consultancy pricing"
-                >
-                  <Pencil className="w-5 h-5" />
-                </button>
+              <div>
+                <CardTitle className="text-lg text-[#0A1A2F]">
+                  Consultancy Pricing
+                </CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Set your base and modifier prices for Consultancy services
+                </p>
               </div>
             </CardHeader>
             <CardContent className="p-4 md:p-8">

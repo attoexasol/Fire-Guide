@@ -11,7 +11,7 @@ import { fetchProfessionalProfileInsurance, ProfessionalProfileInsuranceData } f
 import { fetchProfessionalProfileExperiences, ProfessionalProfileExperienceData } from "../api/experiencesService";
 import { fetchProfessionalProfileReviews, ProfessionalProfileReviewItem } from "../api/reviewsService";
 import { fetchProfessionalProfileAvailableDates, ProfessionalProfileAvailableDateItem } from "../api/availableDatesService";
-import { fetchProfessionalProfilePricing, ProfessionalProfilePricingItem } from "../api/professionalsService";
+import { fetchProfessionalProfileDetails, fetchProfessionalProfilePricing, ProfessionalProfileDetailsData, ProfessionalProfilePricingItem } from "../api/professionalsService";
 import { toast } from "sonner";
 
 interface ProfessionalProfileProps {
@@ -25,6 +25,8 @@ interface ProfessionalProfileProps {
 export function ProfessionalProfile({ professional, professionalIdFromUrl, onBook, onBack }: ProfessionalProfileProps) {
   const { professionalId: urlProfessionalId } = useParams<{ professionalId?: string }>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [profileDetails, setProfileDetails] = useState<ProfessionalProfileDetailsData | null>(null);
+  const [isLoadingProfileDetails, setIsLoadingProfileDetails] = useState(true);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [certificationsModalOpen, setCertificationsModalOpen] = useState(false);
   const [profileCertifications, setProfileCertifications] = useState<ProfessionalProfileCertificationItem[]>([]);
@@ -90,6 +92,32 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
       }
     };
     loadPricing();
+    return () => { cancelled = true; };
+  }, [professionalIdNum]);
+
+  // Fetch single professional details when View Profile is clicked (professional-profile/details)
+  useEffect(() => {
+    if (professionalIdNum == null) {
+      setProfileDetails(null);
+      setIsLoadingProfileDetails(false);
+      return;
+    }
+    let cancelled = false;
+    const loadDetails = async () => {
+      try {
+        setIsLoadingProfileDetails(true);
+        const data = await fetchProfessionalProfileDetails(professionalIdNum);
+        if (!cancelled) setProfileDetails(data);
+      } catch (error: any) {
+        if (!cancelled) {
+          setProfileDetails(null);
+          toast.error(error?.message || 'Failed to load professional details');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingProfileDetails(false);
+      }
+    };
+    loadDetails();
     return () => { cancelled = true; };
   }, [professionalIdNum]);
 
@@ -281,19 +309,22 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
   const resolvedProfessionalData = getResolvedProfessional();
   const professionalToUse = resolvedProfessionalData || professional || defaultData;
 
-  // Merge professional data with defaults
+  // Merge professional data: API details (from View Profile) override list/defaults
   const prof = {
     ...defaultData,
     ...professionalToUse,
-    // Only override defaults if we have actual professional data
-    name: professionalToUse.name || defaultData.name,
-    rating: professionalToUse.rating || defaultData.rating,
-    reviewCount: professionalToUse.reviewCount || defaultData.reviewCount,
-    responseTime: professionalToUse.responseTime || defaultData.responseTime,
-    location: professionalToUse.location || defaultData.location,
-    distance: professionalToUse.distance || defaultData.distance,
-    verified: professionalToUse.verified !== undefined ? professionalToUse.verified : defaultData.verified,
-    photo: professionalToUse.photo || defaultData.photo,
+    name: profileDetails?.name ?? professionalToUse.name ?? defaultData.name,
+    rating: profileDetails?.rating ?? professionalToUse.rating ?? defaultData.rating,
+    reviewCount: profileDetails?.total_reviews ?? professionalToUse.reviewCount ?? defaultData.reviewCount,
+    responseTime: profileDetails?.response_time ?? professionalToUse.responseTime ?? defaultData.responseTime,
+    location: profileDetails?.location ?? professionalToUse.location ?? defaultData.location,
+    distance: profileDetails ? undefined : (professionalToUse.distance ?? defaultData.distance),
+    verified: profileDetails?.verified ?? (professionalToUse.verified !== undefined ? professionalToUse.verified : defaultData.verified),
+    photo: profileDetails?.profile_image
+      ? profileDetails.profile_image
+      : profileDetails?.initials
+        ? `https://ui-avatars.com/api/?name=${encodeURIComponent(profileDetails.initials)}&background=EF4444&color=fff&size=256`
+        : (professionalToUse.photo || defaultData.photo),
     bio: professionalToUse.bio || defaultData.bio,
     certifications: profileCertifications.length > 0
       ? profileCertifications.map((c) => ({
@@ -461,7 +492,7 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
                       <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
-                          <span>{prof.location} • {prof.distance} miles</span>
+                          <span>{prof.location}{prof.distance != null ? ` • ${prof.distance} miles` : ''}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
