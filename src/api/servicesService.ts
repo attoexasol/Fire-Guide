@@ -370,7 +370,7 @@ apiClient.interceptors.response.use(
     const requestUrl = error?.config?.url || '';
     const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register') || requestUrl.includes('/send_otp') || requestUrl.includes('/verify_otp') || requestUrl.includes('/reset_password');
     const isPublicBookingEndpoint =
-      requestUrl.includes('selected_services/store') || requestUrl.includes('fire-alarm/selected-servie/create') || requestUrl.includes('fire-extingusher/selected-servie/create') || requestUrl.includes('fire-emergency-light/selected-servie/create') || requestUrl.includes('fire-marshal/selected-servie/create') || requestUrl.includes('fire-marshal/get-marshal') || requestUrl.includes('fire-consultation/selected-servie/create') || requestUrl.includes('fire-consultation/get-consultation') || requestUrl.includes('emergency-lighting-testing/get-emergency-light');
+      requestUrl.includes('selected_services/store') || requestUrl.includes('filter-professional/for-fra') || requestUrl.includes('filter-professional/for-alarm') || requestUrl.includes('filter-professional/for-extinguisher') || requestUrl.includes('filter-professional/for-emergency-light') || requestUrl.includes('filter-professional/for-marshal') || requestUrl.includes('filter-professional/for-consultation') || requestUrl.includes('fire-alarm/selected-servie/create') || requestUrl.includes('fire-extingusher/selected-servie/create') || requestUrl.includes('fire-emergency-light/selected-servie/create') || requestUrl.includes('fire-marshal/selected-servie/create') || requestUrl.includes('fire-marshal/get-marshal') || requestUrl.includes('fire-consultation/selected-servie/create') || requestUrl.includes('fire-consultation/get-consultation') || requestUrl.includes('emergency-lighting-testing/get-emergency-light');
     if (!isAuthEndpoint && !isPublicBookingEndpoint && isTokenExpiredError(error)) {
       handleTokenExpired();
       return Promise.reject(error);
@@ -1902,6 +1902,132 @@ export interface SelectedServiceStoreResponse {
   message: string;
   data?: any;
 }
+
+/** Request body for POST /filter-professional/for-fra (same shape as selected-service for FRA, without location/auth). */
+export interface FilterProfessionalForFraRequest {
+  service_id: number;
+  property_type_id: number;
+  approximate_people_id: number;
+  duration_id: number;
+  number_of_floors: number;
+}
+
+/** Single professional from POST /filter-professional/for-fra response */
+export interface FilterProfessionalForFraItem {
+  id: number;
+  name: string;
+  initials: string;
+  profile_image: string;
+  verified: boolean;
+  rating: number;
+  total_reviews: number;
+  location?: string;
+  response_time?: string;
+  price: number;
+  price_label: string;
+}
+
+export interface FilterProfessionalForFraResponse {
+  status: boolean;
+  message: string;
+  data?: FilterProfessionalForFraItem[];
+}
+
+/**
+ * POST /filter-professional/for-fra — filter professionals for FRA by service/questionnaire criteria.
+ * Called only when user clicks "Find Professional"; not used on Book flow.
+ */
+export const filterProfessionalForFra = async (
+  data: FilterProfessionalForFraRequest
+): Promise<FilterProfessionalForFraResponse> => {
+  const response = await apiClient.post<FilterProfessionalForFraResponse>('/filter-professional/for-fra', data);
+  return response.data;
+};
+
+/** Request body for POST /filter-professional/for-alarm (same questionnaire fields as fire-alarm selected-service/create, without professional_id/location). */
+export interface FilterProfessionalForAlarmRequest {
+  service_id: number;
+  smoke_detector_id: number;
+  call_point_id: number;
+  floor_id: number;
+  panel_id: number;
+  system_type_id: number;
+  last_service_id: number;
+}
+
+/** POST /filter-professional/for-alarm — filter professionals for Fire Alarm. Called only when user clicks "Find Professional"; not used on Book flow. */
+export const filterProfessionalForAlarm = async (
+  data: FilterProfessionalForAlarmRequest
+): Promise<FilterProfessionalForFraResponse> => {
+  const response = await apiClient.post<FilterProfessionalForFraResponse>('/filter-professional/for-alarm', data);
+  return response.data;
+};
+
+/** Request body for POST /filter-professional/for-extinguisher (same questionnaire fields as fire-extinguisher selected-service/create, without professional_id/location). */
+export interface FilterProfessionalForExtinguisherRequest {
+  service_id: number;
+  extinguisher_id: number;
+  floor_id: number;
+  type_id: number;
+  last_service_id: number;
+}
+
+/** POST /filter-professional/for-extinguisher — filter professionals for Fire Extinguisher. Called only when user clicks "Find Professional"; not used on Book flow. */
+export const filterProfessionalForExtinguisher = async (
+  data: FilterProfessionalForExtinguisherRequest
+): Promise<FilterProfessionalForFraResponse> => {
+  const response = await apiClient.post<FilterProfessionalForFraResponse>('/filter-professional/for-extinguisher', data);
+  return response.data;
+};
+
+/** Request body for POST /filter-professional/for-emergency-light (same questionnaire fields as fire-emergency-light selected-service/create, without professional_id/location). */
+export interface FilterProfessionalForEmergencyLightRequest {
+  service_id: number;
+  light_id: number;
+  floor_id: number;
+  light_type_id: number;
+  light_test_id: number;
+}
+
+/** POST /filter-professional/for-emergency-light — filter professionals for Emergency Lighting. Called only when user clicks "Find Professional"; not used on Book flow. */
+export const filterProfessionalForEmergencyLight = async (
+  data: FilterProfessionalForEmergencyLightRequest
+): Promise<FilterProfessionalForFraResponse> => {
+  const response = await apiClient.post<FilterProfessionalForFraResponse>('/filter-professional/for-emergency-light', data);
+  return response.data;
+};
+
+/** Request body for POST /filter-professional/for-marshal (same questionnaire fields as fire-marshal selected-service/create, without professional_id/location). */
+export interface FilterProfessionalForMarshalRequest {
+  service_id: number;
+  people_id: number;
+  place_id: number;
+  building_type_id: number;
+  experience_id: number;
+}
+
+/** POST /filter-professional/for-marshal — filter professionals for Fire Marshal / Warden Training. Called only when user clicks "Find Professional"; not used on Book flow. */
+export const filterProfessionalForMarshal = async (
+  data: FilterProfessionalForMarshalRequest
+): Promise<FilterProfessionalForFraResponse> => {
+  const response = await apiClient.post<FilterProfessionalForFraResponse>('/filter-professional/for-marshal', data);
+  return response.data;
+};
+
+/** Request body for POST /filter-professional/for-consultation (same questionnaire fields as fire-consultation selected-service/create, without professional_id/location). */
+export interface FilterProfessionalForConsultationRequest {
+  service_id: number;
+  mode_id: number;
+  hour_id: number;
+}
+
+/** POST /filter-professional/for-consultation — filter professionals for Fire Safety Consultation. Called only when user clicks "Find Professional"; not used on Book flow. */
+export const filterProfessionalForConsultation = async (
+  data: FilterProfessionalForConsultationRequest
+): Promise<FilterProfessionalForFraResponse> => {
+  const response = await apiClient.post<FilterProfessionalForFraResponse>('/filter-professional/for-consultation', data);
+  return response.data;
+};
 
 /**
  * Store selected service with all details

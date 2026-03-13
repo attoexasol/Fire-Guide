@@ -77,7 +77,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setSummaryLoading(true);
     getAdminOverviewSummary({ api_token: token })
       .then((res) => {
-        if (!cancelled && res.success && res.data) setSummary(res.data);
+        const ok = res && (res.success === true || res.status === true) && res.data;
+        if (!cancelled && ok) setSummary(res.data);
       })
       .catch(() => {
         if (!cancelled) setSummary(null);
@@ -152,7 +153,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
               <p className="text-gray-900">
-                {summaryLoading ? "—" : summary != null ? `£${Number(summary.total_revenue).toLocaleString()}` : "£45,280"}
+                {summaryLoading ? "—" : summary != null ? `£${Number(summary.total_revenue).toLocaleString()}` : "—"}
               </p>
             </div>
             <div className="flex items-center justify-between">
@@ -172,7 +173,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Active Bookings</p>
               <p className="text-gray-900">
-                {summaryLoading ? "—" : summary != null ? summary.active_bookings : "127"}
+                {summaryLoading ? "—" : summary != null ? String(summary.active_bookings) : "—"}
               </p>
             </div>
             <div className="flex items-center justify-between">
@@ -192,7 +193,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Total Customers</p>
               <p className="text-gray-900">
-                {summaryLoading ? "—" : summary != null ? summary.total_customer.toLocaleString() : "1,547"}
+                {summaryLoading ? "—" : summary != null ? (summary.total_customer ?? summary.total_customers ?? 0).toLocaleString() : "—"}
               </p>
             </div>
             <div className="flex items-center justify-between">
@@ -212,7 +213,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1">Active Professionals</p>
               <p className="text-gray-900">
-                {summaryLoading ? "—" : summary != null ? summary.active_professionals : "68"}
+                {summaryLoading ? "—" : summary != null ? String(summary.active_professionals) : "—"}
               </p>
             </div>
             <div className="flex items-center justify-between">

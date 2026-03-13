@@ -67,6 +67,33 @@ interface AppContextType {
   setSelectedProfessionalId: (id: number | null) => void;
   bookingProfessional: any;
   setBookingProfessional: (professional: any) => void;
+  /** Professionals from filter-professional/for-fra (set when user clicks Find Professionals). */
+  filteredProfessionalsFromFra: Array<{
+    id: number;
+    name: string;
+    initials: string;
+    profile_image: string;
+    verified: boolean;
+    rating: number;
+    total_reviews: number;
+    location?: string;
+    response_time?: string;
+    price: number;
+    price_label: string;
+  }> | null;
+  setFilteredProfessionalsFromFra: (list: Array<{
+    id: number;
+    name: string;
+    initials: string;
+    profile_image: string;
+    verified: boolean;
+    rating: number;
+    total_reviews: number;
+    location?: string;
+    response_time?: string;
+    price: number;
+    price_label: string;
+  }> | null) => void;
   isCustomerLoggedIn: boolean;
   setIsCustomerLoggedIn: (value: boolean) => void;
   customerBookings: Booking[];
@@ -130,6 +157,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedProfessional, setSelectedProfessional] = useState<any>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
   const [bookingProfessional, setBookingProfessional] = useState<any>(null);
+  const [filteredProfessionalsFromFra, setFilteredProfessionalsFromFra] = useState<Array<{
+    id: number;
+    name: string;
+    initials: string;
+    profile_image: string;
+    verified: boolean;
+    rating: number;
+    total_reviews: number;
+    location?: string;
+    response_time?: string;
+    price: number;
+    price_label: string;
+  }> | null>(null);
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   
   // Load bookings and payments from localStorage on mount
@@ -253,6 +293,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSelectedProfessionalId,
     bookingProfessional,
     setBookingProfessional,
+    filteredProfessionalsFromFra,
+    setFilteredProfessionalsFromFra,
     isCustomerLoggedIn,
     setIsCustomerLoggedIn,
     customerBookings,

@@ -31,14 +31,17 @@ export interface AdminOverviewSummaryRequest {
 export interface AdminOverviewSummaryData {
   total_revenue: number;
   active_bookings: number;
-  total_customer: number;
+  /** API may return total_customers or total_customer */
+  total_customer?: number;
+  total_customers?: number;
   active_professionals: number;
-  total_experiences: number;
+  total_experiences?: number;
 }
 
 export interface AdminOverviewSummaryResponse {
-  success: boolean;
-  message: string;
+  success?: boolean;
+  status?: boolean;
+  message?: string;
   data: AdminOverviewSummaryData;
 }
 
@@ -1801,6 +1804,67 @@ export const adminCustomerTakeAction = async (
       user_id: data.user_id,
       status: data.status,
     }
+  );
+  return response.data;
+};
+
+/**
+ * Delete a customer account (admin).
+ * POST https://fireguide.attoexasolutions.com/api/admin_customer/delete
+ */
+export interface AdminCustomerDeleteRequest {
+  api_token: string;
+  user_id: number;
+}
+
+export const adminCustomerDelete = async (
+  data: AdminCustomerDeleteRequest
+): Promise<{ success: boolean; message: string }> => {
+  const response = await apiClient.post<{ success: boolean; message: string }>(
+    '/admin_customer/delete',
+    { api_token: data.api_token, user_id: data.user_id }
+  );
+  return response.data;
+};
+
+/**
+ * Send email to a customer (admin).
+ * POST https://fireguide.attoexasolutions.com/api/admin_customer/send_email
+ */
+export interface AdminCustomerSendEmailRequest {
+  api_token: string;
+  user_id: number;
+  subject: string;
+  body: string;
+}
+
+export const adminCustomerSendEmail = async (
+  data: AdminCustomerSendEmailRequest
+): Promise<{ success: boolean; message: string }> => {
+  const response = await apiClient.post<{ success: boolean; message: string }>(
+    '/admin_customer/send_email',
+    { api_token: data.api_token, user_id: data.user_id, subject: data.subject, body: data.body }
+  );
+  return response.data;
+};
+
+/**
+ * Resolve a customer dispute (admin).
+ * POST https://fireguide.attoexasolutions.com/api/admin_customer/resolve_dispute
+ */
+export interface AdminCustomerResolveDisputeRequest {
+  api_token: string;
+  user_id: number;
+  decision: string;
+  message?: string;
+}
+
+export const adminCustomerResolveDispute = async (
+  data: AdminCustomerResolveDisputeRequest
+): Promise<{ success: boolean; message: string }> => {
+  const response = await apiClient.post<{ success: boolean; message: string }>(
+    '/admin_customer/resolve_dispute',
+    { api_token: data.api_token, user_id: data.user_id, decision: data.decision, message: data.message }
   );
   return response.data;
 };

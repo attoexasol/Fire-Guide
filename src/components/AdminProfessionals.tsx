@@ -446,10 +446,6 @@ export function AdminProfessionals() {
     handleUpdateProfessionalStatus(professional, "approved");
   };
 
-  const handleSendEmail = (professional: any) => {
-    toast.success(`Email dialog opened for ${professional.name}`);
-  };
-
   const confirmApproval = async () => {
     if (!selectedProfessional) return;
     await handleUpdateProfessionalStatus(selectedProfessional, "approved");
@@ -839,10 +835,6 @@ export function AdminProfessionals() {
                             Reactivate Account
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem onClick={() => handleSendEmail(professional)}>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Send Email
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

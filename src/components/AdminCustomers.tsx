@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Filter, MoreVertical, Mail, Phone, MapPin, Calendar, Eye, Ban, Trash2, AlertTriangle, MessageSquare, CheckCircle, XCircle, FileText, Circle } from "lucide-react";
+import { Search, Filter, MoreVertical, Mail, Phone, MapPin, Calendar, Eye, Ban, CheckCircle, XCircle, FileText, Circle } from "lucide-react";
 import { getApiToken } from "../lib/auth";
 import { getAdminCustomerSummary, AdminCustomerSummaryData, getAdminCustomers, AdminCustomerItem, adminCustomerTakeAction, AdminCustomerStatus } from "../api/adminService";
 import { Button } from "./ui/button";
@@ -22,33 +22,13 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
-import { Separator } from "./ui/separator";
 import { toast } from "sonner";
 
 export function AdminCustomers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [disputeModalOpen, setDisputeModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-  const [disputeMessages, setDisputeMessages] = useState<any[]>([
-    {
-      id: 1,
-      sender: "customer",
-      message: "The fire risk assessment report was not as detailed as promised. I expected more comprehensive coverage.",
-      timestamp: "2 hours ago"
-    },
-    {
-      id: 2,
-      sender: "professional",
-      message: "I apologize for any confusion. The assessment covered all required areas per the booking specifications.",
-      timestamp: "1 hour ago"
-    }
-  ]);
-  const [newMessage, setNewMessage] = useState("");
-  const [disputeDecision, setDisputeDecision] = useState("");
   const [customerSummary, setCustomerSummary] = useState<AdminCustomerSummaryData | null>(null);
   const [customerSummaryLoading, setCustomerSummaryLoading] = useState(false);
   const [customersList, setCustomersList] = useState<AdminCustomerItem[]>([]);
@@ -137,43 +117,9 @@ export function AdminCustomers() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleOpenDispute = (customer: any) => {
-    setSelectedCustomer(customer);
-    setDisputeModalOpen(true);
-  };
-
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-    setDisputeMessages([
-      ...disputeMessages,
-      {
-        id: disputeMessages.length + 1,
-        sender: "admin",
-        message: newMessage,
-        timestamp: "just now"
-      }
-    ]);
-    setNewMessage("");
-  };
-
-  const handleResolveDispute = () => {
-    if (!disputeDecision) {
-      toast.error("Please select a resolution decision");
-      return;
-    }
-    toast.success(`Dispute ${disputeDecision}! Both parties have been notified.`);
-    setDisputeModalOpen(false);
-    setDisputeDecision("");
-    setNewMessage("");
-  };
-
   const handleViewDetails = (customer: any) => {
     setSelectedCustomer(customer);
     setViewModalOpen(true);
-  };
-
-  const handleSendEmail = (customer: any) => {
-    toast.success(`Email dialog opened for ${customer.name}`);
   };
 
   const handleUpdateCustomerStatus = async (customer: CustomerDisplay, status: AdminCustomerStatus) => {
@@ -216,16 +162,6 @@ export function AdminCustomers() {
 
   const handleSetInactive = (customer: any) => {
     handleUpdateCustomerStatus(customer, "inactive");
-  };
-
-  const handleDeleteAccount = (customer: any) => {
-    setSelectedCustomer(customer);
-    setDeleteModalOpen(true);
-  };
-
-  const confirmDelete = () => {
-    toast.success(`${selectedCustomer?.name}'s account has been permanently deleted`);
-    setDeleteModalOpen(false);
   };
 
   return (
@@ -388,14 +324,6 @@ export function AdminCustomers() {
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleOpenDispute(customer)}>
-                            <AlertTriangle className="w-4 h-4 mr-2" />
-                            Resolve Dispute
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleSendEmail(customer)}>
-                            <Mail className="w-4 h-4 mr-2" />
-                            Send Email
-                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-green-600" onClick={() => handleSetActive(customer)}>
                             <CheckCircle className="w-4 h-4 mr-2" />
                             Active Account
@@ -407,10 +335,6 @@ export function AdminCustomers() {
                           <DropdownMenuItem className="text-yellow-600" onClick={() => handleSuspendAccount(customer)}>
                             <Ban className="w-4 h-4 mr-2" />
                             Suspend Account
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteAccount(customer)}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Account
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -495,14 +419,6 @@ export function AdminCustomers() {
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleOpenDispute(customer)}>
-                        <AlertTriangle className="w-4 h-4 mr-2" />
-                        Resolve Dispute
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleSendEmail(customer)}>
-                        <Mail className="w-4 h-4 mr-2" />
-                        Send Email
-                      </DropdownMenuItem>
                       <DropdownMenuItem className="text-green-600" onClick={() => handleSetActive(customer)}>
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Active Account
@@ -514,10 +430,6 @@ export function AdminCustomers() {
                       <DropdownMenuItem className="text-yellow-600" onClick={() => handleSuspendAccount(customer)}>
                         <Ban className="w-4 h-4 mr-2" />
                         Suspend Account
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteAccount(customer)}>
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Account
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -534,117 +446,6 @@ export function AdminCustomers() {
           )}
         </CardContent>
       </Card>
-
-      {/* Dispute Modal */}
-      <Dialog open={disputeModalOpen} onOpenChange={setDisputeModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Dispute Resolution</DialogTitle>
-            <DialogDescription>
-              Resolve disputes with customers regarding their bookings.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer-name">Customer Name</Label>
-              <Input
-                id="customer-name"
-                value={selectedCustomer?.name || ""}
-                readOnly
-                className="bg-gray-100"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customer-email">Customer Email</Label>
-              <Input
-                id="customer-email"
-                value={selectedCustomer?.email || ""}
-                readOnly
-                className="bg-gray-100"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customer-phone">Customer Phone</Label>
-              <Input
-                id="customer-phone"
-                value={selectedCustomer?.phone || ""}
-                readOnly
-                className="bg-gray-100"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customer-location">Customer Location</Label>
-              <Input
-                id="customer-location"
-                value={selectedCustomer?.location || ""}
-                readOnly
-                className="bg-gray-100"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dispute-messages">Dispute Messages</Label>
-              <div className="space-y-2">
-                {disputeMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`p-2 rounded ${
-                      message.sender === "customer"
-                        ? "bg-gray-100"
-                        : "bg-blue-100"
-                    }`}
-                  >
-                    <p className="text-sm text-gray-500">
-                      {message.sender === "customer" ? "Customer" : "Professional"} - {message.timestamp}
-                    </p>
-                    <p className="text-sm text-gray-900">{message.message}</p>
-                  </div>
-                ))}
-                <Textarea
-                  id="new-message"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message here..."
-                  className="mt-2"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={handleSendMessage}
-                >
-                  Send Message
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dispute-decision">Dispute Decision</Label>
-              <Select
-                value={disputeDecision}
-                onValueChange={setDisputeDecision}
-                className="w-full"
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="escalated">Escalated</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResolveDispute}
-            >
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* View Details Modal */}
       <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
@@ -711,34 +512,6 @@ export function AdminCustomers() {
               onClick={() => setViewModalOpen(false)}
             >
               Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Account Modal */}
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Delete Account</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to permanently delete this account?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDeleteModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={confirmDelete}
-            >
-              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

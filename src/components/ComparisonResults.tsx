@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { Flame, ChevronRight, MapPin, Star, CheckCircle, Shield, Award, Briefcase, Calendar, SlidersHorizontal, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Flame, ChevronRight, MapPin, Star, CheckCircle, Shield, Briefcase, Calendar, SlidersHorizontal, Loader2, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
+import { useApp } from "../contexts/AppContext";
 import { fetchProfessionals, ProfessionalResponse } from "../api/professionalsService";
+import type { FilterProfessionalForFraItem } from "../api/servicesService";
 import { toast } from "sonner";
 
 interface Professional {
@@ -19,6 +21,10 @@ interface Professional {
   nextAvailable: string;
   qualifications: string[];
   responseTime: string;
+  /** From filter-professional/for-fra (e.g. "From £1351 per assessment") */
+  price_label?: string;
+  location?: string;
+  initials?: string;
 }
 
 interface ComparisonResultsProps {
@@ -27,7 +33,31 @@ interface ComparisonResultsProps {
   onBack: () => void;
 }
 
+/** Map filter-professional/for-fra item to Professional for the list UI */
+function mapFilterItemToProfessional(item: FilterProfessionalForFraItem): Professional {
+  return {
+    id: item.id,
+    name: item.name,
+    photo: item.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=EF4444&color=fff&size=400`,
+    verified: item.verified,
+    rating: typeof item.rating === "number" ? item.rating : parseFloat(String(item.rating)) || 0,
+    reviewCount: item.total_reviews ?? 0,
+    price: item.price ?? 0,
+    distance: 0,
+    nextAvailable: "",
+    qualifications: [],
+    responseTime: item.response_time ?? "Responds within 2 hours",
+    price_label: item.price_label,
+    location: item.location,
+    initials: item.initials,
+  };
+}
+
 export function ComparisonResults({ onViewProfile, onBookNow, onBack }: ComparisonResultsProps) {
+  const { filteredProfessionalsFromFra } = useApp();
+  const filteredListRef = useRef(filteredProfessionalsFromFra);
+  filteredListRef.current = filteredProfessionalsFromFra;
+
   const [sortBy, setSortBy] = useState("recommended");
   const [filterPrice, setFilterPrice] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
@@ -38,7 +68,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Map API response to Professional interface
+  // Map API response to Professional interface (for professional/list fallback)
   const mapApiResponseToProfessional = (apiProfessional: ProfessionalResponse): Professional => {
     // Parse rating from string to number
     const rating = parseFloat(apiProfessional.rating) || 0;
@@ -86,26 +116,38 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
     };
   };
 
-  // Fetch professionals on component mount
+  // Use filter-professional/for-fra response when available (after Find Professionals); otherwise fetch from professional/list.
+  // Never let the fallback fetch overwrite the API list (e.g. after Back then Find Professionals again, or race on first load).
   useEffect(() => {
+    if (filteredProfessionalsFromFra != null && filteredProfessionalsFromFra.length > 0) {
+      setProfessionals(filteredProfessionalsFromFra.map(mapFilterItemToProfessional));
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     const loadProfessionals = async () => {
       try {
         setIsLoading(true);
         setError(null);
         const apiProfessionals = await fetchProfessionals(1);
+        // Only set if we still don't have filter data (user may have navigated via Find Professionals while we were loading)
+        if (filteredListRef.current != null && filteredListRef.current.length > 0) return;
         const mappedProfessionals = apiProfessionals.map(mapApiResponseToProfessional);
         setProfessionals(mappedProfessionals);
       } catch (err: any) {
+        if (filteredListRef.current != null && filteredListRef.current.length > 0) return;
         console.error('Failed to load professionals:', err);
         setError(err.message || 'Failed to load professionals. Please try again.');
         toast.error(err.message || 'Failed to load professionals');
       } finally {
+        if (filteredListRef.current != null && filteredListRef.current.length > 0) return;
         setIsLoading(false);
       }
     };
 
     loadProfessionals();
-  }, []);
+  }, [filteredProfessionalsFromFra]);
 
   const renderStars = (rating: number) => {
     return (
@@ -363,14 +405,20 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
                 <Card key={professional.id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row gap-6">
-                      {/* Profile Photo */}
+                      {/* Profile Photo / Initials */}
                       <div className="flex-shrink-0">
                         <div className="relative">
-                          <img
-                            src={professional.photo}
-                            alt={professional.name}
-                            className="w-24 h-24 rounded-lg object-cover"
-                          />
+                          {professional.photo ? (
+                            <img
+                              src={professional.photo}
+                              alt={professional.name}
+                              className="w-24 h-24 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-24 h-24 rounded-lg bg-red-600 flex items-center justify-center text-white text-2xl font-semibold">
+                              {professional.initials || professional.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
                           {professional.verified && (
                             <div className="absolute -bottom-2 -right-2 bg-green-500 text-white rounded-full p-1">
                               <CheckCircle className="w-5 h-5" />
@@ -399,38 +447,60 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
                                 <span className="text-gray-500"> ({professional.reviewCount} reviews)</span>
                               </span>
                             </div>
-                            <p className="text-sm text-gray-500">{professional.responseTime}</p>
+                            {professional.responseTime ? (
+                              <p className="text-sm text-gray-500">{professional.responseTime}</p>
+                            ) : null}
                           </div>
 
-                          {/* Price */}
+                          {/* Price — use API price_label when available */}
                           <div className="text-right">
-                            <div className="text-sm text-gray-500 mb-1">From</div>
-                            <div className="text-3xl text-[#0A1A2F]">£{professional.price}</div>
-                            <div className="text-sm text-gray-500">per assessment</div>
+                            {professional.price_label ? (
+                              <div>
+                                <div className="text-2xl text-[#0A1A2F]">£{professional.price}</div>
+                                <div className="text-2xl text-[#0A1A2F]">{professional.price_label}</div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-sm text-gray-500 mb-1">From</div>
+                                <div className="text-3xl text-[#0A1A2F]">£{professional.price_label}</div>
+                                <div className="text-sm text-gray-500">per assessment</div>
+                              </>
+                            )}
                           </div>
                         </div>
 
-                        {/* Qualifications */}
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {professional.qualifications.map((qual, index) => (
-                            <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              <Award className="w-3 h-3 mr-1" />
-                              {qual}
-                            </Badge>
-                          ))}
-                        </div>
+                        {/* Qualifications (from API or fallback) */}
+                        {professional.qualifications.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {professional.qualifications.map((qual, index) => (
+                              <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                <User className="w-3 h-3 mr-1" />
+                                {qual}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
 
-                        {/* Bottom Info */}
+                        {/* Bottom Info — location from API, or distance/availability when available */}
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t">
                           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{professional.distance} miles away</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              <span className="font-medium text-green-600">{professional.nextAvailable}</span>
-                            </div>
+                            {professional.location ? (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{professional.location}</span>
+                              </div>
+                            ) : professional.distance > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{professional.distance} miles away</span>
+                              </div>
+                            ) : null}
+                            {professional.nextAvailable ? (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4" />
+                                <span className="font-medium text-green-600">{professional.nextAvailable}</span>
+                              </div>
+                            ) : null}
                           </div>
 
                           {/* Action Buttons */}
