@@ -25,6 +25,11 @@ interface Professional {
   price_label?: string;
   location?: string;
   initials?: string;
+  /** From filter API – used for Booking Summary when user clicks Book */
+  service_price?: number;
+  platform_fee_percent?: string;
+  platform_fee_amount?: number;
+  total_price?: number;
 }
 
 interface ComparisonResultsProps {
@@ -33,23 +38,28 @@ interface ComparisonResultsProps {
   onBack: () => void;
 }
 
-/** Map filter-professional/for-fra item to Professional for the list UI */
-function mapFilterItemToProfessional(item: FilterProfessionalForFraItem): Professional {
+/** Map filter-professional/for-fra item to Professional for the list UI. Carries API pricing for Booking Summary when user clicks Book. */
+function mapFilterItemToProfessional(item: FilterProfessionalForFraItem | { id: number; name: string; initials?: string; profile_image?: string; verified?: boolean; rating?: number; total_reviews?: number; location?: string; response_time?: string; service_price?: number; price?: number; price_label?: string; platform_fee_percent?: string; platform_fee_amount?: number; total_price?: number }): Professional {
+  const servicePrice = item.service_price ?? item.price ?? 0;
   return {
     id: item.id,
     name: item.name,
-    photo: item.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=EF4444&color=fff&size=400`,
-    verified: item.verified,
-    rating: typeof item.rating === "number" ? item.rating : parseFloat(String(item.rating)) || 0,
+    photo: (item as FilterProfessionalForFraItem).profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=EF4444&color=fff&size=400`,
+    verified: (item as FilterProfessionalForFraItem).verified ?? true,
+    rating: typeof item.rating === "number" ? item.rating : parseFloat(String(item.rating ?? 0)) || 0,
     reviewCount: item.total_reviews ?? 0,
-    price: item.price ?? 0,
+    price: servicePrice,
     distance: 0,
     nextAvailable: "",
     qualifications: [],
     responseTime: item.response_time ?? "Responds within 2 hours",
-    price_label: item.price_label,
+    price_label: (item as FilterProfessionalForFraItem).price_label,
     location: item.location,
-    initials: item.initials,
+    initials: (item as FilterProfessionalForFraItem).initials,
+    service_price: item.service_price ?? (item.price != null ? item.price : undefined),
+    platform_fee_percent: item.platform_fee_percent,
+    platform_fee_amount: item.platform_fee_amount,
+    total_price: item.total_price,
   };
 }
 
@@ -71,7 +81,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
   // Map API response to Professional interface (for professional/list fallback)
   const mapApiResponseToProfessional = (apiProfessional: ProfessionalResponse): Professional => {
     // Parse rating from string to number
-    const rating = parseFloat(apiProfessional.rating) || 0;
+    const rating = parseFloat(apiProfessional.rating ?? "0") || 0;
     
     // Generate placeholder photo based on name
     const photoPlaceholder = `https://ui-avatars.com/api/?name=${encodeURIComponent(apiProfessional.name)}&background=EF4444&color=fff&size=400`;
@@ -452,19 +462,13 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
                             ) : null}
                           </div>
 
-                          {/* Price — use API price_label when available */}
+                          {/* Price — API service_price is mapped to price; display it with optional price_label */}
                           <div className="text-right">
+                            <div className="text-2xl text-[#0A1A2F]">£{professional.price}</div>
                             {professional.price_label ? (
-                              <div>
-                                <div className="text-2xl text-[#0A1A2F]">£{professional.price}</div>
-                                <div className="text-2xl text-[#0A1A2F]">{professional.price_label}</div>
-                              </div>
+                              <div className="text-sm text-gray-500 mt-1">{professional.price_label}</div>
                             ) : (
-                              <>
-                                <div className="text-sm text-gray-500 mb-1">From</div>
-                                <div className="text-3xl text-[#0A1A2F]">£{professional.price_label}</div>
-                                <div className="text-sm text-gray-500">per assessment</div>
-                              </>
+                              <div className="text-sm text-gray-500 mt-1">per assessment</div>
                             )}
                           </div>
                         </div>

@@ -37,6 +37,7 @@ export interface User {
 
 const SELECTED_SERVICE_ID_KEY = "fireguide_selected_service_id";
 const LOCATION_SEARCH_DATA_KEY = "fireguide_location_search_data";
+const FILTERED_PROFESSIONALS_KEY = "fireguide_filtered_professionals";
 
 interface LocationSearchData {
   post_code: string;
@@ -67,7 +68,7 @@ interface AppContextType {
   setSelectedProfessionalId: (id: number | null) => void;
   bookingProfessional: any;
   setBookingProfessional: (professional: any) => void;
-  /** Professionals from filter-professional/for-fra (set when user clicks Find Professionals). */
+  /** Professionals from filter-professional/for-fra (set when user clicks Find Professionals). Persisted to sessionStorage so same cards show after reload. */
   filteredProfessionalsFromFra: Array<{
     id: number;
     name: string;
@@ -78,7 +79,8 @@ interface AppContextType {
     total_reviews: number;
     location?: string;
     response_time?: string;
-    price: number;
+    service_price?: number;
+    price?: number;
     price_label: string;
   }> | null;
   setFilteredProfessionalsFromFra: (list: Array<{
@@ -91,7 +93,8 @@ interface AppContextType {
     total_reviews: number;
     location?: string;
     response_time?: string;
-    price: number;
+    service_price?: number;
+    price?: number;
     price_label: string;
   }> | null) => void;
   isCustomerLoggedIn: boolean;
@@ -143,7 +146,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       else sessionStorage.removeItem(LOCATION_SEARCH_DATA_KEY);
     } catch (_) {}
   };
-  const [questionnaireData, setQuestionnaireDataInternal] = useState<any>(null);
+  const [questionnaireData, setQuestionnaireDataInternal] = useState<any>(() => {
+    try {
+      const stored = sessionStorage.getItem(QUESTIONNAIRE_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const setQuestionnaireData = (data: any) => {
     setQuestionnaireDataInternal(data);
     try {
@@ -157,7 +167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedProfessional, setSelectedProfessional] = useState<any>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
   const [bookingProfessional, setBookingProfessional] = useState<any>(null);
-  const [filteredProfessionalsFromFra, setFilteredProfessionalsFromFra] = useState<Array<{
+  const [filteredProfessionalsFromFra, setFilteredProfessionalsFromFraInternal] = useState<Array<{
     id: number;
     name: string;
     initials: string;
@@ -167,9 +177,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     total_reviews: number;
     location?: string;
     response_time?: string;
-    price: number;
+    service_price?: number;
+    price?: number;
     price_label: string;
-  }> | null>(null);
+    platform_fee_percent?: string;
+    platform_fee_amount?: number;
+    total_price?: number;
+  }> | null>(() => {
+    try {
+      const s = sessionStorage.getItem(FILTERED_PROFESSIONALS_KEY);
+      return s ? JSON.parse(s) : null;
+    } catch {
+      return null;
+    }
+  });
+  const setFilteredProfessionalsFromFra = (list: Array<{
+    id: number;
+    name: string;
+    initials: string;
+    profile_image: string;
+    verified: boolean;
+    rating: number;
+    total_reviews: number;
+    location?: string;
+    response_time?: string;
+    service_price?: number;
+    price?: number;
+    price_label: string;
+    platform_fee_percent?: string;
+    platform_fee_amount?: number;
+    total_price?: number;
+  }> | null) => {
+    setFilteredProfessionalsFromFraInternal(list);
+    try {
+      if (list != null && list.length > 0) {
+        sessionStorage.setItem(FILTERED_PROFESSIONALS_KEY, JSON.stringify(list));
+      } else {
+        sessionStorage.removeItem(FILTERED_PROFESSIONALS_KEY);
+      }
+    } catch (_) {}
+  };
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   
   // Load bookings and payments from localStorage on mount

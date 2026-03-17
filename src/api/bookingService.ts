@@ -637,6 +637,33 @@ export const getProfessionalBookings = async (): Promise<ProfessionalBookingItem
   }
 };
 
+// Change professional booking status (mark completed + invoice create)
+export interface ChangeProfessionalBookingStatusRequest {
+  api_token: string;
+  booking_id: number;
+}
+
+export interface ChangeProfessionalBookingStatusResponse {
+  status: boolean;
+  message: string;
+  data?: any;
+}
+
+/**
+ * Change professional booking status
+ * POST https://fireguide.attoexasolutions.com/api/professional-booking/change-status
+ * Body: { api_token, booking_id }
+ */
+export const changeProfessionalBookingStatus = async (
+  data: ChangeProfessionalBookingStatusRequest
+): Promise<ChangeProfessionalBookingStatusResponse> => {
+  const response = await apiClient.post<ChangeProfessionalBookingStatusResponse>(
+    '/professional-booking/change-status',
+    data
+  );
+  return response.data;
+};
+
 // TypeScript types for Accept Professional Booking request
 export interface AcceptProfessionalBookingRequest {
   api_token: string;
@@ -712,6 +739,8 @@ export interface UpdateProfessionalBookingRequest {
   additional_notes?: string;
   reason?: string;
   professional_id: number;
+  /** Some backends allow status transition via update endpoint */
+  status?: string;
 }
 
 export interface UpdateProfessionalBookingResponse {

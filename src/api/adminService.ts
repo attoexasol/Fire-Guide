@@ -100,6 +100,60 @@ export const getAdminRecentBookings = async (
   return response.data;
 };
 
+// Professional payment invoice list (Payout page)
+export interface ProfessionalPayoutDetail {
+  id: number;
+  professional_id: number;
+  account_holder_name: string;
+  sort_code: string;
+  account_number: string;
+  note: string | null;
+}
+
+export interface ProfessionalPaymentInvoiceBooking {
+  id: number;
+  professional_id: number;
+  user_id: number;
+  price: number;
+  status: string;
+}
+
+export interface ProfessionalPaymentInvoiceItem {
+  id: number;
+  professional_id: number;
+  booking_id: number;
+  amount: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  professional: {
+    id: number;
+    name: string;
+    email: string;
+    payout_detail: ProfessionalPayoutDetail | null;
+  };
+  booking: ProfessionalPaymentInvoiceBooking;
+}
+
+export interface ProfessionalPaymentInvoiceListResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalPaymentInvoiceItem[];
+}
+
+/**
+ * POST professional-payment/show-invoice — Professional Payment Invoice List for admin Payout page
+ */
+export const getProfessionalPaymentInvoiceList = async (
+  data: AdminOverviewSummaryRequest
+): Promise<ProfessionalPaymentInvoiceListResponse> => {
+  const response = await apiClient.post<ProfessionalPaymentInvoiceListResponse>(
+    '/professional-payment/show-invoice',
+    { api_token: data.api_token }
+  );
+  return response.data;
+};
+
 // FRA all prices (all professionals) – Admin FRA Base Price page
 export interface FraAllPricesPropertyType {
   id: number;

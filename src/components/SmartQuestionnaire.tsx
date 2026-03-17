@@ -21,6 +21,8 @@ interface SmartQuestionnaireProps {
     property_type_id: number;
     approximate_people_id: number;
     number_of_floors: string;
+    property_type_label?: string;
+    approximate_people_label?: string;
     number_of_floors_id?: number;
     preferred_date: string;
     access_note: string;
@@ -828,6 +830,8 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       property_type_id: propertyTypeId,
       approximate_people_id: approximatePeopleIdResolved,
       number_of_floors,
+      property_type_label: propertyTypeDisplay,
+      approximate_people_label: peopleCountDisplayForComplete,
       ...(number_of_floors_id != null && { number_of_floors_id }),
       preferred_date: formData.assessmentDate,
       access_note: accessNote,

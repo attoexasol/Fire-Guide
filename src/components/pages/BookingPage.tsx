@@ -7,6 +7,8 @@ const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
 const BOOKING_SERVICE_ID_KEY = 'fireguide_booking_service_id';
 const BOOKING_SESSION_ID_KEY = 'fireguide_booking_session_id';
+const BOOKING_PRICING_KEY = 'fireguide_booking_pricing';
+const BOOKING_PRICING_ERROR_KEY = 'fireguide_booking_pricing_error';
 const QUESTIONNAIRE_STORAGE_KEY = 'fireguide_questionnaire_data';
 
 function getQuestionnaireData(questionnaireData: any) {
@@ -99,13 +101,26 @@ export default function BookingPage() {
       })();
 
   const locationState = location.state as {
-    bookingPricing?: { servicePrice: number; platformFee: number; total: number };
+    bookingPricing?: { servicePrice: number; platformFee: number; total: number; platformFeePercent?: string };
     bookingPricingError?: string;
     serviceId?: number;
     sessionId?: number;
   } | null;
-  const initialPricing = locationState?.bookingPricing;
-  const initialPricingError = locationState?.bookingPricingError;
+  const initialPricing = locationState?.bookingPricing ?? (() => {
+    try {
+      const stored = sessionStorage.getItem(BOOKING_PRICING_KEY);
+      return stored ? JSON.parse(stored) : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+  const initialPricingError = locationState?.bookingPricingError ?? (() => {
+    try {
+      return sessionStorage.getItem(BOOKING_PRICING_ERROR_KEY) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  })();
   const resolvedServiceId = locationState?.serviceId ?? (() => {
     try {
       const stored = sessionStorage.getItem(BOOKING_SERVICE_ID_KEY);
@@ -139,6 +154,7 @@ export default function BookingPage() {
       bookingProfessional={resolvedProfessional}
       initialPricing={initialPricing}
       initialPricingError={initialPricingError}
+      questionnaireData={questionnaireData}
       isCustomQuote={questionnaireData?.isCustomQuote}
       customQuoteRequestData={questionnaireData?.request_data}
       serviceIdForQuote={questionnaireData?.service_id}

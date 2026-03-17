@@ -1925,6 +1925,11 @@ export interface FilterProfessionalForFraItem {
   response_time?: string;
   price: number;
   price_label: string;
+  /** When present, use for Booking Summary (service fee) */
+  service_price?: number;
+  platform_fee_percent?: string;
+  platform_fee_amount?: number;
+  total_price?: number;
 }
 
 export interface FilterProfessionalForFraResponse {

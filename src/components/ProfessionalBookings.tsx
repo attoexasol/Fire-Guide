@@ -10,7 +10,7 @@ import { Separator } from "./ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { getProfessionalBookings, ProfessionalBookingItem, acceptProfessionalBooking, updateProfessionalBooking, searchProfessionalBookings, getBookingSummary } from "../api/bookingService";
+import { getProfessionalBookings, ProfessionalBookingItem, acceptProfessionalBooking, updateProfessionalBooking, searchProfessionalBookings, getBookingSummary, changeProfessionalBookingStatus } from "../api/bookingService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
 import { toast } from "sonner";
 
@@ -115,6 +115,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
   const [isLoading, setIsLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [completingBookingId, setCompletingBookingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [bookingsData, setBookingsData] = useState<Booking[]>([]);
@@ -324,6 +325,43 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     setRescheduleTime("");
     setRescheduleReason("");
     setShowRescheduleModal(true);
+  };
+
+  const handleMarkAsCompleted = async (booking: Booking) => {
+    const apiToken = getApiToken();
+    if (!apiToken) {
+      toast.error("Authentication required. Please login again.");
+      return;
+    }
+
+    try {
+      setCompletingBookingId(booking.id);
+      // Always fetch latest from professional_wise_get, then use that ID as booking_id.
+      const latest = await getProfessionalBookings();
+      const match = latest.find((b) => b.id === booking.id);
+      if (!match) {
+        toast.error("Booking not found in latest list");
+        return;
+      }
+
+      const response = await changeProfessionalBookingStatus({
+        api_token: apiToken,
+        booking_id: match.id,
+      });
+
+      if (response.status === true) {
+        toast.success(response.message || "Booking marked as completed!");
+        await fetchBookings();
+        await fetchBookingSummary();
+      } else {
+        toast.error(response.message || "Failed to mark as completed");
+      }
+    } catch (err: any) {
+      console.error("Error marking booking as completed:", err);
+      toast.error(err?.message || "Failed to mark as completed. Please try again.");
+    } finally {
+      setCompletingBookingId(null);
+    }
   };
 
   // Helper function to convert 12-hour time to 24-hour format with seconds
@@ -617,6 +655,23 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                     >
                       <Navigation className="w-4 h-4 mr-2" />
                       Get Directions
+                    </Button>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleMarkAsCompleted(booking)}
+                      disabled={completingBookingId === booking.id}
+                    >
+                      {completingBookingId === booking.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Completing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Mark as Completed
+                        </>
+                      )}
                     </Button>
                     <Button 
                       variant="outline"

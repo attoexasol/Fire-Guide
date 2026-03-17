@@ -10,6 +10,8 @@ import { toast } from "sonner";
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
 const BOOKING_SESSION_ID_KEY = 'fireguide_booking_session_id';
+const BOOKING_PRICING_KEY = 'fireguide_booking_pricing';
+const BOOKING_PRICING_ERROR_KEY = 'fireguide_booking_pricing_error';
 const SELECTED_PROFESSIONAL_KEY = 'fireguide_selected_professional';
 const SELECTED_PROFESSIONAL_ID_KEY = 'fireguide_selected_professional_id';
 
@@ -223,11 +225,25 @@ export default function ComparisonPage() {
           }
         }
 
-        // 2) Fetch price: FRA uses add-to-cart/fra, Fire Alarm uses add-to-cart/fire-alarm (professional_id, session_id); others use calculate-price/for-booking
+        // 2) Pricing for Booking Summary: prefer filter-professional/for-fra API response (the card) so Service Fee = card price, platform_fee_amount and total_price from API
         const isFRA = !isFireAlarm && !isFireExtinguisher && !isEmergencyLighting && !isFireMarshal && !isFireConsultation;
         let bookingPricing: { servicePrice: number; platformFee: number; total: number; platformFeePercent?: string } | undefined;
         let bookingPricingError: string | undefined;
-        if (serviceId != null && sessionId != null) {
+        const servicePriceFromCard = professional.service_price ?? professional.price;
+        if (servicePriceFromCard != null && Number(servicePriceFromCard) > 0 && !isCustomQuote &&
+            professional.platform_fee_amount != null && professional.total_price != null) {
+          // Use filter API response so Booking Summary matches the book card (price, platform_fee_amount, total_price)
+          const platformFee = Number(professional.platform_fee_amount);
+          const total = Number(professional.total_price);
+          bookingPricing = {
+            servicePrice: Number(servicePriceFromCard),
+            platformFee: Math.round(platformFee * 100) / 100,
+            total: Math.round(total * 100) / 100,
+            platformFeePercent: professional.platform_fee_percent,
+          };
+        }
+        // When we don't have full pricing from the card, get from add-to-cart (or show error)
+        if (bookingPricing == null && serviceId != null && sessionId != null) {
           try {
             if (isFRA) {
               const res = await addToCartFra({
@@ -342,22 +358,38 @@ export default function ComparisonPage() {
         } else if (serviceId == null) {
           bookingPricingError = "Service not selected. Please start from the service search.";
         } else {
-          bookingPricingError = "Could not create booking session. Please try again.";
+          // Session creation failed; use professional's price from filter API (price, platform_fee_amount, total_price) so Booking Summary shows API values
+          const servicePrice = professional.service_price ?? professional.price;
+          if (servicePrice != null && Number(servicePrice) > 0 && !isCustomQuote) {
+            const platformFeeAmount = professional.platform_fee_amount ?? (Number(servicePrice) * 0.2);
+            const totalPrice = professional.total_price ?? (Number(servicePrice) + platformFeeAmount);
+            bookingPricing = {
+              servicePrice: Number(servicePrice),
+              platformFee: Number(platformFeeAmount),
+              total: Number(totalPrice),
+              platformFeePercent: professional.platform_fee_percent,
+            };
+          } else {
+            bookingPricingError = "Could not create booking session. Please try again.";
+          }
         }
 
         startTransition(() => {
-          if (sessionId != null) {
-            try {
-              sessionStorage.setItem(BOOKING_SESSION_ID_KEY, String(sessionId));
-            } catch (_) {}
-          }
+          try {
+            if (sessionId != null) sessionStorage.setItem(BOOKING_SESSION_ID_KEY, String(sessionId));
+            if (bookingPricing && !isCustomQuote) {
+              sessionStorage.setItem(BOOKING_PRICING_KEY, JSON.stringify(bookingPricing));
+              sessionStorage.removeItem(BOOKING_PRICING_ERROR_KEY);
+            } else if (bookingPricingError) {
+              sessionStorage.setItem(BOOKING_PRICING_ERROR_KEY, bookingPricingError);
+            }
+          } catch (_) {}
           navigate("/booking", {
             state: {
               professional,
               professionalId: professional.id,
               serviceId: serviceId != null ? Number(serviceId) : undefined,
               sessionId: sessionId != null ? Number(sessionId) : undefined,
-              // Don't pass price for custom quote so booking flow shows "Wait for admin" and doesn't go to payment
               ...(bookingPricing && !isCustomQuote && { bookingPricing }),
               ...(bookingPricingError && { bookingPricingError }),
             },

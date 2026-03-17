@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getApiToken } from "../lib/auth";
-import { getAdminSeoSettings, saveAdminSeoSettings, getAdminNotificationSettings, saveAdminNotificationSettings, getAdminSystemSettings, saveAdminSystemSettings, getAdminSecuritySettings, saveAdminSecuritySettings, getAdminPaymentSettings, saveAdminPaymentSettings } from "../api/adminService";
-import { Save, Globe, Search, Zap, Bell, Shield, CreditCard, Eye, EyeOff } from "lucide-react";
+import { getAdminSeoSettings, saveAdminSeoSettings, getAdminNotificationSettings, saveAdminNotificationSettings, getAdminSystemSettings, saveAdminSystemSettings, getAdminSecuritySettings, saveAdminSecuritySettings } from "../api/adminService";
+import { Save, Globe, Search, Zap, Bell, Shield } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -64,26 +64,6 @@ export function AdminSettings() {
           setAutoApprove(res.data.auto_approve_professionals === true);
           setBookingBuffer(String(res.data.booking_buffer_time ?? 24));
           setCancellationWindow(String(res.data.cancellation_window ?? 48));
-        }
-      })
-      .catch(() => {});
-  }, []);
-  const [stripePublicKey, setStripePublicKey] = useState("pk_test_************************");
-  const [stripeSecretKey, setStripeSecretKey] = useState("sk_test_************************");
-  const [currency, setCurrency] = useState("GBP");
-  const [paymentSaving, setPaymentSaving] = useState(false);
-  const [showPublicKey, setShowPublicKey] = useState(false);
-  const [showSecretKey, setShowSecretKey] = useState(false);
-
-  useEffect(() => {
-    const token = getApiToken();
-    if (!token) return;
-    getAdminPaymentSettings({ api_token: token })
-      .then((res) => {
-        if (res.status && res.data) {
-          if (res.data.stripe_public_key) setStripePublicKey(res.data.stripe_public_key);
-          if (res.data.stripe_secret_key) setStripeSecretKey(res.data.stripe_secret_key);
-          if (res.data.default_currency) setCurrency(res.data.default_currency);
         }
       })
       .catch(() => {});
@@ -191,34 +171,6 @@ export function AdminSettings() {
       toast.error(e?.response?.data?.message || e?.message || "Failed to save system settings");
     } finally {
       setSystemSaving(false);
-    }
-  };
-
-  const handleSavePayment = async () => {
-    const token = getApiToken();
-    if (!token) {
-      toast.error("Not authenticated");
-      return;
-    }
-    setPaymentSaving(true);
-    try {
-      const res = await saveAdminPaymentSettings({
-        api_token: token,
-        stripe_public_key: stripePublicKey,
-        stripe_secret_key: stripeSecretKey,
-        default_currency: currency
-      });
-      if (res.status && res.data) {
-        if (res.data.stripe_public_key) setStripePublicKey(res.data.stripe_public_key);
-        if (res.data.default_currency) setCurrency(res.data.default_currency);
-        toast.success(res.message || "Payment settings saved successfully!");
-      } else {
-        toast.error(res.message || "Failed to save payment settings");
-      }
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || e?.message || "Failed to save payment settings");
-    } finally {
-      setPaymentSaving(false);
     }
   };
 
@@ -435,75 +387,6 @@ export function AdminSettings() {
           <Button onClick={() => void handleSaveSystem()} disabled={systemSaving} className="bg-red-600 hover:bg-red-700">
             <Save className="w-4 h-4 mr-2" />
             {systemSaving ? "Saving..." : "Save System Settings"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Payment Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-[#0A1A2F] flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            Payment Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="stripe-key">Stripe Public Key</Label>
-            <div className="relative mt-2">
-              <Input
-                id="stripe-key"
-                type={showPublicKey ? "text" : "password"}
-                className="pr-10"
-                value={stripePublicKey}
-                onChange={(e) => setStripePublicKey(e.target.value)}
-                placeholder="pk_test_..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowPublicKey(!showPublicKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPublicKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="stripe-secret">Stripe Secret Key</Label>
-            <div className="relative mt-2">
-              <Input
-                id="stripe-secret"
-                type={showSecretKey ? "text" : "password"}
-                className="pr-10"
-                value={stripeSecretKey}
-                onChange={(e) => setStripeSecretKey(e.target.value)}
-                placeholder="sk_test_..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecretKey(!showSecretKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showSecretKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="currency">Default Currency</Label>
-            <Input
-              id="currency"
-              className="mt-2"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              placeholder="GBP"
-            />
-          </div>
-
-          <Button onClick={() => void handleSavePayment()} disabled={paymentSaving} className="bg-red-600 hover:bg-red-700">
-            <Save className="w-4 h-4 mr-2" />
-            {paymentSaving ? "Saving..." : "Save Payment Settings"}
           </Button>
         </CardContent>
       </Card>

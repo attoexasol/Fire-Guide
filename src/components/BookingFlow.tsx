@@ -4,6 +4,14 @@ import { CustomerDetailsForm } from "./CustomerDetailsForm";
 import { PaymentPage } from "./PaymentPage";
 import { BookingConfirmation } from "./BookingConfirmation";
 
+/** Questionnaire payload may include display labels for service details (e.g. property_type_label, approximate_people_label). */
+export type QuestionnaireDataForBooking = {
+  property_type_label?: string;
+  approximate_people_label?: string;
+  number_of_floors?: string;
+  [key: string]: unknown;
+};
+
 interface BookingFlowProps {
   onBack: () => void;
   onConfirm: () => void;
@@ -19,6 +27,8 @@ interface BookingFlowProps {
   initialPricing?: { servicePrice: number; platformFee: number; total: number; platformFeePercent?: string };
   /** When price API fails on Book Now, pass message so summary can show it */
   initialPricingError?: string;
+  /** Questionnaire data with optional display labels (property_type_label, approximate_people_label, number_of_floors) for Service Details card */
+  questionnaireData?: QuestionnaireDataForBooking | null;
   isCustomQuote?: boolean;
   customQuoteRequestData?: { building_type: string; people_count: string; floors: number };
   serviceIdForQuote?: number;
@@ -77,7 +87,33 @@ export interface BookingData {
 
 const defaultPricing = { servicePrice: 285, platformFee: 15, total: 300 };
 
-export function BookingFlow({ onBack, onConfirm, professionalId, serviceId, sessionId, bookingProfessional, initialPricing, initialPricingError, isCustomQuote, customQuoteRequestData, serviceIdForQuote }: BookingFlowProps) {
+function getServiceDisplayName(selectedService?: string): string {
+  if (!selectedService) return "Fire Risk Assessment";
+  const map: Record<string, string> = {
+    fra: "Fire Risk Assessment",
+    "fire-alarm": "Fire Alarm",
+    "fire-extinguisher": "Fire Extinguisher",
+    "emergency-lighting": "Emergency Lighting",
+    "fire-marshal": "Fire Marshal",
+    "fire-safety-consultation": "Fire Safety Consultation",
+  };
+  return map[selectedService] ?? "Fire Risk Assessment";
+}
+
+function getInitialService(questionnaireData?: QuestionnaireDataForBooking | null, selectedService?: string) {
+  const name = getServiceDisplayName(selectedService);
+  const propertyType = questionnaireData?.property_type_label ?? "Office Building";
+  const floors = (() => {
+    const v = questionnaireData?.number_of_floors;
+    if (v == null || v === "") return 3;
+    const n = parseInt(String(v), 10);
+    return Number.isNaN(n) ? 3 : n;
+  })();
+  const people = questionnaireData?.approximate_people_label ?? "26-50";
+  return { name, propertyType, floors, people };
+}
+
+export function BookingFlow({ onBack, onConfirm, professionalId, serviceId, sessionId, bookingProfessional, initialPricing, initialPricingError, questionnaireData, selectedService, isCustomQuote, customQuoteRequestData, serviceIdForQuote }: BookingFlowProps) {
   const [currentStep, setCurrentStep] = useState<BookingStep>("appointment");
   
   // Default professional data (fallback)
@@ -102,12 +138,7 @@ export function BookingFlow({ onBack, onConfirm, professionalId, serviceId, sess
   };
 
   const [bookingData, setBookingData] = useState<BookingData>({
-    service: {
-      name: "Fire Risk Assessment",
-      propertyType: "Office Building",
-      floors: 3,
-      people: "26-50"
-    },
+    service: getInitialService(questionnaireData, selectedService),
     professional: getInitialProfessional(),
     professionalId: professionalId || null,
     selectedDate: "",
@@ -147,6 +178,16 @@ export function BookingFlow({ onBack, onConfirm, professionalId, serviceId, sess
       }
     }
   }, [bookingProfessional, professionalId]);
+
+  // Sync service details when questionnaire data becomes available (e.g. after restore from sessionStorage)
+  useEffect(() => {
+    if (!questionnaireData) return;
+    const next = getInitialService(questionnaireData, selectedService);
+    setBookingData(prev => {
+      if (prev.service.propertyType === next.propertyType && prev.service.floors === next.floors && prev.service.people === next.people && prev.service.name === next.name) return prev;
+      return { ...prev, service: next };
+    });
+  }, [questionnaireData, selectedService]);
 
   const handleAppointmentSelected = (date: string, time: string) => {
     setBookingData(prev => ({ ...prev, selectedDate: date, selectedTime: time }));
