@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   getProfessionalPaymentInvoiceList,
   ProfessionalPaymentInvoiceItem,
+  updateProfessionalPaymentInvoiceStatus,
 } from "../api/adminService";
 import { getApiToken } from "../lib/auth";
 import {
@@ -13,10 +14,18 @@ import {
   RefreshCw,
   Mail,
   PoundSterling,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { toast } from "sonner";
 
 function formatDate(iso: string): string {
   try {
@@ -37,10 +46,22 @@ function maskAccountNumber(num: string): string {
   return "****" + num.slice(-4);
 }
 
+function displayAccountNumber(num: string): string {
+  return num || "—";
+}
+
 export function AdminPayout() {
   const [invoices, setInvoices] = useState<ProfessionalPaymentInvoiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  type PayoutDetail = NonNullable<
+    ProfessionalPaymentInvoiceItem["professional"]["payout_detail"]
+  >;
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<PayoutDetail | null>(
+    null
+  );
+  const [markingPaidInvoiceId, setMarkingPaidInvoiceId] = useState<number | null>(null);
 
   const fetchInvoices = () => {
     const token = getApiToken();
@@ -75,6 +96,37 @@ export function AdminPayout() {
     0
   );
   const paidCount = invoices.filter((i) => i.status === "paid").length;
+
+  const handleMarkAsPaid = async (inv: ProfessionalPaymentInvoiceItem) => {
+    const token = getApiToken();
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    if (!inv.professional?.id) {
+      toast.error("Professional ID missing");
+      return;
+    }
+
+    try {
+      setMarkingPaidInvoiceId(inv.id);
+      const res = await updateProfessionalPaymentInvoiceStatus({
+        api_token: token,
+        id: inv.id,
+        professional_id: inv.professional.id,
+      });
+      if (res.status === true) {
+        toast.success(res.message || "Invoice marked as paid");
+        fetchInvoices();
+      } else {
+        toast.error(res.message || "Failed to update invoice status");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update invoice status");
+    } finally {
+      setMarkingPaidInvoiceId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -272,9 +324,7 @@ export function AdminPayout() {
                         </p>
                         <p className="text-gray-600">
                           Account:{" "}
-                          {maskAccountNumber(
-                            inv.professional.payout_detail.account_number
-                          )}
+                          {displayAccountNumber(inv.professional.payout_detail.account_number)}
                         </p>
                         {inv.professional.payout_detail.note && (
                           <p className="text-gray-500 text-xs mt-1 italic">
@@ -297,12 +347,96 @@ export function AdminPayout() {
                     <Calendar className="w-3.5 h-3.5" />
                     Updated: {formatDate(inv.updated_at)}
                   </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    {inv.status === "pending" && (
+                      <Button
+                        size="sm"
+                        className="bg-green-600 text-white hover:bg-green-700"
+                        onClick={() => handleMarkAsPaid(inv)}
+                        disabled={markingPaidInvoiceId === inv.id}
+                      >
+                        {markingPaidInvoiceId === inv.id ? "Marking..." : "Mark as Paid"}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={!inv.professional?.payout_detail}
+                      onClick={() => {
+                        if (!inv.professional?.payout_detail) return;
+                        setSelectedAccount(inv.professional.payout_detail);
+                        setAccountModalOpen(true);
+                      }}
+                      className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 disabled:text-white"
+                    >
+                      Account Details
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <Dialog open={accountModalOpen} onOpenChange={setAccountModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4">
+              <DialogTitle>Payout Account Details</DialogTitle>
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(false)}
+                className="rounded-md p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </DialogHeader>
+          {selectedAccount ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">
+                    Account holder name
+                  </p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedAccount.account_holder_name || "—"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">
+                      Sort code
+                    </p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedAccount.sort_code || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">
+                      Account number
+                    </p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {displayAccountNumber(selectedAccount.account_number)}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">
+                    Note
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {selectedAccount.note || "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No payout details available.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

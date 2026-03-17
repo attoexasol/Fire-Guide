@@ -154,6 +154,32 @@ export const getProfessionalPaymentInvoiceList = async (
   return response.data;
 };
 
+export interface UpdateProfessionalPaymentInvoiceStatusRequest {
+  api_token: string;
+  id: number;
+  professional_id: number;
+}
+
+export interface UpdateProfessionalPaymentInvoiceStatusResponse {
+  status: boolean;
+  message: string;
+  data?: any;
+}
+
+/**
+ * POST professional-payment/invoice/update-status — mark invoice as paid
+ * Body: { api_token, id, professional_id }
+ */
+export const updateProfessionalPaymentInvoiceStatus = async (
+  data: UpdateProfessionalPaymentInvoiceStatusRequest
+): Promise<UpdateProfessionalPaymentInvoiceStatusResponse> => {
+  const response = await apiClient.post<UpdateProfessionalPaymentInvoiceStatusResponse>(
+    '/professional-payment/invoice/update-status',
+    data
+  );
+  return response.data;
+};
+
 // FRA all prices (all professionals) – Admin FRA Base Price page
 export interface FraAllPricesPropertyType {
   id: number;
