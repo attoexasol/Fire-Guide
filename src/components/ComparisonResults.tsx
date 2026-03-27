@@ -227,7 +227,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
           <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
             <Flame className="w-8 h-8 text-red-500" />
@@ -237,7 +237,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
       </header>
 
       {/* Breadcrumb */}
-      <div className="bg-white py-4 px-6 border-b">
+      <div className="bg-white py-4 px-4 md:px-6 border-b">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <a href="/" className="hover:text-red-600 transition-colors">Home</a>
@@ -250,7 +250,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
       </div>
 
       {/* Summary Section */}
-      <div className="bg-white py-6 px-6 border-b shadow-sm">
+      <div className="bg-white py-6 px-4 md:px-6 border-b shadow-sm">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -278,7 +278,7 @@ export function ComparisonResults({ onViewProfile, onBookNow, onBack }: Comparis
       </div>
 
       {/* Main Content */}
-      <main className="py-8 px-6">
+      <main className="py-8 px-4 md:px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-4 gap-6">
             {/* Filters Sidebar */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, MoreVertical, Eye, Pencil, Trash2, Plus, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Loader2, MoreVertical, Eye, Pencil, Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import {
@@ -1515,7 +1515,7 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
   };
 
   return (
-    <div className="space-y-6 px-4 md:px-6 pb-20 md:pb-6">
+    <div className="space-y-6 pb-20 md:pb-6">
       <div>
         <h1 className="text-[#0A1A2F] text-xl font-semibold mb-1">Pricing</h1>
         <p className="text-sm text-gray-500">
@@ -3261,24 +3261,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
       {/* Consultancy Pricing Modal – opened from edit icon on "All professionals' Consultation prices" card */}
       <Dialog open={consultationPricingModalOpen} onOpenChange={setConsultationPricingModalOpen}>
         <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Consultancy Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Set your base and modifier prices for Consultancy services
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setConsultationPricingModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Consultancy Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Consultancy services
+              </p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
@@ -3556,24 +3546,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
       {/* Training Pricing Modal – scrollable body + sticky footer (same as Fire Alarm) */}
       <Dialog open={trainingPricingModalOpen} onOpenChange={setTrainingPricingModalOpen}>
         <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Training Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Set your base and modifier prices for Training services
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTrainingPricingModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Training Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Training services
+              </p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
@@ -3982,24 +3962,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
       {/* Extinguisher Pricing Modal – scrollable body + sticky footer (same as Fire Alarm) */}
       <Dialog open={extinguisherModalOpen} onOpenChange={setExtinguisherModalOpen}>
         <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Fire Extinguisher Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Set your base and modifier prices for Fire Extinguisher services
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setExtinguisherModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Fire Extinguisher Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Fire Extinguisher services
+              </p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
@@ -4419,24 +4389,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
       {/* Fire Alarm Pricing Modal – scrollable body, sticky footer so Update Price is always visible */}
       <Dialog open={alarmModalOpen} onOpenChange={setAlarmModalOpen}>
         <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Fire Alarm Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Set your base and modifier prices for Fire Alarm services
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAlarmModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Fire Alarm Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Fire Alarm services
+              </p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
@@ -4968,29 +4928,19 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
       {/* FRA Pricing Modal – scrollable body + sticky footer (same as Fire Alarm) */}
       <Dialog open={fraModalOpen} onOpenChange={setFraModalOpen}>
         <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Fire Risk Assessment Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  {fraModalProfessionalId && fraAllPrices?.length
-                    ? (() => {
-                        const pro = fraAllPrices.find((p) => p.professional_id === Number(fraModalProfessionalId));
-                        return pro ? `Editing prices for ${pro.professional_name}` : "Set base and addon prices for FRA services";
-                      })()
-                    : "Set base and addon prices for FRA services"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFraModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors shrink-0"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Fire Risk Assessment Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                {fraModalProfessionalId && fraAllPrices?.length
+                  ? (() => {
+                      const pro = fraAllPrices.find((p) => p.professional_id === Number(fraModalProfessionalId));
+                      return pro ? `Editing prices for ${pro.professional_name}` : "Set base and addon prices for FRA services";
+                    })()
+                  : "Set base and addon prices for FRA services"}
+              </p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 relative">
@@ -5345,24 +5295,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
 
       <Dialog open={emergencyLightingModalOpen} onOpenChange={setEmergencyLightingModalOpen}>
         <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Emergency Lighting Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Set your base and modifier prices for Emergency Lighting services
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEmergencyLightingModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="flex-shrink-0 bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Emergency Lighting Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Emergency Lighting services
+              </p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">

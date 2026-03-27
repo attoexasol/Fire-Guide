@@ -2,6 +2,8 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
+const DialogContext = React.createContext<{ onOpenChange?: (open: boolean) => void } | null>(null);
+
 interface DialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -19,6 +21,8 @@ interface DialogContentProps {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  /** @default true */
+  showCloseButton?: boolean;
 }
 
 interface DialogHeaderProps {
@@ -52,17 +56,19 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         onClick={() => onOpenChange?.(false)}
         aria-hidden
       />
-      <div
-        className="absolute left-1/2 z-[101] flex w-full max-w-[calc(100vw-2rem)] flex-col items-center justify-center transition-all duration-300 ease-in-out"
-        style={{
-          top: 'calc(56px + (100vh - 56px) / 2)',
-          maxHeight: 'calc(100vh - 56px - 2rem)',
-          transform: 'translate(-50%, -50%)',
-          animation: 'slideUp 0.3s ease-in-out',
-        }}
-      >
-        {children}
-      </div>
+      <DialogContext.Provider value={{ onOpenChange }}>
+        <div
+          className="absolute left-1/2 z-[101] flex w-full max-w-[calc(100vw-2rem)] flex-col items-center justify-center transition-all duration-300 ease-in-out"
+          style={{
+            top: 'calc(56px + (100vh - 56px) / 2)',
+            maxHeight: 'calc(100vh - 56px - 2rem)',
+            transform: 'translate(-50%, -50%)',
+            animation: 'slideUp 0.3s ease-in-out',
+          }}
+        >
+          {children}
+        </div>
+      </DialogContext.Provider>
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -93,7 +99,11 @@ export function DialogTrigger({ children, className = "", onClick }: DialogTrigg
   );
 }
 
-export function DialogContent({ children, className = "", style }: DialogContentProps) {
+export function DialogContent({ children, className = "", style, showCloseButton = true }: DialogContentProps) {
+  const ctx = React.useContext(DialogContext);
+  const handleClose = () => ctx?.onOpenChange?.(false);
+  const showX = showCloseButton && ctx?.onOpenChange != null;
+
   // Check if className contains a max-w class or custom class, if so don't apply default max-w-lg and w-full
   const hasMaxWidth = className.includes('max-w-') || className.includes('booking-details-modal');
   const defaultMaxWidth = hasMaxWidth ? '' : 'max-w-lg';
@@ -103,7 +113,17 @@ export function DialogContent({ children, className = "", style }: DialogContent
   const mergedStyle = style || {};
   
   return (
-    <div className={`bg-white rounded-xl shadow-2xl px-6 pb-6 ${defaultMaxWidth} ${defaultWidth} mx-4 ${className}`} style={mergedStyle}>
+    <div className={`relative bg-white rounded-xl shadow-2xl px-6 pb-6 ${defaultMaxWidth} ${defaultWidth} mx-4 ${className}`} style={mergedStyle}>
+      {showX && (
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute right-3 top-3 z-10 rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      )}
       {children}
     </div>
   );
@@ -111,7 +131,7 @@ export function DialogContent({ children, className = "", style }: DialogContent
 
 export function DialogHeader({ children, className = "" }: DialogHeaderProps) {
   return (
-    <div className={`px-6 pt-6 pb-4 ${className}`}>
+    <div className={`pl-6 pr-12 pt-6 pb-4 ${className}`}>
       {children}
     </div>
   );

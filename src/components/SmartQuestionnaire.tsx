@@ -893,7 +893,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
           <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
             <Flame className="w-8 h-8 text-red-500" />
@@ -903,7 +903,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       </header>
 
       {/* Breadcrumb */}
-      <div className="bg-gray-50 py-4 px-6 border-b">
+      <div className="bg-gray-50 py-4 px-4 md:px-6 border-b">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <a href="/" className="hover:text-red-600 transition-colors">Home</a>
@@ -916,7 +916,7 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
       </div>
 
       {/* Main Content */}
-      <main className="py-12 px-6">
+      <main className="py-12 px-4 md:px-6">
         <div className="max-w-3xl mx-auto">
           {/* Progress Bar */}
           <div className="mb-12">

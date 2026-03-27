@@ -116,7 +116,7 @@ export function AppointmentDetails({ onBack, onBackToHome }: AppointmentDetailsP
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
             <Flame className="w-8 h-8 text-red-500" />
@@ -129,7 +129,7 @@ export function AppointmentDetails({ onBack, onBackToHome }: AppointmentDetailsP
       </header>
 
       {/* Main Content */}
-      <main className="py-8 px-6">
+      <main className="py-8 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           {/* Back Button */}
           <Button

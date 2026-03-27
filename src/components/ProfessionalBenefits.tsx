@@ -73,7 +73,7 @@ export function ProfessionalBenefits({ onRegister, onLogin, onBack, onNavigateHo
       {/* Content */}
       <div className="relative z-10 flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-transparent text-white py-4 px-6 sticky top-0 z-50">
+        <header className="bg-transparent text-white py-4 px-4 md:px-6 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
               <img src={logoImage} alt="Fire Guide" className="h-12" />
@@ -170,7 +170,7 @@ export function ProfessionalBenefits({ onRegister, onLogin, onBack, onNavigateHo
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 py-12 md:py-16 lg:py-20 px-6">
+        <main className="flex-1 py-12 md:py-16 lg:py-20 px-4 md:px-6">
           <div className="max-w-[1280px] mx-auto">
             {/* Top Section - Benefits Overview */}
             <div className="text-center mb-12 md:mb-16 lg:mb-20">

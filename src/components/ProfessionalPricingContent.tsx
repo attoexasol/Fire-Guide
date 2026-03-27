@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import {
   fetchPropertyTypes,
@@ -3636,24 +3636,14 @@ export function ProfessionalPricingContent() {
       {/* Consultancy Pricing Edit Modal */}
       <Dialog open={consultancyModalOpen} onOpenChange={setConsultancyModalOpen}>
         <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
-                  Consultancy Pricing
-                </DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Set your base and modifier prices for Consultancy services
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setConsultancyModalOpen(false)}
-                className="p-2 rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b pl-6 pr-14 pt-6 pb-4">
+            <div>
+              <DialogTitle className="text-lg text-[#0A1A2F] font-semibold">
+                Consultancy Pricing
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your base and modifier prices for Consultancy services
+              </p>
             </div>
           </div>
           <div className="p-4 md:p-8">

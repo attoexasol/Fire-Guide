@@ -1,5 +1,5 @@
 import React, { useState, useEffect, type CSSProperties } from "react";
-import { Search, Loader2, FileText, MoreVertical, User, Mail, Phone, Calendar, Building2, Eye, X } from "lucide-react";
+import { Search, Loader2, FileText, MoreVertical, User, Mail, Phone, Calendar, Building2, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -264,26 +264,15 @@ export function ProfessionalCustomQuoteContent() {
       >
         <DialogContent className="max-w-3xl w-[95vw] max-h-[70vh] overflow-hidden flex flex-col rounded-xl transition-all duration-300 ease-out">
           <DialogHeader className="border-b border-gray-100 pb-4 flex-shrink-0">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <DialogTitle className="text-xl font-bold text-[#0A1A2F]">
-                  Customer Details
-                </DialogTitle>
-                {detailsRecord && (
-                  <p className="text-sm text-gray-600 font-normal mt-1">
-                    {detailsRecord.customer_name}
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 flex-shrink-0 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                onClick={() => setDetailsRecord(null)}
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+            <div>
+              <DialogTitle className="text-xl font-bold text-[#0A1A2F]">
+                Customer Details
+              </DialogTitle>
+              {detailsRecord && (
+                <p className="text-sm text-gray-600 font-normal mt-1">
+                  {detailsRecord.customer_name}
+                </p>
+              )}
             </div>
           </DialogHeader>
           {detailsRecord && (

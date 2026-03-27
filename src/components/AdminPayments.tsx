@@ -199,7 +199,7 @@ export function AdminPayments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-4 md:px-0">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl text-[#0A1A2F] mb-2">Payment Management</h1>
           <p className="text-gray-600">Manage payments, commissions, and payouts</p>
@@ -217,7 +217,7 @@ export function AdminPayments() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-4 md:px-0">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">

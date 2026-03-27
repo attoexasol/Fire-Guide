@@ -7,7 +7,7 @@ interface FooterProps {
 
 export function Footer({ onAdminLogin }: FooterProps) {
   return (
-    <footer id="contact" className="bg-[#0A1A2F] text-white py-16 px-6">
+    <footer id="contact" className="bg-[#0A1A2F] text-white py-16 px-4 md:px-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-5 gap-8 mb-12">
           {/* Brand */}

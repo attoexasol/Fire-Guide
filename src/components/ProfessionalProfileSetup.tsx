@@ -128,7 +128,7 @@ export function ProfessionalProfileSetup({
       />
 
       {/* Main Content */}
-      <main className="pt-14 py-8 px-6">
+      <main className="pt-14 py-8 px-4 md:px-6">
         <div className="max-w-5xl mx-auto">
           {/* Page Header */}
           <div className="mb-8 mt-5 md:mt-0">

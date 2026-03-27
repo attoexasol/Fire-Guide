@@ -268,7 +268,7 @@ export function ConsultationRateContent({ isAdmin = false }: ConsultationRateCon
   };
 
   return (
-    <div className="space-y-6 px-4 md:px-6 pb-20 md:pb-6">
+    <div className="space-y-6 pb-20 md:pb-6">
       <div>
         <h1 className="text-[#0A1A2F] text-xl font-semibold mb-1">Consultation Rate</h1>
         <p className="text-sm text-gray-500">

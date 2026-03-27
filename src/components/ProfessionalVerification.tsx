@@ -664,14 +664,14 @@ export function ProfessionalVerification() {
         
         {requirements.map((requirement) => (
           <Card key={requirement.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-start gap-3 md:gap-4">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <requirement.icon className="w-6 h-6 text-gray-600" />
                 </div>
                 
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="text-lg text-[#0A1A2F]">{requirement.title}</h3>
@@ -703,10 +703,10 @@ export function ProfessionalVerification() {
                   {requirement.id === "identity" && requirement.file && (
                     <div className="mt-4">
                       <Separator className="mb-3" />
-                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-gray-400" />
-                          <div>
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between p-2 bg-gray-50 rounded">
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <div className="min-w-0">
                             <p className="text-sm text-gray-900">
                               Identity Document
                             </p>
@@ -719,6 +719,7 @@ export function ProfessionalVerification() {
                           <Button 
                             variant="ghost" 
                             size="sm"
+                            className="flex-shrink-0 self-end md:self-auto"
                             onClick={() => window.open(requirement.file || '', '_blank')}
                           >
                             View
@@ -768,12 +769,12 @@ export function ProfessionalVerification() {
                                     </div>
                                   </div>
                                   {/* Document section separate */}
-                                  <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                    <div className="flex items-center gap-2">
-                                      <FileText className="w-4 h-4 text-gray-400" />
-                                      <span className="text-sm text-gray-700">Document</span>
+                                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between pt-2 border-t border-gray-200">
+                                    <div className="flex items-start gap-2 min-w-0">
+                                      <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                                      <span className="text-sm text-gray-700 break-words min-w-0">Document</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center justify-end gap-2 flex-shrink-0 w-full md:w-auto">
                                       <Button 
                                         variant="ghost" 
                                         size="sm"
@@ -806,15 +807,20 @@ export function ProfessionalVerification() {
                                   </div>
                                 </>
                               ) : (
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2 flex-1">
-                                    <FileText className="w-4 h-4 text-gray-400" />
-                                    <div className="flex-1">
-                                      <p className="text-sm text-gray-900">{doc.name}</p>
+                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                  <div className="flex items-start gap-2 min-w-0 w-full md:flex-1">
+                                    <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                                    <div className="min-w-0 flex-1">
+                                      <p
+                                        className="text-sm text-gray-900 max-md:break-all"
+                                        title={doc.name}
+                                      >
+                                        {doc.name}
+                                      </p>
                                       <p className="text-xs text-gray-500">Uploaded {doc.uploadedOn}</p>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-shrink-0 w-full justify-end md:w-auto">
                                     <Button 
                                       variant="ghost" 
                                       size="sm"

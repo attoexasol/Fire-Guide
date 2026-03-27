@@ -207,7 +207,7 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <header className="bg-[#0A1A2F] text-white py-4 px-6 sticky top-0 z-40 shadow-lg">
+        <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6 sticky top-0 z-40 shadow-lg">
           <div className="flex items-center justify-between">
             <Link 
               to="/"
@@ -233,7 +233,7 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
         </header>
 
         {/* Success Message */}
-        <main className="py-12 px-6">
+        <main className="py-12 px-4 md:px-6">
           <div className="max-w-2xl mx-auto text-center">
             <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full mb-6 relative">
               <CheckCircle className="w-16 h-16 text-green-600" fill="currentColor" />
@@ -287,7 +287,7 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6 sticky top-0 z-40 shadow-lg">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6 sticky top-0 z-40 shadow-lg">
         <div className="flex items-center justify-between">
           <Link 
             to="/"
@@ -313,7 +313,7 @@ export function ReportUpload({ onBack }: ReportUploadProps) {
       </header>
 
       {/* Main Content */}
-      <main className="py-8 px-6">
+      <main className="py-8 px-4 md:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-[#0A1A2F] mb-2">Upload Completion Report</h1>

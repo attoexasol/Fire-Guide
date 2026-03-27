@@ -666,13 +666,13 @@ export function AdminProfessionals() {
 
   return (
     <div className="space-y-6">
-      <div className="px-4 md:px-0">
+      <div>
         <h1 className="text-3xl text-[#0A1A2F] mb-2">Professional Management</h1>
         <p className="text-gray-600">View and manage fire safety professionals</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-4 md:px-0">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-gray-600">Total Professionals</p>
@@ -700,7 +700,7 @@ export function AdminProfessionals() {
       </div>
 
       {/* Filters */}
-      <div className="px-4 md:px-0">
+      <div>
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4">
@@ -730,7 +730,7 @@ export function AdminProfessionals() {
       </div>
 
       {/* Professional Cards */}
-      <div className="grid gap-4 px-4 md:px-0">
+      <div className="grid gap-4">
         {professionalsLoading ? (
           <Card>
             <CardContent className="p-8 text-center text-gray-500">
@@ -754,12 +754,13 @@ export function AdminProfessionals() {
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl text-[#0A1A2F]">{professional.name}</h3>
                         <Badge
+                          variant="custom"
                           className={
                             professional.status === "approved"
-                              ? "bg-green-100 text-green-700"
+                              ? "bg-green-100 text-green-700 hover:bg-green-100 hover:text-green-700"
                               : professional.status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
+                              ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 hover:text-yellow-700"
+                              : "bg-red-100 text-red-700 hover:bg-red-100 hover:text-red-700"
                           }
                         >
                           {professional.status === "approved" && <CheckCircle className="w-3 h-3 mr-1" />}
@@ -798,7 +799,12 @@ export function AdminProfessionals() {
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" disabled={statusUpdatingId === professional.id}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={statusUpdatingId === professional.id}
+                          className="transition-colors hover:bg-gray-100 hover:text-gray-800"
+                        >
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -946,7 +952,7 @@ export function AdminProfessionals() {
                       <FileText className="w-5 h-5 text-gray-600" />
                       <span className="text-sm font-medium text-gray-900">{doc}</span>
                     </div>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="transition-colors hover:bg-blue-50 hover:text-blue-700">
                       <Download className="w-4 h-4 mr-2" />
                       Download
                     </Button>
@@ -1169,12 +1175,12 @@ export function AdminProfessionals() {
                 {selectedProfessional?.qualifications.map((qual: string, index: number) => (
                   <div key={index} className="flex items-center gap-2">
                     <Input defaultValue={qual} />
-                    <Button variant="outline" size="sm" className="text-red-600">
+                    <Button variant="outline" size="sm" className="text-red-600 transition-colors hover:bg-red-50 hover:text-red-700">
                       <XCircle className="w-4 h-4" />
                     </Button>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" className="w-full">
+                <Button variant="outline" size="sm" className="w-full transition-colors hover:bg-gray-100 hover:text-gray-900">
                   + Add Qualification
                 </Button>
               </div>
@@ -1585,7 +1591,7 @@ export function AdminProfessionals() {
                               </p>
                             )}
                           </div>
-                          <Button variant="ghost" size="sm" className="flex-shrink-0">
+                          <Button variant="ghost" size="sm" className="flex-shrink-0 transition-colors hover:bg-blue-50 hover:text-blue-700">
                             <Download className="w-4 h-4" />
                           </Button>
                         </div>
@@ -1883,7 +1889,7 @@ export function AdminProfessionals() {
                   <FileText className="w-24 h-24 text-gray-400 mb-4" />
                   <p className="text-lg font-medium text-gray-900 mb-2">{selectedFile?.fileName}</p>
                   <p className="text-sm text-gray-600 mb-4">Preview not available for this file type</p>
-                  <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadEvidence}>
+                  <Button className="bg-blue-600 text-white transition-colors hover:bg-blue-700 hover:text-white" onClick={handleDownloadEvidence}>
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
@@ -1929,11 +1935,11 @@ export function AdminProfessionals() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFilePreviewModalOpen(false)}>
+            <Button variant="outline" className="transition-colors hover:bg-gray-100 hover:text-gray-900" onClick={() => setFilePreviewModalOpen(false)}>
               Close
             </Button>
             {selectedFile?.evidenceUrl && (
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadEvidence}>
+              <Button className="bg-blue-600 text-white transition-colors hover:bg-blue-700 hover:text-white" onClick={handleDownloadEvidence}>
                 <Download className="w-4 h-4 mr-2" />
                 Download
               </Button>

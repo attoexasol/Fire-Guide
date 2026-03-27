@@ -2132,25 +2132,14 @@ export function ProfessionalProfileContent() {
           className="max-h-[90vh] overflow-y-auto w-[95%] sm:w-[90%] md:w-[85%] lg:w-[80%] max-w-[1200px] p-4 sm:p-6 md:p-8 lg:p-[30px]"
         >
           <DialogHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <DialogTitle className="text-2xl text-[#0A1A2F] flex items-center gap-2">
-                  <FileText className="w-6 h-6 text-blue-600" />
-                  Certification Details
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedCertification ? `View details for ${selectedCertification.name}` : 'Certification information'}
-                </DialogDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsCertificationModalOpen(false)}
-                className="h-8 w-8 hover:bg-gray-100 -mt-2 -mr-2"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+            <div className="flex-1">
+              <DialogTitle className="text-2xl text-[#0A1A2F] flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-600" />
+                Certification Details
+              </DialogTitle>
+              <DialogDescription>
+                {selectedCertification ? `View details for ${selectedCertification.name}` : 'Certification information'}
+              </DialogDescription>
             </div>
           </DialogHeader>
           
@@ -2284,25 +2273,14 @@ export function ProfessionalProfileContent() {
           className="max-h-[90vh] overflow-y-auto w-[95%] sm:w-[90%] md:w-[85%] lg:w-[80%] max-w-[1200px] p-4 sm:p-6 md:p-8 lg:p-[30px]"
         >
           <DialogHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <DialogTitle className="text-2xl text-[#0A1A2F] flex items-center gap-2">
-                  <FileText className="w-6 h-6 text-blue-600" />
-                  Experience Details
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedExperience ? `View details for ${selectedExperience.experience_name}` : 'Experience information'}
-                </DialogDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsExperienceModalOpen(false)}
-                className="h-8 w-8 hover:bg-gray-100 -mt-2 -mr-2"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+            <div className="flex-1">
+              <DialogTitle className="text-2xl text-[#0A1A2F] flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-600" />
+                Experience Details
+              </DialogTitle>
+              <DialogDescription>
+                {selectedExperience ? `View details for ${selectedExperience.experience_name}` : 'Experience information'}
+              </DialogDescription>
             </div>
           </DialogHeader>
           

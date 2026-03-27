@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Mail,
   PoundSterling,
-  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -381,17 +380,7 @@ export function AdminPayout() {
       <Dialog open={accountModalOpen} onOpenChange={setAccountModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <DialogTitle>Payout Account Details</DialogTitle>
-              <button
-                type="button"
-                onClick={() => setAccountModalOpen(false)}
-                className="rounded-md p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+            <DialogTitle>Payout Account Details</DialogTitle>
           </DialogHeader>
           {selectedAccount ? (
             <div className="space-y-4">

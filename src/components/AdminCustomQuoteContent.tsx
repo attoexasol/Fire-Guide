@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
-import { Search, Loader2, FileText, MoreVertical, Eye, Pencil, UserPlus, User, Calendar, Building2, FileCheck, Mail, Phone, X } from "lucide-react";
+import { Search, Loader2, FileText, MoreVertical, Eye, Pencil, UserPlus, User, Calendar, Building2, FileCheck, Mail, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -275,7 +275,7 @@ export function AdminCustomQuoteContent() {
   };
 
   return (
-    <div className="space-y-6 px-4 md:px-6 pb-20 md:pb-6">
+    <div className="space-y-6 pb-20 md:pb-6">
       <div>
         <h1 className="text-[#0A1A2F] text-xl font-semibold mb-1">Custom Quote</h1>
         <p className="text-sm text-gray-500">Manage custom quote requests from customers.</p>
@@ -565,28 +565,13 @@ export function AdminCustomQuoteContent() {
       >
         <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b border-gray-100 pb-4">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <DialogTitle className="text-xl font-bold text-[#0A1A2F]">
                 Quote Request #{detailsRecordId ?? detailsRecord?.id}
               </DialogTitle>
-              <div className="flex items-center gap-2">
-                {detailsRecord && (
-                  <Badge variant="custom" style={statusStyle(detailsRecord.status)}>{formatStatus(detailsRecord.status)}</Badge>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                  onClick={() => {
-                    setDetailsRecordId(null);
-                    setDetailsRecord(null);
-                    setDetailsError(null);
-                  }}
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
+              {detailsRecord && (
+                <Badge variant="custom" style={statusStyle(detailsRecord.status)}>{formatStatus(detailsRecord.status)}</Badge>
+              )}
             </div>
           </DialogHeader>
           {detailsLoading ? (

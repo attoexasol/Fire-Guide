@@ -30,7 +30,7 @@ export function Testimonials() {
   ];
 
   return (
-    <section className="py-24 px-6 bg-gradient-to-br from-gray-50 to-white">
+    <section className="py-24 px-4 md:px-6 bg-gradient-to-br from-gray-50 to-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-[32px] md:text-[48px] font-bold leading-[125%] tracking-[-0.01em] mb-6">

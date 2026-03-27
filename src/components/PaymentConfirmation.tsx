@@ -57,7 +57,7 @@ export function PaymentConfirmation({ onBackToHome, onViewAppointment }: Payment
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
           <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
             <Flame className="w-8 h-8 text-red-500" />
@@ -284,7 +284,7 @@ export function PaymentConfirmation({ onBackToHome, onViewAppointment }: Payment
       </main>
 
       {/* Need Help Section */}
-      <div className="bg-white border-t py-8 px-6 mt-8">
+      <div className="bg-white border-t py-8 px-4 md:px-6 mt-8">
         <div className="max-w-3xl mx-auto text-center">
           <h3 className="text-[#0A1A2F] mb-3">Need help with your booking?</h3>
           <p className="text-gray-600 mb-4">

@@ -56,7 +56,7 @@ export function Header({
   };
 
   return (
-    <header className="bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-6 sticky top-0 z-50 shadow-lg">
+    <header className="bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-4 md:px-6 sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link
           to="/"
@@ -126,7 +126,7 @@ export function Header({
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-200 mt-4 py-6">
-          <nav className="flex flex-col gap-1 px-6">
+          <nav className="flex flex-col gap-1 px-4 md:px-6">
             <button 
               onClick={onNavigateHome} 
               className="text-left py-3 px-4 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"

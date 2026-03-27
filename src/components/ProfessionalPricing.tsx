@@ -133,7 +133,7 @@ export function ProfessionalPricing({ onSave, onBack, onNavigateToProfile, onNav
     <div className="min-h-screen bg-gray-50">
       {/* Header - MATCHES PROFESSIONAL DASHBOARD HEADER EXACTLY */}
       <header className="fixed top-0 left-0 right-0 bg-[#1a2942] border-b border-white/10 z-50">
-        <div className="flex items-center justify-between px-6 h-14">
+        <div className="flex items-center justify-between px-4 md:px-6 h-14">
           {/* Left - Hamburger + Logo + Pro Badge */}
           <div className="flex items-center gap-3">
             {/* Mobile Hamburger Menu Button */}
@@ -292,7 +292,7 @@ export function ProfessionalPricing({ onSave, onBack, onNavigateToProfile, onNav
       )}
 
       {/* Main Content */}
-      <main className="pt-14 py-8 px-6">
+      <main className="pt-14 py-8 px-4 md:px-6">
         <div className="max-w-5xl mx-auto">
           {/* Page Header */}
           <div className="mb-8 mt-5 md:mt-0">

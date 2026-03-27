@@ -400,7 +400,7 @@ export function PricingRuleContent() {
   const selectedGroup = ruleGroups.find((g) => String(g.id) === selectedGroupId);
 
   return (
-    <div className="space-y-6 px-4 md:px-6 pb-20 md:pb-6">
+    <div className="space-y-6 pb-20 md:pb-6">
       <div>
         <h1 className="text-[#0A1A2F] text-xl font-semibold mb-1">Pricing Rule</h1>
         <p className="text-sm text-gray-500">

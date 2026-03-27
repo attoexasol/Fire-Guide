@@ -118,7 +118,7 @@ export function ServiceSelection({
       />
 
       {/* Main Content - Added pt-8 for spacing after header */}
-      <main className="py-12 px-6 pt-8">
+      <main className="py-12 px-4 md:px-6 pt-8">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="mb-4">

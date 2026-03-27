@@ -49,21 +49,21 @@ const formatDate = (dateString: string): string => {
 const formatTimeToAMPM = (time24Hour: string): string => {
   // Handle formats like "15:00:00", "9:00:00", "15:30:00"
   if (!time24Hour) return "";
-  
+
   const match = time24Hour.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
   if (!match) return time24Hour; // Return original if parsing fails
-  
+
   let hours = parseInt(match[1], 10);
   const minutes = match[2];
   const period = hours >= 12 ? "PM" : "AM";
-  
+
   // Convert to 12-hour format
   if (hours === 0) {
     hours = 12;
   } else if (hours > 12) {
     hours = hours - 12;
   }
-  
+
   return `${hours}:${minutes} ${period}`;
 };
 
@@ -133,7 +133,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     try {
       setIsLoadingStats(true);
       const apiToken = getApiToken();
-      
+
       if (!apiToken) {
         console.warn("No API token available for fetching summary");
         toast.error("Please log in to view booking summary");
@@ -141,11 +141,11 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
       }
 
       console.log("Fetching booking summary with token:", apiToken.substring(0, 20) + "...");
-      
+
       // Call the /professional_booking/summary API to get booking counts
       const summaryResponse = await getBookingSummary(apiToken);
       console.log("Booking summary response:", summaryResponse);
-      
+
       if (summaryResponse.status === true && summaryResponse.data) {
         const newStats = {
           upcoming: summaryResponse.data.upcoming || 0,
@@ -188,9 +188,9 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     try {
       setIsLoading(true);
       setError(null);
-      
+
       let bookings: ProfessionalBookingItem[];
-      
+
       // Use search API if search term or status filter is active
       // Always send both parameters if at least one is active
       if (search?.trim() || (status && status !== "all")) {
@@ -209,7 +209,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
         // Use regular get all API if no search/filter
         bookings = await getProfessionalBookings();
       }
-      
+
       const mappedBookings = bookings.map(mapApiResponseToBooking);
       setBookingsData(mappedBookings);
       // Store raw API data for reschedule
@@ -299,11 +299,11 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
       });
 
       toast.success("Booking accepted successfully!");
-      
+
       // Refresh the bookings list and summary to get updated data
       await fetchBookings();
       await fetchBookingSummary();
-      
+
       setShowAcceptModal(false);
       setSelectedBooking(null);
     } catch (err: any) {
@@ -369,17 +369,17 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
     // Handle formats like "9:00 AM", "10:30 AM", "12:00 PM", "1:00 PM"
     const match = time12Hour.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
     if (!match) return "09:00:00"; // Default if parsing fails
-    
+
     let hours = parseInt(match[1], 10);
     const minutes = match[2];
     const period = match[3].toUpperCase();
-    
+
     if (period === "PM" && hours !== 12) {
       hours += 12;
     } else if (period === "AM" && hours === 12) {
       hours = 0;
     }
-    
+
     return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
   };
 
@@ -397,7 +397,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
 
     const apiToken = getApiToken();
     const professionalId = getProfessionalId();
-    
+
     if (!apiToken) {
       toast.error("Authentication required. Please login again.");
       return;
@@ -410,13 +410,13 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
 
     try {
       setIsRescheduling(true);
-      
+
       // Convert time to 24-hour format with seconds
       const time24Hour = convertTimeTo24Hour(rescheduleTime);
-      
+
       // Extract numeric price (remove currency symbols)
       const priceValue = parseFloat(apiBooking.price.replace(/[£$,\s]/g, '')) || 0;
-      
+
       const updateData = {
         api_token: apiToken,
         id: apiBooking.id,
@@ -438,7 +438,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
       };
 
       const response = await updateProfessionalBooking(updateData);
-      
+
       if (response.status === "success" || response.message?.toLowerCase().includes("success")) {
         toast.success(response.message || "Appointment rescheduled successfully!");
         setShowRescheduleModal(false);
@@ -519,39 +519,39 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
       </div>
 
       {/* Filters */}
-<Card>
-  <CardContent className="p-4">
-    <div className="flex flex-col md:flex-row gap-4 w-full">
-      
-      {/* SEARCH – FULL WIDTH */}
-      <div className="relative w-full flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <Input
-          placeholder="Search bookings..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 w-full"
-        />
-      </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4 w-full">
 
-      {/* FILTER */}
-      <div className="w-full md:w-48 shrink-0">
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            {/* SEARCH – FULL WIDTH */}
+            <div className="relative w-full flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder="Search bookings..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
 
-    </div>
-  </CardContent>
-</Card>
+            {/* FILTER */}
+            <div className="w-full md:w-48 shrink-0">
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Loading State */}
       {isLoading && (
@@ -569,8 +569,8 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
           <CardContent className="p-12 text-center">
             <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
             <p className="text-red-500 mb-4">{error}</p>
-            <Button 
-              onClick={() => window.location.reload()} 
+            <Button
+              onClick={() => window.location.reload()}
               className="bg-red-600 hover:bg-red-700"
             >
               Retry
@@ -583,145 +583,145 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
       {!isLoading && !error && (
         <div className="space-y-4">
           {filteredBookings.map((booking) => (
-          <Card key={booking.id} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl text-[#0A1A2F]">{booking.service}</h3>
-                    <Badge className={getStatusColor(booking.status)}>
-                      {booking.status}
-                    </Badge>
+            <Card key={booking.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl text-[#0A1A2F]">{booking.service}</h3>
+                      <Badge className={getStatusColor(booking.status)}>
+                        {booking.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-500">Ref: {booking.reference}</p>
                   </div>
-                  <p className="text-sm text-gray-500">Ref: {booking.reference}</p>
+                  <p className="text-xl font-semibold text-gray-900">{booking.price}</p>
                 </div>
-                <p className="text-xl font-semibold text-gray-900">{booking.price}</p>
-              </div>
 
-              <div className="grid md:grid-cols-2 gap-4 mb-4">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <User className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">{booking.customer}</p>
-                      <p className="text-sm text-gray-500">{booking.customerEmail}</p>
-                      <p className="text-sm text-gray-500">{booking.customerPhone}</p>
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <User className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-gray-900">{booking.customer}</p>
+                        <p className="text-sm text-gray-500">{booking.customerEmail}</p>
+                        <p className="text-sm text-gray-500">{booking.customerPhone}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-gray-900">{booking.date} at {booking.time}</p>
+                        <p className="text-sm text-gray-500">Duration: {booking.duration}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-700">{booking.location}</p>
+                        <p className="text-sm text-gray-500">{booking.propertySize}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">{booking.date} at {booking.time}</p>
-                      <p className="text-sm text-gray-500">Duration: {booking.duration}</p>
-                    </div>
+                {booking.notes && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-blue-900">
+                      <strong>Notes:</strong> {booking.notes}
+                    </p>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-700">{booking.location}</p>
-                      <p className="text-sm text-gray-500">{booking.propertySize}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                )}
 
-              {booking.notes && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-blue-900">
-                    <strong>Notes:</strong> {booking.notes}
-                  </p>
-                </div>
-              )}
+                <Separator className="my-4" />
 
-              <Separator className="my-4" />
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={() => handleViewDetails(booking)}
+                  >
+                    View Full Details
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
 
-              <div className="flex flex-wrap gap-3">
-                <Button 
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={() => handleViewDetails(booking)}
-                >
-                  View Full Details
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-                
-                {booking.status === "confirmed" && (
-                  <>
-                    <Button 
-                      variant="outline"
-                      onClick={() => handleGetDirections(booking.location)}
-                    >
-                      <Navigation className="w-4 h-4 mr-2" />
-                      Get Directions
-                    </Button>
+                  {booking.status === "confirmed" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleGetDirections(booking.location)}
+                      >
+                        <Navigation className="w-4 h-4 mr-2" />
+                        Get Directions
+                      </Button>
+                      <Button
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleMarkAsCompleted(booking)}
+                        disabled={completingBookingId === booking.id}
+                      >
+                        {completingBookingId === booking.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Completing...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Mark as Completed
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleReschedule(booking)}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Reschedule
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Get raw API booking data to access user_id
+                          const apiBooking = apiBookingsMap.get(booking.id);
+                          navigate("/professional/reports", {
+                            state: {
+                              booking: {
+                                id: booking.id,
+                                user_id: apiBooking?.user_id || null,
+                                reference: booking.reference,
+                                service: booking.service,
+                                customer: booking.customer,
+                                customerEmail: booking.customerEmail,
+                                customerPhone: booking.customerPhone,
+                                date: booking.date,
+                                time: booking.time,
+                                location: booking.location,
+                                status: booking.status
+                              }
+                            }
+                          });
+                        }}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Report
+                      </Button>
+                    </>
+                  )}
+
+                  {booking.status === "pending" && (
                     <Button
                       className="bg-green-600 hover:bg-green-700"
-                      onClick={() => handleMarkAsCompleted(booking)}
-                      disabled={completingBookingId === booking.id}
+                      onClick={() => handleAcceptBooking(booking)}
                     >
-                      {completingBookingId === booking.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Completing...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Mark as Completed
-                        </>
-                      )}
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Accept Booking
                     </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => handleReschedule(booking)}
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Reschedule
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        // Get raw API booking data to access user_id
-                        const apiBooking = apiBookingsMap.get(booking.id);
-                        navigate("/professional/reports", { 
-                          state: { 
-                            booking: {
-                              id: booking.id,
-                              user_id: apiBooking?.user_id || null,
-                              reference: booking.reference,
-                              service: booking.service,
-                              customer: booking.customer,
-                              customerEmail: booking.customerEmail,
-                              customerPhone: booking.customerPhone,
-                              date: booking.date,
-                              time: booking.time,
-                              location: booking.location,
-                              status: booking.status
-                            }
-                          }
-                        });
-                      }}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Report
-                    </Button>
-                  </>
-                )}
-
-                {booking.status === "pending" && (
-                  <Button 
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={() => handleAcceptBooking(booking)}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Accept Booking
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
@@ -737,7 +737,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
 
       {/* View Details Modal */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent 
+        <DialogContent
           className="booking-details-modal max-h-[90vh] overflow-y-auto"
         >
           <DialogHeader>
@@ -746,15 +746,14 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               Complete information for booking {selectedBooking?.reference}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedBooking && (
             <div className="space-y-6 mt-4 px-6">
               {/* Status Banner */}
-              <div className={`p-4 rounded-lg ${
-                selectedBooking.status === 'confirmed' ? 'bg-green-50 border border-green-200' :
-                selectedBooking.status === 'pending' ? 'bg-yellow-50 border border-yellow-200' :
-                'bg-blue-50 border border-blue-200'
-              }`}>
+              <div className={`p-4 rounded-lg ${selectedBooking.status === 'confirmed' ? 'bg-green-50 border border-green-200' :
+                  selectedBooking.status === 'pending' ? 'bg-yellow-50 border border-yellow-200' :
+                    'bg-blue-50 border border-blue-200'
+                }`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-gray-900 flex items-center gap-2">
@@ -792,7 +791,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                   <p><strong>Name:</strong> {selectedBooking.customer}</p>
                   <p className="flex items-center gap-2">
                     <Mail className="w-4 h-4" />
-                    <strong>Email:</strong> 
+                    <strong>Email:</strong>
                     <a href={`mailto:${selectedBooking.customerEmail}`} className="text-red-600 hover:underline">
                       {selectedBooking.customerEmail}
                     </a>
@@ -834,8 +833,8 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                       <p className="text-sm text-gray-700 mt-1">{selectedBooking.accessInstructions}</p>
                     </div>
                   )}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full mt-3"
                     onClick={() => handleGetDirections(selectedBooking.location)}
                   >
@@ -861,7 +860,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t py-6">
                 {selectedBooking.status === "pending" && (
-                  <Button 
+                  <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={() => {
                       setShowDetailsModal(false);
@@ -873,7 +872,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                   </Button>
                 )}
                 {selectedBooking.status === "confirmed" && (
-                  <Button 
+                  <Button
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
@@ -903,7 +902,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               Report for booking {selectedBooking?.reference}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedBooking && (
             <div className="space-y-6 mt-4">
               {/* Report Header */}
@@ -998,7 +997,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               Confirm that you want to accept this booking
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedBooking && (
             <div className="space-y-4 mt-4 px-6">
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
@@ -1024,7 +1023,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               </div>
 
               <div className="flex gap-3 pt-4 py-6">
-                <Button 
+                <Button
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   onClick={confirmAcceptBooking}
                   disabled={isAccepting}
@@ -1041,9 +1040,9 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                     </>
                   )}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAcceptModal(false)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAcceptModal(false)}
                   className="flex-1"
                   disabled={isAccepting}
                 >
@@ -1064,7 +1063,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               Request a new date and time for this booking
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedBooking && (
             <div className="space-y-4 mt-4 px-6">
               {/* Current Booking */}
@@ -1128,7 +1127,7 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
               </div>
 
               <div className="flex gap-3 pt-4 py-4">
-                <Button 
+                <Button
                   className="flex-1 bg-red-600 hover:bg-red-700"
                   onClick={confirmReschedule}
                   disabled={!rescheduleDate || !rescheduleTime || isRescheduling}
@@ -1145,9 +1144,9 @@ export function ProfessionalBookings({ onViewDetails }: ProfessionalBookingsProp
                     </>
                   )}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowRescheduleModal(false)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRescheduleModal(false)}
                   className="flex-1"
                   disabled={isRescheduling}
                 >

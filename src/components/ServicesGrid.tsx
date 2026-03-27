@@ -93,7 +93,7 @@ export function ServicesGrid({ onSelectService }: ServicesGridProps) {
   const allServices = services;
 console.log(allServices);
   return (
-    <section id="services" className="py-24 px-6 bg-white">
+    <section id="services" className="py-24 px-4 md:px-6 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-[32px] md:text-[48px] font-[800] leading-[120%] tracking-[-0.01em] mt-4 mb-[10px]">

@@ -118,7 +118,7 @@ export function BookingPage({ onConfirm, onBack }: BookingPageProps) {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
           <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
             <Flame className="w-8 h-8 text-red-500" />
@@ -128,7 +128,7 @@ export function BookingPage({ onConfirm, onBack }: BookingPageProps) {
       </header>
 
       {/* Breadcrumb */}
-      <div className="bg-white py-4 px-6 border-b">
+      <div className="bg-white py-4 px-4 md:px-6 border-b">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <a href="#" className="hover:text-red-600 transition-colors">Home</a>
@@ -143,7 +143,7 @@ export function BookingPage({ onConfirm, onBack }: BookingPageProps) {
       </div>
 
       {/* Main Content */}
-      <main className="py-8 px-6">
+      <main className="py-8 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-[#0A1A2F] mb-8">Complete Your Booking</h1>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase, Loader2, X } from "lucide-react";
+import { Flame, ChevronRight, Star, Award, Shield, Clock, MapPin, CheckCircle2, Phone, Mail, Calendar, ArrowLeft, Briefcase, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -417,7 +417,7 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
-      <header className="bg-[#0A1A2F] text-white py-4 px-6">
+      <header className="bg-[#0A1A2F] text-white py-4 px-4 md:px-6">
         <div className="max-w-7xl mx-auto flex items-center gap-2">
          <a href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity" aria-label="Go to home">
           <Flame className="w-8 h-8 text-red-500" />
@@ -440,7 +440,7 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
       </div>
 
       {/* Main Content */}
-      <main className="py-8 px-6">
+      <main className="py-8 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           {/* Back Button */}
           <Button variant="ghost" className="mb-6" onClick={onBack}>
@@ -570,20 +570,10 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
                       </Button>
                       <Dialog open={certificationsModalOpen} onOpenChange={setCertificationsModalOpen}>
                         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0" style={{ marginBottom: '150px' }}>
-                          <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
-                            <div className="flex items-center justify-between">
-                              <DialogTitle className="text-[#0A1A2F]">
-                                All Qualifications & Certifications ({profileCertifications.length})
-                              </DialogTitle>
-                              <button
-                                type="button"
-                                onClick={() => setCertificationsModalOpen(false)}
-                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                                aria-label="Close"
-                              >
-                                <X className="w-5 h-5" />
-                              </button>
-                            </div>
+                          <DialogHeader className="flex-shrink-0 border-b pl-6 pr-14 py-4">
+                            <DialogTitle className="text-[#0A1A2F]">
+                              All Qualifications & Certifications ({profileCertifications.length})
+                            </DialogTitle>
                           </DialogHeader>
                           <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
                             {[...profileCertifications]
@@ -757,18 +747,8 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
                       {/* All Reviews Modal — scrollable */}
                       <Dialog open={reviewsModalOpen} onOpenChange={setReviewsModalOpen}>
                         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0" style={{marginBottom: '150px'}}>
-                          <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
-                            <div className="flex items-center justify-between">
-                              <DialogTitle className="text-[#0A1A2F]">All Reviews ({reviewCount})</DialogTitle>
-                              <button
-                                type="button"
-                                onClick={() => setReviewsModalOpen(false)}
-                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                                aria-label="Close"
-                              >
-                                <X className="w-5 h-5" />
-                              </button>
-                            </div>
+                          <DialogHeader className="flex-shrink-0 border-b pl-6 pr-14 py-4">
+                            <DialogTitle className="text-[#0A1A2F]">All Reviews ({reviewCount})</DialogTitle>
                           </DialogHeader>
                           <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
                             {[...reviews]
@@ -911,7 +891,7 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
 
       {/* Sticky Bottom Button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="hidden md:block">
               <p className="text-sm text-gray-500">Fire Risk Assessment</p>

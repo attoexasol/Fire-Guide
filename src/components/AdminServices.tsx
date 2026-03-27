@@ -633,29 +633,29 @@ export function AdminServices() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] text-[#0A1A2F] mb-2">Service Management</h1>
-          <p className="text-[14px] text-gray-600">
+    <div className="space-y-6 w-full min-w-0 max-w-full">
+      {/* Header — stack on narrow screens so title + CTA are not cramped */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg md:text-[20px] text-[#0A1A2F] mb-2">Service Management</h1>
+          <p className="text-sm md:text-[14px] text-gray-600">
             Manage fire safety services offered on the platform
           </p>
         </div>
         {!isAddServiceRoute && (
           <Button
             onClick={() => navigate("/admin/dashboard/services/add")}
-            className="bg-red-600 hover:bg-red-700 h-11"
+            className="bg-red-600 hover:bg-red-700 h-11 w-full shrink-0 md:w-auto md:self-start"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Service 
+            Add Service
           </Button>
         )}
       </div>
 
       {/* Info Card */}
       <Card className="bg-blue-50 border-blue-200 rounded-xl">
-        <CardContent className="p-4">
+        <CardContent className="p-4 sm:p-4">
           <p className="text-sm text-blue-900">
             <strong>Automatic Sync:</strong> Services created, edited, or deleted here automatically
             appear across Landing Page, Customer Portal, and Professional Portal. Only "Active" services
@@ -690,11 +690,11 @@ export function AdminServices() {
         </Card>
       )}
 
-      {/* Services Grid - 24px spacing between cards */}
+      {/* Services grid — single column on mobile, two from md+ */}
       {!isLoading && !error && (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {services.length === 0 ? (
-            <div className="col-span-2 text-center py-12">
+            <div className="col-span-full text-center py-12">
               <p className="text-gray-600">No services found. Add your first service to get started.</p>
             </div>
           ) : (

@@ -58,95 +58,112 @@ export function ServiceCard({
         transform: 'translateZ(0)'
       }}
     >
-      {/* Card Header - 16px padding from all edges */}
-      <CardHeader className="p-4 pb-3">
-        {/* Top Row: Icon + Title + Buttons */}
-        <div className="flex items-start gap-3">
-          {/* Icon - 56px (follows 8px grid: 7 × 8 = 56px) */}
-          {service.iconComponent && (
-            <div
-              className={`w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-                service.color && colorClasses[service.color as keyof typeof colorClasses]
-                  ? colorClasses[service.color as keyof typeof colorClasses]
-                  : "bg-red-100 text-red-600 group-hover:bg-red-600 group-hover:text-white"
-              }`}
-            >
-              <service.iconComponent className="w-7 h-7" />
-            </div>
-          )}
-          {service.icon && !service.iconComponent && (
-            <span className="text-3xl leading-none flex-shrink-0">{service.icon}</span>
-          )}
-
-          {/* Title + Buttons Container - fills remaining space */}
-          <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-            {/* Title Section - flexible width */}
-            <div className="flex-1 min-w-0">
-              <CardTitle
-                className={`text-base font-semibold leading-tight truncate ${
-                  isClickable ? "group-hover:text-red-600 transition-colors" : "text-[#0A1A2F]"
-                }`}
-                title={service.name}
-              >
-                {service.name}
-              </CardTitle>
-              
-              {/* Badges Row - only for non-admin views, moved below title */}
-              {!isAdmin && (
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {service.active === true && (
-                    <Badge className="bg-green-600 text-white text-xs px-2 py-1 rounded-lg h-6">
-                      Active
-                    </Badge>
-                  )}
-                  {service.active === false && (
-                    <Badge className=" text-white text-xs px-2 py-1 rounded-lg h-6">
-                      Inactive
-                    </Badge>
-                  )}
+      {/* Card Header — admin: stack actions below title on mobile for touch targets */}
+      <CardHeader className="p-3 pb-3 md:p-4 md:pb-3">
+        {isAdmin && showActions ? (
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-3">
+            <div className="flex gap-3 items-start min-w-0 flex-1">
+              {service.iconComponent && (
+                <div
+                  className={`w-12 h-12 md:w-14 md:h-14 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+                    service.color && colorClasses[service.color as keyof typeof colorClasses]
+                      ? colorClasses[service.color as keyof typeof colorClasses]
+                      : "bg-red-100 text-red-600 group-hover:bg-red-600 group-hover:text-white"
+                  }`}
+                >
+                  <service.iconComponent className="w-6 h-6 md:w-7 md:h-7" />
                 </div>
               )}
+              {service.icon && !service.iconComponent && (
+                <span className="text-3xl leading-none flex-shrink-0">{service.icon}</span>
+              )}
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base font-semibold leading-snug text-[#0A1A2F] break-words">
+                  {service.name}
+                </CardTitle>
+              </div>
             </div>
-
-            {/* Edit/Delete Buttons - flex-shrink-0 prevents squeezing */}
-            {isAdmin && showActions && (
-              <div className="flex gap-2 flex-shrink-0">
-                {onEdit && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(service.id);
-                    }}
-                    className="h-8 px-2.5 sm:px-3 text-xs bg-white border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
-                  >
-                    <Edit className="w-3 h-3 sm:mr-1" />
-                    <span className="hidden sm:inline">Edit</span>
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(service.id);
-                    }}
-                    className="h-8 px-2.5 sm:px-3 text-xs bg-white border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 shadow-sm"
-                  >
-                    <Trash2 className="w-3 h-3 sm:mr-1" />
-                    <span className="hidden sm:inline">Delete</span>
-                  </Button>
-                )}
+            <div className="flex gap-2 w-full md:w-auto md:flex-shrink-0 md:justify-end">
+              {onEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(service.id);
+                  }}
+                  className="flex-1 md:flex-initial min-h-11 md:min-h-8 px-3 text-sm md:text-xs bg-white border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                >
+                  <Edit className="w-4 h-4 md:w-3 md:h-3 mr-2 md:mr-1" />
+                  Edit
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(service.id);
+                  }}
+                  className="flex-1 md:flex-initial min-h-11 md:min-h-8 px-3 text-sm md:text-xs bg-white border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 shadow-sm"
+                >
+                  <Trash2 className="w-4 h-4 md:w-3 md:h-3 mr-2 md:mr-1" />
+                  Delete
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-3">
+            {service.iconComponent && (
+              <div
+                className={`w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+                  service.color && colorClasses[service.color as keyof typeof colorClasses]
+                    ? colorClasses[service.color as keyof typeof colorClasses]
+                    : "bg-red-100 text-red-600 group-hover:bg-red-600 group-hover:text-white"
+                }`}
+              >
+                <service.iconComponent className="w-7 h-7" />
               </div>
             )}
+            {service.icon && !service.iconComponent && (
+              <span className="text-3xl leading-none flex-shrink-0">{service.icon}</span>
+            )}
+
+            <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <CardTitle
+                  className={`text-base font-semibold leading-tight truncate ${
+                    isClickable ? "group-hover:text-red-600 transition-colors" : "text-[#0A1A2F]"
+                  }`}
+                  title={service.name}
+                >
+                  {service.name}
+                </CardTitle>
+
+                {!isAdmin && (
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {service.active === true && (
+                      <Badge className="bg-green-600 text-white text-xs px-2 py-1 rounded-lg h-6">
+                        Active
+                      </Badge>
+                    )}
+                    {service.active === false && (
+                      <Badge className=" text-white text-xs px-2 py-1 rounded-lg h-6">
+                        Inactive
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </CardHeader>
 
-      {/* Card Content - 16px horizontal padding, bottom padding */}
-      <CardContent className="px-4 pb-4">
+      {/* Card content — match header padding on small screens */}
+      <CardContent className="px-3 pb-4 md:px-4">
         <div className="space-y-3">
           {/* Description - 12px font, gray-600 color */}
           <p className="text-xs text-gray-600 leading-relaxed">
