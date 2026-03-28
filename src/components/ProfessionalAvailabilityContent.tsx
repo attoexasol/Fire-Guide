@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { 
   Calendar as CalendarIcon, 
+  CalendarX2,
   Clock, 
   X,
-  Plus,
   Info,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -15,17 +17,69 @@ import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { getWorkingDays, WorkingDayResponse, createProfessionalDay, getBlockedDays, deleteProfessionalDay, getMonthlyAvailability, getMonthlyAvailabilitySummary, ProfessionalDayResponse, MonthlyAvailabilityData, MonthlyAvailabilitySummaryData } from "../api/professionalsService";
-import { getProfessionalId, getApiToken } from "../lib/auth";
+import {
+  getWorkingDays,
+  WorkingDayResponse,
+  getMonthlyAvailability,
+  getMonthlyAvailabilitySummary,
+  MonthlyAvailabilityData,
+  MonthlyAvailabilitySummaryData,
+  blockProfessionalBookingDays,
+  getBlockedBookingDaysList,
+  deleteBlockedBookingDay,
+  updateBlockedBookingDay,
+  BlockedBookingDayItem,
+} from "../api/professionalsService";
+import { getApiToken } from "../lib/auth";
 import { getUpcomingBookings, UpcomingBookingItem } from "../api/bookingService";
 import { toast } from "sonner";
 
-interface BlockedDate {
-  id: string;
-  date: string;
-  reason: string;
-  start_time?: string;
-  end_time?: string;
+function parseDayOnly(s: string): string {
+  if (!s) return "";
+  return s.trim().split(/[\sT]/)[0];
+}
+
+function formatBlockDateDisplay(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr.replace(" ", "T"));
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function toDateInputValue(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr.replace(" ", "T"));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatBlockedBookingRangeLine(item: BlockedBookingDayItem): string {
+  const start = formatBlockDateDisplay(item.start_day);
+  const startKey = parseDayOnly(item.start_day);
+  const endKey = parseDayOnly(item.end_day || item.start_day);
+  if (!endKey || endKey === startKey) return start;
+  return `${start} – ${formatBlockDateDisplay(item.end_day)}`;
+}
+
+function isDateInBookingBlockRange(dateStr: string, item: BlockedBookingDayItem): boolean {
+  const start = parseDayOnly(item.start_day);
+  const end = parseDayOnly(item.end_day || item.start_day);
+  return dateStr >= start && dateStr <= end;
+}
+
+function isDateBlockedByBookingDayList(items: BlockedBookingDayItem[], dateStr: string): boolean {
+  return items.some((item) => isDateInBookingBlockRange(dateStr, item));
+}
+
+function countBookingBlockDaysInMonth(items: BlockedBookingDayItem[], year: number, month1to12: number): number {
+  let c = 0;
+  const dim = new Date(year, month1to12, 0).getDate();
+  for (let day = 1; day <= dim; day++) {
+    const dateStr = `${year}-${String(month1to12).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (isDateBlockedByBookingDayList(items, dateStr)) c++;
+  }
+  return c;
 }
 
 interface Booking {
@@ -39,15 +93,16 @@ interface Booking {
 }
 
 export function ProfessionalAvailabilityContent() {
-  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  const [blockedBookingDayList, setBlockedBookingDayList] = useState<BlockedBookingDayItem[]>([]);
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true);
 
   const [isAddBlockModalOpen, setIsAddBlockModalOpen] = useState(false);
-  const [newBlockDate, setNewBlockDate] = useState("");
-  const [newBlockReason, setNewBlockReason] = useState("");
-  const [newBlockStartTime, setNewBlockStartTime] = useState("");
-  const [newBlockEndTime, setNewBlockEndTime] = useState("");
+  const [editingBookingDayId, setEditingBookingDayId] = useState<number | null>(null);
+  const [blockStartDay, setBlockStartDay] = useState("");
+  const [blockEndDay, setBlockEndDay] = useState("");
   const [isAddingBlock, setIsAddingBlock] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<BlockedBookingDayItem | null>(null);
+  const [deletingBookingDayId, setDeletingBookingDayId] = useState<number | null>(null);
 
   const [workingDays, setWorkingDays] = useState<WorkingDayResponse[]>([]);
   const [loadingWorkingDays, setLoadingWorkingDays] = useState(true);
@@ -66,201 +121,126 @@ export function ProfessionalAvailabilityContent() {
     return { month: now.getMonth() + 1, year: now.getFullYear() }; // month: 1-12, year: e.g., 2026
   });
   
-  const removeBlockedDate = async (id: string) => {
+  const refreshBlockedBookingDaysAndCalendar = async () => {
+    const apiToken = getApiToken();
+    if (!apiToken) return;
     try {
-      const apiToken = getApiToken();
-      
-      if (!apiToken) {
-        toast.error("Authentication required. Please log in again.");
-        return;
-      }
-
-      // Call delete API
-      const response = await deleteProfessionalDay({
+      const list = await getBlockedBookingDaysList(apiToken);
+      setBlockedBookingDayList(list ?? []);
+    } catch {
+      setBlockedBookingDayList([]);
+    }
+    try {
+      const availabilityResponse = await getMonthlyAvailability({
         api_token: apiToken,
-        id: parseInt(id, 10)
+        month: currentMonth.month,
+        year: currentMonth.year,
       });
-
-      // Check if response indicates failure
-      if (response.status === false) {
-        const errorMsg = response.message || "Failed to remove blocked date. Please try again.";
-        if (errorMsg.toLowerCase().includes("invalid api token")) {
-          toast.error("Your session has expired. Please log in again.");
-        } else {
-          toast.error(errorMsg);
-        }
-        return;
+      if (availabilityResponse.data) setMonthlyAvailability(availabilityResponse.data);
+    } catch {
+      /* keep previous calendar */
+    }
+    try {
+      const summaryResponse = await getMonthlyAvailabilitySummary({
+        api_token: apiToken,
+        month: currentMonth.month,
+        year: currentMonth.year,
+      });
+      if (summaryResponse.status === true && summaryResponse.data) {
+        setMonthlySummary(summaryResponse.data);
       }
-
-      if (response.status === true) {
-        toast.success("Blocked date removed successfully!");
-        
-        // Refresh blocked dates list by fetching from API
-        const blockedResponse = await getBlockedDays({ api_token: apiToken });
-        if (blockedResponse.status === true && blockedResponse.data) {
-          const mappedBlockedDates: BlockedDate[] = blockedResponse.data.map((item: ProfessionalDayResponse) => ({
-            id: item.id.toString(),
-            date: item.date.split('T')[0], // Extract date from ISO string
-            reason: item.reason,
-            start_time: item.start_time,
-            end_time: item.end_time
-          }));
-          setBlockedDates(mappedBlockedDates);
-        }
-        
-        // Refresh monthly availability
-        const availabilityResponse = await getMonthlyAvailability({ 
-          api_token: apiToken,
-          month: currentMonth.month,
-          year: currentMonth.year
-        });
-        if (availabilityResponse.data) {
-          setMonthlyAvailability(availabilityResponse.data);
-        }
-        
-        // Refresh monthly summary
-        const summaryResponse = await getMonthlyAvailabilitySummary({ 
-          api_token: apiToken,
-          month: currentMonth.month,
-          year: currentMonth.year
-        });
-        if (summaryResponse.status === true && summaryResponse.data) {
-          setMonthlySummary(summaryResponse.data);
-        }
-      } else {
-        toast.error(response.message || "Failed to remove blocked date. Please try again.");
-      }
-    } catch (error: any) {
-      console.error("Error deleting blocked date:", error);
-      const errorMessage = error?.message || error?.error || "Failed to remove blocked date. Please try again.";
-      
-      // Check if it's an authentication error
-      if (errorMessage.toLowerCase().includes("invalid api token") || 
-          errorMessage.toLowerCase().includes("unauthorized") ||
-          error?.status === 401) {
-        toast.error("Your session has expired. Please log in again.");
-      } else {
-        toast.error(errorMessage);
-      }
+    } catch {
+      /* keep previous summary */
     }
   };
 
-  const handleAddBlock = async () => {
-    if (newBlockDate && newBlockReason && newBlockStartTime && newBlockEndTime) {
-      try {
-        setIsAddingBlock(true);
-        const apiToken = getApiToken();
-        
-        if (!apiToken) {
-          toast.error("Authentication required. Please log in again.");
-          setIsAddingBlock(false);
-          return;
-        }
+  const resetAddBlockForm = () => {
+    setEditingBookingDayId(null);
+    setBlockStartDay("");
+    setBlockEndDay("");
+  };
 
-        // Format time from HH:MM to HH:MM format (API expects "09:00" format)
-        const formatTimeForAPI = (time: string): string => {
-          // If time is in HH:MM format, return as is
-          if (time.match(/^\d{2}:\d{2}$/)) {
-            return time;
-          }
-          // If time is in HH:MM:SS format, remove seconds
-          if (time.match(/^\d{2}:\d{2}:\d{2}$/)) {
-            return time.substring(0, 5);
-          }
-          return time;
-        };
+  const openAddBlockModal = (prefillDate?: string) => {
+    resetAddBlockForm();
+    if (prefillDate) setBlockStartDay(prefillDate);
+    setIsAddBlockModalOpen(true);
+  };
 
-        const response = await createProfessionalDay({
+  const handleEditBlockedBookingDay = (item: BlockedBookingDayItem) => {
+    setEditingBookingDayId(item.id);
+    setBlockStartDay(toDateInputValue(item.start_day));
+    setBlockEndDay(toDateInputValue(item.end_day) || toDateInputValue(item.start_day));
+    setIsAddBlockModalOpen(true);
+  };
+
+  const handleSubmitBlockBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const start = blockStartDay.trim();
+    const end = blockEndDay.trim();
+    if (!start) {
+      toast.error("Please select a start date.");
+      return;
+    }
+    const endDate = end || start;
+    if (endDate < start) {
+      toast.error("End date must be on or after start date.");
+      return;
+    }
+
+    const apiToken = getApiToken();
+    if (!apiToken) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    setIsAddingBlock(true);
+    try {
+      if (editingBookingDayId !== null) {
+        await updateBlockedBookingDay(apiToken, editingBookingDayId, start, endDate);
+        toast.success("Block updated.");
+      } else {
+        await blockProfessionalBookingDays({
           api_token: apiToken,
-          type: "block",
-          date: newBlockDate,
-          start_time: formatTimeForAPI(newBlockStartTime),
-          end_time: formatTimeForAPI(newBlockEndTime),
-          reason: newBlockReason
+          start_day: start,
+          end_day: endDate,
         });
-
-        // Check if response indicates failure
-        if (response.status === false || !response.data) {
-          const errorMsg = response.message || "Failed to add blocked date. Please try again.";
-          if (errorMsg.toLowerCase().includes("invalid api token")) {
-            toast.error("Your session has expired. Please log in again.");
-          } else {
-            toast.error(errorMsg);
-          }
-          return;
-        }
-
-        if (response.status === true && response.data) {
-          toast.success("Blocked date added successfully!");
-          
-          // Refresh blocked dates list by fetching from API
-          const apiToken = getApiToken();
-          if (apiToken) {
-            const blockedResponse = await getBlockedDays({ api_token: apiToken });
-            if (blockedResponse.status === true && blockedResponse.data) {
-              const mappedBlockedDates: BlockedDate[] = blockedResponse.data.map((item: ProfessionalDayResponse) => ({
-                id: item.id.toString(),
-                date: item.date.split('T')[0], // Extract date from ISO string
-                reason: item.reason,
-                start_time: item.start_time,
-                end_time: item.end_time
-              }));
-              setBlockedDates(mappedBlockedDates);
-            }
-            
-            // Refresh monthly availability
-            const availabilityResponse = await getMonthlyAvailability({ 
-              api_token: apiToken,
-              month: currentMonth.month,
-              year: currentMonth.year
-            });
-            if (availabilityResponse.data) {
-              setMonthlyAvailability(availabilityResponse.data);
-            }
-            
-            // Refresh monthly summary
-            const summaryResponse = await getMonthlyAvailabilitySummary({ 
-              api_token: apiToken,
-              month: currentMonth.month,
-              year: currentMonth.year
-            });
-            if (summaryResponse.status === true && summaryResponse.data) {
-              setMonthlySummary(summaryResponse.data);
-            }
-          }
-          
-          // Reset form
-          setNewBlockDate("");
-          setNewBlockReason("");
-          setNewBlockStartTime("");
-          setNewBlockEndTime("");
-          setIsAddBlockModalOpen(false);
-        } else {
-          toast.error(response.message || "Failed to add blocked date. Please try again.");
-        }
-      } catch (error: any) {
-        console.error("Error adding blocked date:", error);
-        const errorMessage = error?.message || error?.error || "Failed to add blocked date. Please try again.";
-        
-        // Check if it's an authentication error
-        if (errorMessage.toLowerCase().includes("invalid api token") || 
-            errorMessage.toLowerCase().includes("unauthorized") ||
-            error?.status === 401) {
-          toast.error("Your session has expired. Please log in again.");
-        } else {
-          toast.error(errorMessage);
-        }
-      } finally {
-        setIsAddingBlock(false);
+        toast.success("Booking days blocked successfully.");
       }
+      resetAddBlockForm();
+      setIsAddBlockModalOpen(false);
+      await refreshBlockedBookingDaysAndCalendar();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save block.";
+      toast.error(message);
+    } finally {
+      setIsAddingBlock(false);
+    }
+  };
+
+  const handleConfirmDeleteBookingDay = async () => {
+    if (!itemToDelete) return;
+    const apiToken = getApiToken();
+    if (!apiToken) {
+      toast.error("Please log in to delete.");
+      setItemToDelete(null);
+      return;
+    }
+    setDeletingBookingDayId(itemToDelete.id);
+    try {
+      await deleteBlockedBookingDay(apiToken, itemToDelete.id);
+      toast.success("Blocked period removed.");
+      setItemToDelete(null);
+      await refreshBlockedBookingDaysAndCalendar();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete.";
+      toast.error(message);
+    } finally {
+      setDeletingBookingDayId(null);
     }
   };
 
   const handleCancelAddBlock = () => {
-    setNewBlockDate("");
-    setNewBlockReason("");
-    setNewBlockStartTime("");
-    setNewBlockEndTime("");
+    resetAddBlockForm();
     setIsAddBlockModalOpen(false);
   };
 
@@ -274,39 +254,31 @@ export function ProfessionalAvailabilityContent() {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  // Fetch blocked dates on mount
+  // Fetch blocked booking days on mount (same API as Block Booking Day page)
   useEffect(() => {
-    const fetchBlockedDates = async () => {
+    const fetchBlockedBookingDays = async () => {
       try {
         setLoadingBlockedDates(true);
         const apiToken = getApiToken();
-        
+
         if (!apiToken) {
-          setLoadingBlockedDates(false);
+          setBlockedBookingDayList([]);
           return;
         }
 
-        const response = await getBlockedDays({ api_token: apiToken });
-        
-        if (response.status === true && response.data) {
-          // Map API response to BlockedDate interface
-          const mappedBlockedDates: BlockedDate[] = response.data.map((item: ProfessionalDayResponse) => ({
-            id: item.id.toString(),
-            date: item.date.split('T')[0], // Extract date from ISO string (YYYY-MM-DD)
-            reason: item.reason,
-            start_time: item.start_time,
-            end_time: item.end_time
-          }));
-          setBlockedDates(mappedBlockedDates);
-        }
-      } catch (error: any) {
-        console.error("Error fetching blocked dates:", error);
-        const errorMessage = error?.message || error?.error || "";
-        
-        // Only show toast for authentication errors
-        if (errorMessage.toLowerCase().includes("invalid api token") || 
-            errorMessage.toLowerCase().includes("unauthorized") ||
-            error?.status === 401) {
+        const list = await getBlockedBookingDaysList(apiToken);
+        setBlockedBookingDayList(list ?? []);
+      } catch (error: unknown) {
+        console.error("Error fetching blocked booking days:", error);
+        setBlockedBookingDayList([]);
+        const errorMessage =
+          error && typeof error === "object" && "message" in error
+            ? String((error as { message?: string }).message)
+            : "";
+        if (
+          errorMessage.toLowerCase().includes("invalid api token") ||
+          errorMessage.toLowerCase().includes("unauthorized")
+        ) {
           toast.error("Your session has expired. Please log in again.");
         }
       } finally {
@@ -314,7 +286,7 @@ export function ProfessionalAvailabilityContent() {
       }
     };
 
-    fetchBlockedDates();
+    fetchBlockedBookingDays();
   }, []);
 
   // Fetch working days on mount
@@ -540,7 +512,7 @@ export function ProfessionalAvailabilityContent() {
     };
 
     fetchMonthlySummary();
-  }, [blockedDates, currentMonth]); // Re-fetch when blockedDates or currentMonth change
+  }, [blockedBookingDayList, currentMonth]);
 
   // Define week days order for sorting
   const weekDaysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -556,9 +528,9 @@ export function ProfessionalAvailabilityContent() {
   const currentMonthBookings = monthlySummary?.book_count ?? upcomingBookings.filter(b => 
     new Date(b.date).getMonth() === new Date().getMonth()
   ).length;
-  const currentMonthBlocked = monthlySummary?.block_count ?? blockedDates.filter(d => 
-    new Date(d.date).getMonth() === new Date().getMonth()
-  ).length;
+  const currentMonthBlocked =
+    monthlySummary?.block_count ??
+    countBookingBlockDaysInMonth(blockedBookingDayList, currentMonth.year, currentMonth.month);
   const currentMonthAvailable = monthlySummary?.available_count ?? (30 - currentMonthBookings - currentMonthBlocked);
 
   // Navigation handlers
@@ -740,14 +712,17 @@ export function ProfessionalAvailabilityContent() {
                           // Check status in priority order: past > booked > blocked > available
                           const pastDates = monthlyAvailability.past || [];
                           const bookedDates = monthlyAvailability.booked || [];
-                          const blockedDates = monthlyAvailability.blocked || [];
+                          const apiBlockedDates = monthlyAvailability.blocked || [];
                           const availableDates = monthlyAvailability.available || [];
                           
                           if (isPastDate || pastDates.includes(dateStr)) {
                             status = 'past';
                           } else if (bookedDates.includes(dateStr)) {
                             status = 'booked';
-                          } else if (blockedDates.includes(dateStr)) {
+                          } else if (
+                            apiBlockedDates.includes(dateStr) ||
+                            isDateBlockedByBookingDayList(blockedBookingDayList, dateStr)
+                          ) {
                             status = 'blocked';
                           } else if (availableDates.includes(dateStr)) {
                             status = 'available';
@@ -787,9 +762,7 @@ export function ProfessionalAvailabilityContent() {
                             disabled={isPast || isBooked}
                             onClick={() => {
                               if (isAvailable && !isPast) {
-                                // Open modal to block this date
-                                setIsAddBlockModalOpen(true);
-                                setNewBlockDate(dateStr);
+                                openAddBlockModal(dateStr);
                               }
                             }}
                           >
@@ -824,63 +797,78 @@ export function ProfessionalAvailabilityContent() {
             </CardContent>
           </Card>
 
-          {/* Blocked Dates List */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Blocked Dates</CardTitle>
-                <Button 
-                  size="sm" 
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={() => setIsAddBlockModalOpen(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Block
-                </Button>
+          {/* Blocked Dates — title, Add Block, and list live inside one card */}
+          <Card className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="flex flex-row items-start justify-between gap-4 border-b border-gray-100 px-8 pt-9 pb-6 sm:px-10 sm:pt-10">
+              <div className="min-w-0 flex-1 pr-3">
+                <h2 className="text-xl font-semibold text-[#0A1A2F] mt-3">Blocked Dates</h2>
+                <p className="mt-1.5 text-sm text-gray-600">
+                  Block specific days when you are not available for bookings.
+                </p>
               </div>
-            </CardHeader>
-            <CardContent>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-0.5 shrink-0 bg-red-600 hover:bg-red-700 mt-3"
+                onClick={() => openAddBlockModal()}
+              >
+                Add Block
+              </Button>
+            </div>
+            <CardContent className="p-0">
               {loadingBlockedDates ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 animate-spin" />
+                <div className="px-8 py-12 text-center text-gray-500 sm:px-10">
+                  <CalendarX2 className="mx-auto mb-3 h-12 w-12 animate-spin text-gray-300" />
                   <p>Loading blocked dates...</p>
                 </div>
-              ) : blockedDates.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>No blocked dates. Click "Add Block" to block unavailable days.</p>
+              ) : blockedBookingDayList.length === 0 ? (
+                <div className="px-8 py-12 text-center text-gray-500 sm:px-10">
+                  <CalendarX2 className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+                  <p>No blocked dates. Click &quot;Add Block&quot; to block unavailable days.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {blockedDates.map((blocked) => (
+                <div className="divide-y divide-gray-100">
+                  {blockedBookingDayList.map((blocked) => (
                     <div
                       key={blocked.id}
-                      className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg"
+                      className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 sm:px-10"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                          <X className="w-5 h-5 text-red-600"   onClick={() => removeBlockedDate(blocked.id)} />
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-50">
+                          <CalendarX2 className="h-5 w-5 text-red-600" />
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {new Date(blocked.date).toLocaleDateString('en-GB', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900">
+                            {formatBlockedBookingRangeLine(blocked)}
                           </p>
-                          <p className="text-sm text-gray-600">{blocked.reason}</p>
+                          {blocked.professional?.name ? (
+                            <p className="text-sm text-gray-500">{blocked.professional.name}</p>
+                          ) : null}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeBlockedDate(blocked.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-100"
-                      >
-                        Remove
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          onClick={() => handleEditBlockedBookingDay(blocked)}
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => setItemToDelete(blocked)}
+                          disabled={deletingBookingDayId === blocked.id}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -888,84 +876,96 @@ export function ProfessionalAvailabilityContent() {
             </CardContent>
           </Card>
 
-          {/* Add Block Modal */}
-          <Dialog open={isAddBlockModalOpen} onOpenChange={setIsAddBlockModalOpen}>
-            <DialogContent>
+          {/* Add / Edit — same contract as Block Booking Day (start_day / end_day) */}
+          <Dialog
+            open={isAddBlockModalOpen}
+            onOpenChange={(open) => {
+              setIsAddBlockModalOpen(open);
+              if (!open) resetAddBlockForm();
+            }}
+          >
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Block a Date</DialogTitle>
+                <DialogTitle className="text-[#0A1A2F]">
+                  {editingBookingDayId !== null ? "Edit block" : "Block booking days"}
+                </DialogTitle>
                 <DialogDescription>
-                  Select a date and provide a reason for blocking it from availability.
+                  Choose a start date and optional end date. Customers cannot book on these days.
                 </DialogDescription>
               </DialogHeader>
-              
-              <div className="space-y-4 px-6 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="blockDate">Date *</Label>
+              <form onSubmit={handleSubmitBlockBooking} className="space-y-4">
+                <div className="space-y-2 px-6">
+                  <Label htmlFor="avail-block-start">Start date *</Label>
                   <Input
-                    id="blockDate"
+                    id="avail-block-start"
                     type="date"
-                    value={newBlockDate}
-                    onChange={(e) => setNewBlockDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full"
                     required
+                    value={blockStartDay}
+                    onChange={(e) => setBlockStartDay(e.target.value)}
+                    min={editingBookingDayId !== null ? undefined : new Date().toISOString().split("T")[0]}
+                    className="w-full"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="blockStartTime">Start Time *</Label>
-                    <Input
-                      id="blockStartTime"
-                      type="time"
-                      value={newBlockStartTime}
-                      onChange={(e) => setNewBlockStartTime(e.target.value)}
-                      className="w-full"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="blockEndTime">End Time *</Label>
-                    <Input
-                      id="blockEndTime"
-                      type="time"
-                      value={newBlockEndTime}
-                      onChange={(e) => setNewBlockEndTime(e.target.value)}
-                      className="w-full"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="blockReason">Reason *</Label>
+                <div className="space-y-2 px-6">
+                  <Label htmlFor="avail-block-end">End date *</Label>
                   <Input
-                    id="blockReason"
-                    type="text"
-                    value={newBlockReason}
-                    onChange={(e) => setNewBlockReason(e.target.value)}
-                    placeholder="e.g., Personal commitment, Holiday, etc."
+                    id="avail-block-end"
+                    type="date"
+                    value={blockEndDay}
+                    min={blockStartDay || undefined}
+                    onChange={(e) => setBlockEndDay(e.target.value)}
                     className="w-full"
-                    required
                   />
                 </div>
-              </div>
+                <DialogFooter className="px-6 pb-6">
+                  <Button type="button" variant="outline" onClick={handleCancelAddBlock} disabled={isAddingBlock}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={isAddingBlock}>
+                    {isAddingBlock
+                      ? editingBookingDayId !== null
+                        ? "Saving…"
+                        : "Submitting…"
+                      : editingBookingDayId !== null
+                        ? "Update"
+                        : "Block days"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
 
+          <Dialog open={itemToDelete !== null} onOpenChange={(open) => !open && setItemToDelete(null)}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-[#0A1A2F]">Remove blocked period?</DialogTitle>
+              </DialogHeader>
+              <p className="text-gray-600">
+                {itemToDelete ? (
+                  <>
+                    Remove the block for{" "}
+                    <strong>{formatBlockedBookingRangeLine(itemToDelete)}</strong>? This cannot be undone.
+                  </>
+                ) : (
+                  "This blocked period will be removed."
+                )}
+              </p>
               <DialogFooter>
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={handleCancelAddBlock}
-                  disabled={isAddingBlock}
+                  onClick={() => setItemToDelete(null)}
+                  disabled={deletingBookingDayId !== null}
                 >
                   Cancel
                 </Button>
                 <Button
+                  type="button"
                   className="bg-red-600 hover:bg-red-700"
-                  onClick={handleAddBlock}
-                  disabled={!newBlockDate || !newBlockReason || !newBlockStartTime || !newBlockEndTime || isAddingBlock}
+                  onClick={handleConfirmDeleteBookingDay}
+                  disabled={deletingBookingDayId !== null}
                 >
-                  {isAddingBlock ? "Adding..." : "Add Block"}
+                  {deletingBookingDayId === itemToDelete?.id ? "Deleting…" : "Delete"}
                 </Button>
               </DialogFooter>
             </DialogContent>

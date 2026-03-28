@@ -6,7 +6,6 @@ import {
   DollarSign, 
   Clock, 
   Calendar, 
-  CalendarX2,
   CreditCard, 
   ShieldCheck, 
   Bell, 
@@ -35,7 +34,6 @@ import { ProfessionalNotifications } from "./ProfessionalNotifications";
 import { ProfessionalProfileContent } from "./ProfessionalProfileContent";
 import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
 import { ProfessionalAvailabilityContent } from "./ProfessionalAvailabilityContent";
-import { ProfessionalBlockBookingDayContent } from "./ProfessionalBlockBookingDayContent";
 import { ProfessionalCustomQuoteContent } from "./ProfessionalCustomQuoteContent";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
@@ -44,16 +42,21 @@ interface ProfessionalDashboardProps {
   onNavigateToReports: () => void;
 }
 
-type ProfessionalView = "dashboard" | "profile" | "pricing-overview" | "availability" | "block-booking-day" | "bookings" | "payments" | "custom-quote" | "verification" | "settings" | "notifications";
+type ProfessionalView = "dashboard" | "profile" | "pricing-overview" | "availability" | "bookings" | "payments" | "custom-quote" | "verification" | "settings" | "notifications";
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
   const navigate = useNavigate();
   const { view } = useParams<{ view?: string }>();
-  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing-overview", "availability", "block-booking-day", "bookings", "payments", "custom-quote", "verification", "settings", "notifications"];
+  const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing-overview", "availability", "bookings", "payments", "custom-quote", "verification", "settings", "notifications"];
   
   // Determine current view from URL parameter, default to "dashboard"
-  // Support legacy "pricing" route → redirect to pricing-overview
-  const resolvedView = view === "pricing" ? "pricing-overview" : view;
+  // Legacy routes: "pricing" → pricing-overview; "block-booking-day" → availability (blocking lives there now)
+  const resolvedView =
+    view === "pricing"
+      ? "pricing-overview"
+      : view === "block-booking-day"
+        ? "availability"
+        : view;
   const currentViewFromUrl: ProfessionalView = (resolvedView && validViews.includes(resolvedView as ProfessionalView)) 
     ? (resolvedView as ProfessionalView) 
     : "dashboard";
@@ -65,6 +68,13 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
   useEffect(() => {
     setActiveMenu(currentViewFromUrl);
   }, [currentViewFromUrl]);
+
+  // Old "Block Booking Day" URL → normalize to Availability in the address bar
+  useEffect(() => {
+    if (view === "block-booking-day") {
+      navigate("/professional/dashboard/availability", { replace: true });
+    }
+  }, [view, navigate]);
   
   // Handler to update both state and URL
   const handleViewChange = (view: ProfessionalView) => {
@@ -81,7 +91,6 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
     { id: "profile" as ProfessionalView, label: "Profile", icon: User },
     { id: "pricing-overview" as ProfessionalView, label: "Pricing", icon: DollarSign },
     { id: "availability" as ProfessionalView, label: "Availability", icon: Clock },
-    { id: "block-booking-day" as ProfessionalView, label: "Block Booking Day", icon: CalendarX2 },
     { id: "bookings" as ProfessionalView, label: "Bookings", icon: Calendar },
     { id: "payments" as ProfessionalView, label: "Payments", icon: CreditCard },
     { id: "custom-quote" as ProfessionalView, label: "Custom Quote", icon: MessageCircle },
@@ -414,8 +423,6 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
         return <ProfessionalPricingContent />;
       case "availability":
         return <ProfessionalAvailabilityContent />;
-      case "block-booking-day":
-        return <ProfessionalBlockBookingDayContent />;
       default:
         return renderDashboard();
     }
