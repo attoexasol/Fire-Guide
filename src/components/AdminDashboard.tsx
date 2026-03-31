@@ -39,19 +39,20 @@ import { AdminNotifications } from "./AdminNotifications";
 import { AdminPayout } from "./AdminPayout";
 import { FRABasePriceContent } from "./FRABasePriceContent";
 import { AdminCustomQuoteContent } from "./AdminCustomQuoteContent";
+import { AdminNoticePeriod } from "./AdminNoticePeriod";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "payout" | "reviews" | "services" | "fra-base-price" | "custom-quote" | "notifications" | "settings";
+type AdminView = "dashboard" | "customers" | "professionals" | "bookings" | "payments" | "payout" | "reviews" | "services" | "fra-base-price" | "notice-period" | "custom-quote" | "notifications" | "settings";
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { view } = useParams<{ view?: string }>();
-  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "payout", "reviews", "services", "fra-base-price", "custom-quote", "notifications", "settings"];
+  const validViews: AdminView[] = ["dashboard", "customers", "professionals", "bookings", "payments", "payout", "reviews", "services", "fra-base-price", "notice-period", "custom-quote", "notifications", "settings"];
   
   // Determine current view from URL parameter or pathname, default to "dashboard"
   // Check if we're on the services/add or services/edit route
@@ -137,6 +138,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: "reviews" as AdminView, label: "Reviews", icon: Star },
     { id: "services" as AdminView, label: "Services", icon: FileText },
     { id: "fra-base-price" as AdminView, label: "Pricing", icon: DollarSign },
+    { id: "notice-period" as AdminView, label: "Notice Period", icon: Calendar },
     { id: "custom-quote" as AdminView, label: "Custom Quote", icon: MessageSquare },
     { id: "notifications" as AdminView, label: "Notifications", icon: Bell },
     { id: "settings" as AdminView, label: "Settings", icon: Settings },
@@ -344,6 +346,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <AdminServices />;
       case "fra-base-price":
         return <FRABasePriceContent isAdmin />;
+      case "notice-period":
+        return <AdminNoticePeriod />;
       case "custom-quote":
         return <AdminCustomQuoteContent />;
       case "notifications":

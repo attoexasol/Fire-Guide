@@ -29,6 +29,8 @@ import {
   deleteBlockedBookingDay,
   updateBlockedBookingDay,
   BlockedBookingDayItem,
+  getProfessionalNoticePeriod,
+  createProfessionalNoticePeriod,
 } from "../api/professionalsService";
 import { getApiToken } from "../lib/auth";
 import { getUpcomingBookings, UpcomingBookingItem } from "../api/bookingService";
@@ -114,6 +116,10 @@ export function ProfessionalAvailabilityContent() {
   
   const [monthlySummary, setMonthlySummary] = useState<MonthlyAvailabilitySummaryData | null>(null);
   const [loadingMonthlySummary, setLoadingMonthlySummary] = useState(true);
+
+  const [noticePeriodDays, setNoticePeriodDays] = useState("");
+  const [loadingNoticePeriod, setLoadingNoticePeriod] = useState(true);
+  const [savingNoticePeriod, setSavingNoticePeriod] = useState(false);
   
   // Calendar navigation state
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -244,6 +250,40 @@ export function ProfessionalAvailabilityContent() {
     setIsAddBlockModalOpen(false);
   };
 
+  const handleSaveNoticePeriod = async () => {
+    const apiToken = getApiToken();
+    if (!apiToken) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+    const trimmed = noticePeriodDays.trim();
+    const n = parseInt(trimmed, 10);
+    if (trimmed === "" || Number.isNaN(n) || n < 0) {
+      toast.error("Please enter a valid number of days.");
+      return;
+    }
+    setSavingNoticePeriod(true);
+    try {
+      const res = await createProfessionalNoticePeriod({ api_token: apiToken, notice_days: n });
+      if (res.status === true) {
+        toast.success(res.message || "Notice period saved successfully");
+        if (res.data?.notice_days != null) {
+          setNoticePeriodDays(String(res.data.notice_days));
+        }
+      } else {
+        toast.error(res.message || "Could not save notice period.");
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: string }).message)
+          : "Could not save notice period.";
+      toast.error(errorMessage);
+    } finally {
+      setSavingNoticePeriod(false);
+    }
+  };
+
   // Format time from "HH:MM:SS" to "HH:MM AM/PM"
   const formatTime = (timeString: string): string => {
     if (!timeString) return "";
@@ -322,6 +362,40 @@ export function ProfessionalAvailabilityContent() {
     };
 
     fetchWorkingDays();
+  }, []);
+
+  useEffect(() => {
+    const fetchNoticePeriod = async () => {
+      try {
+        setLoadingNoticePeriod(true);
+        const apiToken = getApiToken();
+        if (!apiToken) {
+          return;
+        }
+        const response = await getProfessionalNoticePeriod(apiToken);
+        if (response.status === true && response.data != null && typeof response.data.notice_days === "number") {
+          setNoticePeriodDays(String(response.data.notice_days));
+        } else {
+          setNoticePeriodDays("");
+        }
+      } catch (error: unknown) {
+        console.error("Error fetching notice period:", error);
+        const errorMessage =
+          error && typeof error === "object" && "message" in error
+            ? String((error as { message?: string }).message)
+            : "";
+        if (
+          errorMessage.toLowerCase().includes("invalid api token") ||
+          errorMessage.toLowerCase().includes("unauthorized")
+        ) {
+          toast.error("Your session has expired. Please log in again.");
+        }
+      } finally {
+        setLoadingNoticePeriod(false);
+      }
+    };
+
+    fetchNoticePeriod();
   }, []);
 
   // Fetch upcoming bookings on mount
@@ -1038,6 +1112,40 @@ export function ProfessionalAvailabilityContent() {
                       <p className="text-sm">No upcoming bookings</p>
                     </div>
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-sm">Notice period days</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingNoticePeriod ? (
+                <div className="text-center py-4 text-gray-500">
+                  <Clock className="w-5 h-5 mx-auto mb-2 text-gray-300 animate-spin" />
+                  <p className="text-sm">Loading notice period…</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    placeholder="Days"
+                    value={noticePeriodDays}
+                    onChange={(e) => setNoticePeriodDays(e.target.value)}
+                    className="flex-1 min-w-0"
+                  />
+                  <Button
+                    type="button"
+                    className="bg-red-600 hover:bg-red-700 shrink-0"
+                    onClick={handleSaveNoticePeriod}
+                    disabled={savingNoticePeriod}
+                  >
+                    {savingNoticePeriod ? "Saving…" : "Save"}
+                  </Button>
                 </div>
               )}
             </CardContent>

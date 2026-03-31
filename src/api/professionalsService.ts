@@ -2150,3 +2150,104 @@ export const uploadReport = async (
     };
   }
 };
+
+/** POST /professional-notice-period/get — body: { api_token } */
+export interface ProfessionalNoticePeriodRecord {
+  id: number;
+  professional_id: number;
+  notice_days: number;
+  is_active?: boolean | number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GetProfessionalNoticePeriodResponse {
+  status: boolean;
+  message: string;
+  data: ProfessionalNoticePeriodRecord | null;
+}
+
+export const getProfessionalNoticePeriod = async (
+  apiToken: string
+): Promise<GetProfessionalNoticePeriodResponse> => {
+  try {
+    const response = await apiClient.post<GetProfessionalNoticePeriodResponse>(
+      '/professional-notice-period/get',
+      { api_token: apiToken }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching professional notice period:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to fetch notice period',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/** POST /professional-notice-period/create — body: { api_token, notice_days } */
+export interface CreateProfessionalNoticePeriodRequest {
+  api_token: string;
+  notice_days: number;
+}
+
+export interface CreateProfessionalNoticePeriodResponse {
+  status: boolean;
+  message: string;
+  data?: ProfessionalNoticePeriodRecord;
+}
+
+export const createProfessionalNoticePeriod = async (
+  data: CreateProfessionalNoticePeriodRequest
+): Promise<CreateProfessionalNoticePeriodResponse> => {
+  try {
+    const response = await apiClient.post<CreateProfessionalNoticePeriodResponse>(
+      '/professional-notice-period/create',
+      {
+        api_token: data.api_token,
+        notice_days: data.notice_days,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error saving professional notice period:', error);
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw {
+          success: false,
+          message: error.response.data?.message || 'Failed to save notice period',
+          error: error.response.data?.error || error.message,
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        throw {
+          success: false,
+          message: 'No response from server. Please check your connection.',
+          error: 'Network error',
+        };
+      }
+    }
+    throw {
+      success: false,
+      message: 'An unexpected error occurred',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};

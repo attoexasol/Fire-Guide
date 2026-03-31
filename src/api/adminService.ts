@@ -2723,3 +2723,51 @@ export const getAdminPaymentSettings = async (
   );
   return response.data;
 };
+
+/** POST /professional-notice-period/get-for-admin — body: { api_token } */
+export interface AdminNoticePeriodProfessional {
+  id?: number;
+  name?: string;
+  email?: string;
+  business_name?: string;
+  number?: string;
+  business_location?: string;
+  status?: string;
+}
+
+export interface AdminNoticePeriodItem {
+  id: number;
+  notice_days: number;
+  professional?: AdminNoticePeriodProfessional | null;
+}
+
+export interface GetAdminProfessionalNoticePeriodsResponse {
+  status?: boolean;
+  success?: boolean;
+  message?: string;
+  data?: AdminNoticePeriodItem[] | null;
+}
+
+function normalizeAdminNoticePeriodList(
+  body: GetAdminProfessionalNoticePeriodsResponse | Record<string, unknown>
+): AdminNoticePeriodItem[] {
+  const raw = body?.data;
+  if (Array.isArray(raw)) return raw as AdminNoticePeriodItem[];
+  if (raw && typeof raw === "object" && Array.isArray((raw as { data?: unknown }).data)) {
+    return (raw as { data: AdminNoticePeriodItem[] }).data;
+  }
+  return [];
+}
+
+export const getAdminProfessionalNoticePeriods = async (
+  api_token: string
+): Promise<{ ok: boolean; data: AdminNoticePeriodItem[]; message?: string }> => {
+  const response = await apiClient.post<GetAdminProfessionalNoticePeriodsResponse>(
+    '/professional-notice-period/get-for-admin',
+    { api_token }
+  );
+  const body = response.data;
+  const list = normalizeAdminNoticePeriodList(body as GetAdminProfessionalNoticePeriodsResponse);
+  const ok = body?.status === true || body?.success === true;
+  return { ok, data: list, message: body?.message };
+};
