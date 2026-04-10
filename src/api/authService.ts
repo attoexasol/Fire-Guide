@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 
 // TypeScript types for registration request
 export interface RegisterUserRequest {
@@ -32,7 +33,7 @@ export interface RegisterUserResponse {
 // Create axios instance with base configuration
 // Note: No custom headers - only default Content-Type from axios
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   timeout: 10000, // 10 seconds timeout
 });
 

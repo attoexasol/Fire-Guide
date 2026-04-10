@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 
 // Types for notifications API
 export interface NotificationApiItem {
@@ -75,7 +76,7 @@ export interface DeleteNotificationResponse {
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

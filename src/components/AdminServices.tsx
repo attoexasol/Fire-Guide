@@ -17,6 +17,7 @@ import {
   CreateServiceRequest,
   fetchServices,
   ServiceResponse,
+  formatServiceFromPrice,
   deleteService,
   DeleteServiceRequest
 } from "../api/servicesService";
@@ -29,9 +30,7 @@ const colorOptions = ["red", "blue", "orange", "green", "purple"];
 // Map API service response to Service type
 const mapApiServiceToService = (apiService: ServiceResponse, index: number): Service => {
   const isActive = apiService.status?.toUpperCase() === "ACTIVE";
-  const formattedPrice = apiService.price 
-    ? `£${parseFloat(apiService.price).toFixed(2)}`
-    : "£0.00";
+  const formattedPrice = formatServiceFromPrice(apiService);
   
   const iconIndex = index % defaultIcons.length;
   const iconComponent = defaultIcons[iconIndex];

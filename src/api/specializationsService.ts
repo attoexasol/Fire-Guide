@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 
 // Types for specializations API
 export interface SpecializationItem {
@@ -28,7 +29,7 @@ export interface SpecializationsApiResponse {
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

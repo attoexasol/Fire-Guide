@@ -29,7 +29,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { fetchServices, ServiceResponse } from "../api/servicesService";
+import { fetchServices, ServiceResponse, formatServiceFromPrice } from "../api/servicesService";
 import { uploadProfileImage, UploadProfileImageRequest } from "../api/authService";
 import { getApiToken, getProfessionalId, setProfessionalId, getUserEmail } from "../lib/auth";
 import { createCertification } from "../api/qualificationsService";
@@ -1431,8 +1431,10 @@ export function ProfessionalProfileContent() {
                           {service.type && (
                             <span className="px-2 py-0.5 sm:py-1 bg-gray-100 rounded whitespace-nowrap">{service.type}</span>
                           )}
-                          {service.price && (
-                            <span className="font-semibold text-red-600">£{service.price}</span>
+                          {(service.from_price || service.price) && (
+                            <span className="font-semibold text-red-600">
+                              {formatServiceFromPrice(service)}
+                            </span>
                           )}
                         </div>
                       </div>

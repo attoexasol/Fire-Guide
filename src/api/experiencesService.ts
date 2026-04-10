@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 
 // TypeScript types for Experience API response
 export interface ExperienceCreator {
@@ -75,7 +76,7 @@ export const fetchProfessionalProfileExperiences = async (
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

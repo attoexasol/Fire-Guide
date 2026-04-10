@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 
 // TypeScript types for API response
 export interface ServiceResponse {
@@ -8,13 +9,25 @@ export interface ServiceResponse {
   service_name: string;
   type?: string;
   status: string;
+  /** Legacy / alternate price field */
   price: string;
+  /** Public "starting from" amount from GET /services (e.g. "12.00") */
+  from_price?: string | null;
   icon: string | null;
   description: string;
   created_by?: number;
   updated_by?: number | null;
   created_at?: string;
   updated_at?: string;
+}
+
+/** Prefer `from_price` for customer-facing "Starting from", then `price`. */
+export function formatServiceFromPrice(service: Pick<ServiceResponse, "from_price" | "price">): string {
+  const raw = service.from_price ?? service.price;
+  if (raw == null || String(raw).trim() === "") return "£0.00";
+  const n = parseFloat(String(raw));
+  if (Number.isNaN(n)) return "£0.00";
+  return `£${n.toFixed(2)}`;
 }
 
 export interface ServicesPaginatedResponse {
@@ -38,8 +51,8 @@ export interface ServicesPaginatedResponse {
 }
 
 export interface ServicesApiResponse {
-  status: string;
-  message: string;
+  status?: string | boolean;
+  message?: string;
   data: ServiceResponse[] | ServicesPaginatedResponse;
 }
 
@@ -195,48 +208,82 @@ export interface FraPriceStoreUpdateResponse {
   };
 }
 
-// POST /fra-price/professional — body: api_token, property_type_id, floor_id, people_id, duration_id
-export interface FraPriceProfessionalRequest {
+/** Normalize price from FRA GET-style POST responses (data.price, nested shapes). */
+export function parseFraGetPriceResponse(payload: unknown): number {
+  if (payload == null || typeof payload !== "object") return 0;
+  const root = payload as Record<string, unknown>;
+  const inner = root.data;
+  let raw: unknown;
+  if (inner != null && typeof inner === "object" && !Array.isArray(inner)) {
+    const d = inner as Record<string, unknown>;
+    raw =
+      d.price ??
+      d.property_type_price ??
+      d.people_price ??
+      d.floor_price ??
+      d.duration_price;
+  }
+  if (raw == null) raw = root.price;
+  if (raw == null || raw === "") return 0;
+  const n = typeof raw === "number" ? raw : parseFloat(String(raw));
+  return Number.isFinite(n) ? n : 0;
+}
+
+export interface FraGetPropertyTypePriceRequest {
   api_token: string;
-  property_type_id?: number;
-  floor_id?: number;
-  people_id?: number;
-  duration_id?: number;
-}
-
-export interface FraPriceProfessionalDataItem {
-  property_type: {
-    id: number;
-    property_type_name: string;
-    property_type_price: string;
-  };
-  people: Array<{ id: number; number_of_people: string; people_price: string }>;
-  floors: Array<{ id: number; floor: string; floor_price: string }>;
-  durations: Array<{ id: number; duration: string; duration_price: string }>;
-}
-
-export interface FraPriceProfessionalResponse {
-  status: boolean;
-  professional?: { id: number; Professional_name: string };
-  data: FraPriceProfessionalDataItem[];
+  property_type_id: number;
 }
 
 /**
- * POST /fra-price/professional. Sends api_token in body and Authorization header; optional body params: property_type_id, floor_id, people_id, duration_id.
- * Response includes property_type, people[], floors[], and durations[] (with duration_price) for matching item.
+ * POST /professional/get-fra-property-type — base price for property type
  */
-export const getFraPriceProfessional = async (
-  data: FraPriceProfessionalRequest
-): Promise<FraPriceProfessionalResponse> => {
-  const body: Record<string, string | number> = { api_token: data.api_token };
-  if (data.property_type_id != null) body.property_type_id = data.property_type_id;
-  if (data.floor_id != null) body.floor_id = data.floor_id;
-  if (data.people_id != null) body.people_id = data.people_id;
-  if (data.duration_id != null) body.duration_id = data.duration_id;
-  const response = await apiClient.post<FraPriceProfessionalResponse>('/fra-price/professional', body, {
-    headers: {
-      Authorization: `Bearer ${data.api_token}`,
-    },
+export const getFraPropertyTypePrice = async (
+  data: FraGetPropertyTypePriceRequest
+): Promise<unknown> => {
+  const response = await apiClient.post<unknown>('/professional/get-fra-property-type', data, {
+    headers: { Authorization: `Bearer ${data.api_token}` },
+  });
+  return response.data;
+};
+
+/**
+ * POST /professional/get-fra-people — addon price for people + property
+ */
+export const getFraPeoplePriceFromApi = async (data: {
+  api_token: string;
+  people_id: number;
+  property_type_id: number;
+}): Promise<unknown> => {
+  const response = await apiClient.post<unknown>('/professional/get-fra-people', data, {
+    headers: { Authorization: `Bearer ${data.api_token}` },
+  });
+  return response.data;
+};
+
+/**
+ * POST /professional/get-fra-floor
+ */
+export const getFraFloorPriceFromApi = async (data: {
+  api_token: string;
+  floor_id: number;
+  property_type_id: number;
+}): Promise<unknown> => {
+  const response = await apiClient.post<unknown>('/professional/get-fra-floor', data, {
+    headers: { Authorization: `Bearer ${data.api_token}` },
+  });
+  return response.data;
+};
+
+/**
+ * POST /professional/get-fra-duraation (API spelling)
+ */
+export const getFraDurationPriceFromApi = async (data: {
+  api_token: string;
+  duration_id: number;
+  property_type_id: number;
+}): Promise<unknown> => {
+  const response = await apiClient.post<unknown>('/professional/get-fra-duraation', data, {
+    headers: { Authorization: `Bearer ${data.api_token}` },
   });
   return response.data;
 };
@@ -271,10 +318,11 @@ export const saveFraPropertyTypePrice = async (
   return response.data;
 };
 
-/** POST /professional/fra-people — save people price (api_token from login, people_id from selection, price from input) */
+/** POST /professional/fra-people — save people price */
 export interface FraPeoplePriceRequest {
   api_token: string;
   people_id: number;
+  property_type_id: number;
   price: number;
 }
 
@@ -298,10 +346,11 @@ export const saveFraPeoplePrice = async (
   return response.data;
 };
 
-/** POST /professional-fra-floor — save floor price (api_token from login, floor_id from selection, price from input) */
+/** POST /professional-fra-floor — save floor price */
 export interface FraFloorPriceRequest {
   api_token: string;
   floor_id: number;
+  property_type_id: number;
   price: number;
 }
 
@@ -325,10 +374,11 @@ export const saveFraFloorPrice = async (
   return response.data;
 };
 
-/** POST /professional-fra-duration — save duration/urgency price (api_token from login, duration_id from selection, price from input) */
+/** POST /professional-fra-duration — save duration/urgency price */
 export interface FraDurationPriceRequest {
   api_token: string;
   duration_id: number;
+  property_type_id: number;
   price: number;
 }
 
@@ -353,9 +403,9 @@ export const saveFraDurationPrice = async (
 };
 
 // Create axios instance with base configuration
-// Uses VITE_API_BASE_URL from .env file, with fallback to default URL
+// Uses VITE_API_BASE_URL when set; otherwise https://fireguide.attoexasolutions.com/api (see lib/apiBaseUrl.ts)
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -1641,29 +1691,32 @@ export const createProfessionalFireAlarmLastServicePrice = async (
 export const fetchServices = async (): Promise<ServiceResponse[]> => {
   try {
     const response = await apiClient.get<ServicesApiResponse>('/services');
-    console.log('Services API Response:', response.data);
-    
-    // Handle the response structure: { status: 'success', data: [...] }
-    if (response.data.status === 'success' && response.data.data != null) {
-      const raw = response.data.data;
-      // Check if data is a direct array (current API structure)
-      if (Array.isArray(raw)) {
-        console.log('Services found (direct array):', raw.length);
-        return raw;
+    const payload = response.data;
+    const raw = payload.data;
+
+    // GET /services often returns { data: [...] } with or without status: "success"
+    if (Array.isArray(raw)) {
+      return raw as ServiceResponse[];
+    }
+
+    const ok =
+      payload.status === 'success' ||
+      payload.status === true ||
+      payload.status === 'true';
+    if (ok && raw != null) {
+      if (typeof raw === 'object' && 'data' in raw && Array.isArray((raw as ServicesPaginatedResponse).data)) {
+        return (raw as ServicesPaginatedResponse).data;
       }
-      // Check if data is a paginated object with nested data array
-      if (typeof raw === 'object' && 'data' in raw && Array.isArray((raw as any).data)) {
-        console.log('Services found (paginated):', (raw as any).data.length);
-        return (raw as any).data;
-      }
-      // Single service object: normalize to array so all services are always shown
-      if (typeof raw === 'object' && 'id' in raw && (raw as any).service_name != null) {
-        console.log('Services found (single object, normalized to array):', 1);
-        return [raw as ServiceResponse];
+      if (
+        typeof raw === 'object' &&
+        raw !== null &&
+        'id' in raw &&
+        (raw as { service_name?: string }).service_name != null
+      ) {
+        return [raw as unknown as ServiceResponse];
       }
     }
-    
-    // Fallback: return empty array if structure is unexpected
+
     console.warn('Unexpected services API response structure:', response.data);
     return [];
   } catch (error) {

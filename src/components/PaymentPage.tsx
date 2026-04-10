@@ -19,6 +19,12 @@ import type { BookingData } from "./BookingFlow";
 import { storePaymentInvoice } from "../api/paymentService";
 import { toast } from "sonner";
 import { getApiToken } from "../lib/auth";
+import {
+  getPaymentSuccessPageUrl,
+  getPaymentFailedPageUrl,
+  PAYMENT_RETURN_STORAGE_KEY,
+  type PaymentReturnContext,
+} from "../lib/paymentAppUrls";
 
 interface PaymentPageProps {
   bookingData: BookingData;
@@ -103,10 +109,32 @@ export function PaymentPage({
     setProcessing(true);
 
     try {
+      const successUrl = getPaymentSuccessPageUrl();
+      const failedUrl = getPaymentFailedPageUrl();
+      const bookingId = bookingData.customer.professionalBookingId;
+      const total = bookingData.pricing.total;
+      const returnCtx: PaymentReturnContext = {
+        amountPaid: total,
+        totalAmount: total,
+        paidIncentives: 0,
+        paidBalance: 0,
+        paidOnline: total,
+        orderIds: [`FG-${bookingId}`],
+        transactionId: "",
+      };
+      try {
+        sessionStorage.setItem(PAYMENT_RETURN_STORAGE_KEY, JSON.stringify(returnCtx));
+      } catch {
+        /* ignore quota / private mode */
+      }
+
       const paymentData = {
         api_token: token,
-        professional_booking_id: bookingData.customer.professionalBookingId,
-        price: bookingData.pricing.total,
+        professional_booking_id: bookingId,
+        price: total,
+        success_url: successUrl,
+        cancel_url: failedUrl,
+        failure_url: failedUrl,
       };
 
       const response = await storePaymentInvoice(paymentData);

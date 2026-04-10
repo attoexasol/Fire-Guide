@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -23,12 +23,15 @@ import {
   getProfessionalFireAlarmBasePrice,
   getProfessionalFireAlarmSinglePrices,
   saveProfessionalFireAlarmBasePrice,
-  storeUpdateFraPrice,
-  getFraPriceProfessional,
   saveFraPropertyTypePrice,
   saveFraPeoplePrice,
   saveFraFloorPrice,
   saveFraDurationPrice,
+  getFraPropertyTypePrice,
+  getFraPeoplePriceFromApi,
+  getFraFloorPriceFromApi,
+  getFraDurationPriceFromApi,
+  parseFraGetPriceResponse,
   PropertyTypeResponse,
   ApproximatePeopleResponse,
   formatPeopleOptionLabel,
@@ -70,7 +73,7 @@ import {
   saveProfessionalConsultationHourPrice,
   getProfessionalConsultationSinglePrices,
 } from "../api/servicesService";
-import { getProfessionalId, getApiToken } from "../lib/auth";
+import { getApiToken } from "../lib/auth";
 
 const TAB_IDS = {
   FRA_SERVICE: "fra-service",
@@ -92,6 +95,40 @@ const TAB_LABELS: Record<string, string> = {
   [TAB_IDS.CONSULTANCY]: "Consultation",
 };
 
+const FRA_PRICING_STORAGE_KEY = "fireguide_fra_pricing_selections_v1";
+
+type FraPricingPersisted = {
+  propertyTypeName: string;
+  approximatePeopleId: string;
+  floorValue: string;
+  urgencyId: string;
+};
+
+function readFraPricingPersisted(): FraPricingPersisted | null {
+  try {
+    const raw = localStorage.getItem(FRA_PRICING_STORAGE_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as FraPricingPersisted;
+    if (typeof o.propertyTypeName !== "string") return null;
+    return {
+      propertyTypeName: o.propertyTypeName,
+      approximatePeopleId: typeof o.approximatePeopleId === "string" ? o.approximatePeopleId : "",
+      floorValue: typeof o.floorValue === "string" ? o.floorValue : "",
+      urgencyId: typeof o.urgencyId === "string" ? o.urgencyId : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeFraPricingPersisted(data: FraPricingPersisted) {
+  try {
+    localStorage.setItem(FRA_PRICING_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function ProfessionalPricingContent() {
   const [activeTab, setActiveTab] = useState<string>(TAB_IDS.FRA_SERVICE);
   const [loading, setLoading] = useState(false);
@@ -112,7 +149,7 @@ export function ProfessionalPricingContent() {
   const [urgencyId, setUrgencyId] = useState("");
   const [urgencyPrice, setUrgencyPrice] = useState("");
 
-  /** Total price from API (total_price) — set when options change via POST /fra-price/store-update response */
+  /** Estimated total = sum of base + three addon price inputs */
   const [estimatePrice, setEstimatePrice] = useState<string>("");
 
   // Fire Alarm tab state (same layout as FRA, different field names)
@@ -217,7 +254,9 @@ export function ProfessionalPricingContent() {
   const [savingPeoplePrice, setSavingPeoplePrice] = useState(false);
   const [savingFloorPrice, setSavingFloorPrice] = useState(false);
   const [savingDurationPrice, setSavingDurationPrice] = useState(false);
-  const [fetchingPrices, setFetchingPrices] = useState(false);
+
+  const fraPrevPropertyNameRef = useRef<string | null>(null);
+  const fraOptionsHydratedRef = useRef(false);
 
   // Estimated Price = sum of the four price inputs; updates when any input changes (increase/decrease)
   useEffect(() => {
@@ -274,84 +313,175 @@ export function ProfessionalPricingContent() {
     (parseFloat(consultancyHoursPrice) || 0)
   ).toFixed(2);
 
-  // When any option is selected, call POST /fra-price/professional and fill price inputs from response (no other logic changed)
+  const fraPropertyTypeNumericId = useMemo(() => {
+    const p = propertyTypes.find((x) => x.property_type_name === propertyTypeId);
+    return p?.id ?? null;
+  }, [propertyTypes, propertyTypeId]);
+
+  /** When user changes property type: reset addon rows and default selections (after options exist). */
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE) return;
+    const prev = fraPrevPropertyNameRef.current;
+    if (
+      fraOptionsHydratedRef.current &&
+      prev != null &&
+      prev !== "" &&
+      propertyTypeId !== "" &&
+      prev !== propertyTypeId
+    ) {
+      setApproximatePeoplePrice("0");
+      setNumberOfFloorsPrice("0");
+      setUrgencyPrice("0");
+      if (approximatePeople[0]) setApproximatePeopleId(approximatePeople[0].number_of_people);
+      else setApproximatePeopleId("");
+      if (floorOptions[0]) setFloorValue(floorOptions[0].floor);
+      else setFloorValue("");
+      if (urgencyOptions[0]) setUrgencyId(String(urgencyOptions[0].id));
+      else setUrgencyId("");
+    }
+    fraPrevPropertyNameRef.current = propertyTypeId || null;
+  }, [
+    activeTab,
+    propertyTypeId,
+    approximatePeople,
+    floorOptions,
+    urgencyOptions,
+  ]);
+
+  /** Persist FRA dropdown selections for reload. */
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE || !propertyTypeId) return;
+    writeFraPricingPersisted({
+      propertyTypeName: propertyTypeId,
+      approximatePeopleId,
+      floorValue,
+      urgencyId,
+    });
+  }, [activeTab, propertyTypeId, approximatePeopleId, floorValue, urgencyId]);
+
+  /** Base price: POST /professional/get-fra-property-type */
   useEffect(() => {
     if (activeTab !== TAB_IDS.FRA_SERVICE) return;
     const api_token = getApiToken();
-    if (!api_token) return;
-
-    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
-    const peopleOption = approximatePeople.find((a) => a.number_of_people === approximatePeopleId);
-    const floorOption = floorOptions.find((f) => f.floor === floorValue);
-    const property_type_id = propertyType?.id;
-    const people_id = peopleOption?.id;
-    const floor_id = floorOption?.id ?? (floorOption?.floor ? parseInt(floorOption.floor, 10) : undefined);
-    const duration_id = urgencyId ? parseInt(urgencyId, 10) : NaN;
-    const duration_id_ok = !Number.isNaN(duration_id) ? duration_id : undefined;
-    const hasAny = property_type_id != null || people_id != null || floor_id != null || duration_id_ok != null;
-    if (!hasAny) return;
-
+    if (!api_token || fraPropertyTypeNumericId == null) return;
     let cancelled = false;
-    setFetchingPrices(true);
-    getFraPriceProfessional({
+    getFraPropertyTypePrice({
       api_token,
-      property_type_id: property_type_id ?? undefined,
-      people_id: people_id ?? undefined,
-      floor_id: floor_id ?? undefined,
-      duration_id: duration_id_ok,
+      property_type_id: fraPropertyTypeNumericId,
     })
       .then((res) => {
         if (cancelled) return;
-        const d = res.data as Record<string, unknown> | unknown[];
-        if (d && typeof d === "object" && !Array.isArray(d) && "property_type" in d) {
-          const data = d as {
-            property_type?: { price?: string } | null;
-            people?: { price?: string } | null;
-            floor?: { price?: string } | null;
-            duration?: { price?: string } | null;
-            total_price?: number | null;
-          };
-          // When API returns null for a section, show 0 so UI reflects response instead of keeping previous value
-          setPropertyTypePrice(data.property_type?.price != null ? String(data.property_type.price) : "0");
-          setApproximatePeoplePrice(data.people?.price != null ? String(data.people.price) : "0");
-          setNumberOfFloorsPrice(data.floor?.price != null ? String(data.floor.price) : "0");
-          setUrgencyPrice(data.duration?.price != null ? String(data.duration.price) : "0");
-          // Total is derived from sum of the four inputs (see effect below)
-        } else if (Array.isArray(d) && d.length > 0) {
-          const item = d[0] as {
-            property_type?: { property_type_price?: string };
-            people?: Array<{ id: number; people_price: string }>;
-            floors?: Array<{ id: number; floor_price: string }>;
-            durations?: Array<{ id: number; duration_price: string }>;
-          };
-          if (item.property_type?.property_type_price != null) setPropertyTypePrice(item.property_type.property_type_price);
-          const peopleMatch = people_id != null ? item.people?.find((p) => p.id === people_id) : item.people?.[0];
-          if (peopleMatch?.people_price != null) setApproximatePeoplePrice(peopleMatch.people_price);
-          const floorMatch = floor_id != null ? item.floors?.find((f) => f.id === floor_id) : item.floors?.[0];
-          if (floorMatch?.floor_price != null) setNumberOfFloorsPrice(floorMatch.floor_price);
-          const durationMatch = duration_id_ok != null && item.durations?.length ? item.durations.find((x) => x.id === duration_id_ok) : null;
-          if (durationMatch?.duration_price != null) setUrgencyPrice(durationMatch.duration_price);
-        }
+        const n = parseFraGetPriceResponse(res);
+        setPropertyTypePrice(String(n ?? 0));
       })
       .catch(() => {
-        if (!cancelled) return;
-      })
-      .finally(() => {
-        if (!cancelled) setFetchingPrices(false);
+        if (!cancelled) setPropertyTypePrice("0");
       });
     return () => {
       cancelled = true;
     };
-  }, [
-    activeTab,
-    propertyTypeId,
-    approximatePeopleId,
-    floorValue,
-    urgencyId,
-    propertyTypes,
-    approximatePeople,
-    floorOptions,
-  ]);
+  }, [activeTab, fraPropertyTypeNumericId]);
+
+  /** People addon: POST /professional/get-fra-people */
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE) return;
+    const api_token = getApiToken();
+    if (!api_token || fraPropertyTypeNumericId == null) return;
+    if (!approximatePeopleId || approximatePeopleId === "no-data") {
+      setApproximatePeoplePrice("0");
+      return;
+    }
+    const peopleOption = approximatePeople.find((a) => a.number_of_people === approximatePeopleId);
+    if (!peopleOption) {
+      setApproximatePeoplePrice("0");
+      return;
+    }
+    let cancelled = false;
+    getFraPeoplePriceFromApi({
+      api_token,
+      people_id: peopleOption.id,
+      property_type_id: fraPropertyTypeNumericId,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setApproximatePeoplePrice(String(parseFraGetPriceResponse(res) ?? 0));
+      })
+      .catch(() => {
+        if (!cancelled) setApproximatePeoplePrice("0");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, fraPropertyTypeNumericId, approximatePeopleId, approximatePeople]);
+
+  /** Floor addon: POST /professional/get-fra-floor */
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE) return;
+    const api_token = getApiToken();
+    if (!api_token || fraPropertyTypeNumericId == null) return;
+    if (!floorValue || floorValue === "no-data") {
+      setNumberOfFloorsPrice("0");
+      return;
+    }
+    const floorOption = floorOptions.find((f) => f.floor === floorValue);
+    if (!floorOption) {
+      setNumberOfFloorsPrice("0");
+      return;
+    }
+    const floorId = floorOption.id ?? (floorOption.floor ? parseInt(floorOption.floor, 10) : NaN);
+    if (Number.isNaN(floorId)) {
+      setNumberOfFloorsPrice("0");
+      return;
+    }
+    let cancelled = false;
+    getFraFloorPriceFromApi({
+      api_token,
+      floor_id: floorId,
+      property_type_id: fraPropertyTypeNumericId,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setNumberOfFloorsPrice(String(parseFraGetPriceResponse(res) ?? 0));
+      })
+      .catch(() => {
+        if (!cancelled) setNumberOfFloorsPrice("0");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, fraPropertyTypeNumericId, floorValue, floorOptions]);
+
+  /** Duration addon: POST /professional/get-fra-duraation */
+  useEffect(() => {
+    if (activeTab !== TAB_IDS.FRA_SERVICE) return;
+    const api_token = getApiToken();
+    if (!api_token || fraPropertyTypeNumericId == null) return;
+    if (!urgencyId || urgencyId === "no-data") {
+      setUrgencyPrice("0");
+      return;
+    }
+    const durationId = parseInt(urgencyId, 10);
+    if (Number.isNaN(durationId)) {
+      setUrgencyPrice("0");
+      return;
+    }
+    let cancelled = false;
+    getFraDurationPriceFromApi({
+      api_token,
+      duration_id: durationId,
+      property_type_id: fraPropertyTypeNumericId,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setUrgencyPrice(String(parseFraGetPriceResponse(res) ?? 0));
+      })
+      .catch(() => {
+        if (!cancelled) setUrgencyPrice("0");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, fraPropertyTypeNumericId, urgencyId]);
 
   // Save base price for selected property type (POST /professional/fra-property-type) — user-friendly: on blur of Base Price field
   const handleSaveBasePrice = async () => {
@@ -407,12 +537,18 @@ export function ProfessionalPricingContent() {
       setUpdateMessage({ type: "error", text: "Please enter a valid price." });
       return;
     }
+    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
+    if (!propertyType) {
+      setUpdateMessage({ type: "error", text: "Please select a property type first." });
+      return;
+    }
     setSavingPeoplePrice(true);
     setUpdateMessage(null);
     try {
       await saveFraPeoplePrice({
         api_token,
         people_id: peopleOption.id,
+        property_type_id: propertyType.id,
         price: priceNum,
       });
       setUpdateMessage({ type: "success", text: "People price saved." });
@@ -449,12 +585,18 @@ export function ProfessionalPricingContent() {
       setUpdateMessage({ type: "error", text: "Please enter a valid price." });
       return;
     }
+    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
+    if (!propertyType) {
+      setUpdateMessage({ type: "error", text: "Please select a property type first." });
+      return;
+    }
     setSavingFloorPrice(true);
     setUpdateMessage(null);
     try {
       await saveFraFloorPrice({
         api_token,
         floor_id: floorId,
+        property_type_id: propertyType.id,
         price: priceNum,
       });
       setUpdateMessage({ type: "success", text: "Floor price saved." });
@@ -486,12 +628,18 @@ export function ProfessionalPricingContent() {
       setUpdateMessage({ type: "error", text: "Please enter a valid price." });
       return;
     }
+    const propertyType = propertyTypes.find((p) => p.property_type_name === propertyTypeId);
+    if (!propertyType) {
+      setUpdateMessage({ type: "error", text: "Please select a property type first." });
+      return;
+    }
     setSavingDurationPrice(true);
     setUpdateMessage(null);
     try {
       await saveFraDurationPrice({
         api_token,
         duration_id: durationId,
+        property_type_id: propertyType.id,
         price: priceNum,
       });
       setUpdateMessage({ type: "success", text: "Duration price saved." });
@@ -511,6 +659,7 @@ export function ProfessionalPricingContent() {
     if (activeTab !== TAB_IDS.FRA_SERVICE) return;
 
     const fetchOptions = async () => {
+      fraOptionsHydratedRef.current = false;
       setLoading(true);
       try {
         const [propTypes, people, floors, durations] = await Promise.all([
@@ -535,10 +684,39 @@ export function ProfessionalPricingContent() {
           return true;
         });
         setFloorOptions(uniqueFloors);
-        if (pt.length > 0) setPropertyTypeId(pt[0].property_type_name);
-        if (ap.length > 0) setApproximatePeopleId(ap[0].number_of_people);
-        if (uniqueFloors.length > 0) setFloorValue(uniqueFloors[0].floor);
-        if (durationsList.length > 0) setUrgencyId(String(durationsList[0].id));
+
+        const persisted = readFraPricingPersisted();
+        const persistedPropertyOk =
+          persisted &&
+          pt.some((p) => p.property_type_name === persisted.propertyTypeName);
+
+        if (persistedPropertyOk && persisted) {
+          setPropertyTypeId(persisted.propertyTypeName);
+          if (ap.some((a) => a.number_of_people === persisted.approximatePeopleId)) {
+            setApproximatePeopleId(persisted.approximatePeopleId);
+          } else if (ap.length > 0) {
+            setApproximatePeopleId(ap[0].number_of_people);
+          }
+          if (uniqueFloors.some((f) => f.floor === persisted.floorValue)) {
+            setFloorValue(persisted.floorValue);
+          } else if (uniqueFloors.length > 0) {
+            setFloorValue(uniqueFloors[0].floor);
+          }
+          if (
+            persisted.urgencyId &&
+            durationsList.some((d) => String(d.id) === persisted.urgencyId)
+          ) {
+            setUrgencyId(persisted.urgencyId);
+          } else if (durationsList.length > 0) {
+            setUrgencyId(String(durationsList[0].id));
+          }
+        } else {
+          if (pt.length > 0) setPropertyTypeId(pt[0].property_type_name);
+          if (ap.length > 0) setApproximatePeopleId(ap[0].number_of_people);
+          if (uniqueFloors.length > 0) setFloorValue(uniqueFloors[0].floor);
+          if (durationsList.length > 0) setUrgencyId(String(durationsList[0].id));
+        }
+        fraOptionsHydratedRef.current = true;
       } catch (err) {
         console.error("Failed to fetch pricing options:", err);
       } finally {
@@ -1134,8 +1312,8 @@ export function ProfessionalPricingContent() {
   ]);
 
   const handleUpdatePrice = async () => {
-    const professionalId = getProfessionalId();
-    if (!professionalId) {
+    const api_token = getApiToken();
+    if (!api_token) {
       setUpdateMessage({ type: "error", text: "You must be logged in as a professional to update pricing." });
       return;
     }
@@ -1180,24 +1358,32 @@ export function ProfessionalPricingContent() {
     setUpdateMessage(null);
     setUpdatingPrice(true);
     try {
-      const response = await storeUpdateFraPrice({
-        professional_id: professionalId,
-        property_type_id: propertyType.id,
-        people_id: peopleOption.id,
-        floor_id: floorId,
-        duration_id: durationId,
-        property_type_price: propertyTypePriceNum,
-        people_price: peoplePriceNum,
-        floor_price: floorPriceNum,
-        duration_price: durationPriceNum,
-      });
-      if (response.status && response.message) {
-        setUpdateMessage({ type: "success", text: response.message });
-      } else {
-        setUpdateMessage({ type: "success", text: "Price updated successfully." });
-      }
-      // Total stays as sum of the four inputs (no refresh)
-      // Keep current input values visible after update (do not refresh/clear)
+      await Promise.all([
+        saveFraPropertyTypePrice({
+          api_token,
+          property_type_id: propertyType.id,
+          price: propertyTypePriceNum,
+        }),
+        saveFraPeoplePrice({
+          api_token,
+          people_id: peopleOption.id,
+          property_type_id: propertyType.id,
+          price: peoplePriceNum,
+        }),
+        saveFraFloorPrice({
+          api_token,
+          floor_id: floorId,
+          property_type_id: propertyType.id,
+          price: floorPriceNum,
+        }),
+        saveFraDurationPrice({
+          api_token,
+          duration_id: durationId,
+          property_type_id: propertyType.id,
+          price: durationPriceNum,
+        }),
+      ]);
+      setUpdateMessage({ type: "success", text: "All FRA prices saved." });
     } catch (err: unknown) {
       const message =
         err && typeof err === "object" && "message" in err

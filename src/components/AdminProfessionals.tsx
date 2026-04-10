@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, Star, MoreVertical, Mail, Phone, MapPin, CheckCircle, Clock, XCircle, Eye, Ban, Award, FileText, Download, AlertCircle, Edit2, Image, File } from "lucide-react";
 import { getApiToken } from "../lib/auth";
+import { resolveApiBaseUrl } from "../lib/apiBaseUrl";
 import { getAdminProfessionalSummary, AdminProfessionalSummaryData, getAdminProfessionals, AdminProfessionalListItem, adminProfessionalTakeAction, AdminProfessionalStatus, getAdminProfessionalSingle, AdminProfessionalSingleData, adminProfessionalChangeCertificateStatus, adminProfessionalChangeServiceStatus } from "../api/adminService";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -102,7 +103,7 @@ export function AdminProfessionals() {
   };
 
   const DEFAULT_AVATAR = "https://via.placeholder.com/96?text=No+Photo";
-  const EVIDENCE_BASE_URL = "https://fireguide.attoexasolutions.com";
+  const EVIDENCE_BASE_URL = resolveApiBaseUrl().replace(/\/api\/?$/, "");
 
   const resolveEvidenceUrl = (evidence: string | null | undefined): string | null => {
     if (!evidence?.trim()) return null;

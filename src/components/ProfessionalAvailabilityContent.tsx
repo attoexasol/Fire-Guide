@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Calendar as CalendarIcon, 
   CalendarX2,
@@ -31,8 +31,9 @@ import {
   BlockedBookingDayItem,
   getProfessionalNoticePeriod,
   createProfessionalNoticePeriod,
+  getNoticeBlockedBookingDates,
 } from "../api/professionalsService";
-import { getApiToken } from "../lib/auth";
+import { getApiToken, getProfessionalId } from "../lib/auth";
 import { getUpcomingBookings, UpcomingBookingItem } from "../api/bookingService";
 import { toast } from "sonner";
 
@@ -84,6 +85,17 @@ function countBookingBlockDaysInMonth(items: BlockedBookingDayItem[], year: numb
   return c;
 }
 
+/** Prefer stored id; else derive from blocked-booking rows (same professional as api_token). */
+function resolveProfessionalIdForNoticeApi(blockedList: BlockedBookingDayItem[]): number | null {
+  const stored = getProfessionalId();
+  if (stored != null && !Number.isNaN(Number(stored))) return Number(stored);
+  for (const row of blockedList) {
+    const id = row?.professional?.id;
+    if (id != null && !Number.isNaN(Number(id))) return Number(id);
+  }
+  return null;
+}
+
 interface Booking {
   id: string;
   date: string;
@@ -120,6 +132,10 @@ export function ProfessionalAvailabilityContent() {
   const [noticePeriodDays, setNoticePeriodDays] = useState("");
   const [loadingNoticePeriod, setLoadingNoticePeriod] = useState(true);
   const [savingNoticePeriod, setSavingNoticePeriod] = useState(false);
+
+  /** Dates blocked by notice period (from block-professional/booking-days-list + professional_id) */
+  const [noticeBlockedDates, setNoticeBlockedDates] = useState<string[]>([]);
+  const noticeBlockedDateSet = useMemo(() => new Set(noticeBlockedDates), [noticeBlockedDates]);
   
   // Calendar navigation state
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -130,11 +146,21 @@ export function ProfessionalAvailabilityContent() {
   const refreshBlockedBookingDaysAndCalendar = async () => {
     const apiToken = getApiToken();
     if (!apiToken) return;
+    let blockedList: BlockedBookingDayItem[] = [];
     try {
-      const list = await getBlockedBookingDaysList(apiToken);
-      setBlockedBookingDayList(list ?? []);
+      blockedList = (await getBlockedBookingDaysList(apiToken)) ?? [];
+      setBlockedBookingDayList(blockedList);
     } catch {
       setBlockedBookingDayList([]);
+    }
+    try {
+      const professionalId = resolveProfessionalIdForNoticeApi(blockedList);
+      if (professionalId != null) {
+        const noticeDates = await getNoticeBlockedBookingDates(apiToken, professionalId);
+        setNoticeBlockedDates(noticeDates);
+      }
+    } catch {
+      setNoticeBlockedDates([]);
     }
     try {
       const availabilityResponse = await getMonthlyAvailability({
@@ -270,6 +296,16 @@ export function ProfessionalAvailabilityContent() {
         if (res.data?.notice_days != null) {
           setNoticePeriodDays(String(res.data.notice_days));
         }
+        const professionalId =
+          getProfessionalId() ?? resolveProfessionalIdForNoticeApi(blockedBookingDayList);
+        if (apiToken && professionalId != null) {
+          try {
+            const noticeDates = await getNoticeBlockedBookingDates(apiToken, professionalId);
+            setNoticeBlockedDates(noticeDates);
+          } catch {
+            /* keep previous notice-blocked dates */
+          }
+        }
       } else {
         toast.error(res.message || "Could not save notice period.");
       }
@@ -303,14 +339,27 @@ export function ProfessionalAvailabilityContent() {
 
         if (!apiToken) {
           setBlockedBookingDayList([]);
+          setNoticeBlockedDates([]);
           return;
         }
 
-        const list = await getBlockedBookingDaysList(apiToken);
-        setBlockedBookingDayList(list ?? []);
+        const list = (await getBlockedBookingDaysList(apiToken)) ?? [];
+        setBlockedBookingDayList(list);
+
+        const professionalId = resolveProfessionalIdForNoticeApi(list);
+        if (professionalId != null) {
+          try {
+            const noticeDates = await getNoticeBlockedBookingDates(apiToken, professionalId);
+            setNoticeBlockedDates(noticeDates);
+          } catch {
+            setNoticeBlockedDates([]);
+          }
+        }
+        /* If professional id unknown here, keep notice-blocked dates from notice-period fetch */
       } catch (error: unknown) {
         console.error("Error fetching blocked booking days:", error);
         setBlockedBookingDayList([]);
+        /* Do not clear notice_blocked_dates — notice-period effect may have populated them */
         const errorMessage =
           error && typeof error === "object" && "message" in error
             ? String((error as { message?: string }).message)
@@ -377,6 +426,15 @@ export function ProfessionalAvailabilityContent() {
           setNoticePeriodDays(String(response.data.notice_days));
         } else {
           setNoticePeriodDays("");
+        }
+        const pid = response.data?.professional_id;
+        if (typeof pid === "number" && !Number.isNaN(pid)) {
+          try {
+            const noticeDates = await getNoticeBlockedBookingDates(apiToken, pid);
+            setNoticeBlockedDates(noticeDates);
+          } catch {
+            /* leave existing notice-blocked dates */
+          }
         }
       } catch (error: unknown) {
         console.error("Error fetching notice period:", error);
@@ -795,7 +853,8 @@ export function ProfessionalAvailabilityContent() {
                             status = 'booked';
                           } else if (
                             apiBlockedDates.includes(dateStr) ||
-                            isDateBlockedByBookingDayList(blockedBookingDayList, dateStr)
+                            isDateBlockedByBookingDayList(blockedBookingDayList, dateStr) ||
+                            noticeBlockedDateSet.has(dateStr)
                           ) {
                             status = 'blocked';
                           } else if (availableDates.includes(dateStr)) {
@@ -803,6 +862,11 @@ export function ProfessionalAvailabilityContent() {
                           }
                         } else if (isPastDate) {
                           status = 'past';
+                        } else if (
+                          isDateBlockedByBookingDayList(blockedBookingDayList, dateStr) ||
+                          noticeBlockedDateSet.has(dateStr)
+                        ) {
+                          status = 'blocked';
                         }
                         
                         dates.push({ day, dateStr, status });
@@ -833,9 +897,9 @@ export function ProfessionalAvailabilityContent() {
                                 ? 'bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50'
                                 : 'bg-white border border-gray-200'
                             }`}
-                            disabled={isPast || isBooked}
+                            disabled={isPast || isBooked || isBlocked}
                             onClick={() => {
-                              if (isAvailable && !isPast) {
+                              if (isAvailable && !isPast && !isBlocked) {
                                 openAddBlockModal(dateStr);
                               }
                             }}

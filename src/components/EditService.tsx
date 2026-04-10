@@ -45,7 +45,7 @@ export function EditService() {
             service_name: service.service_name || "",
             type: cleanType === "DELIVERY" || cleanType === "CONSULTATION" ? cleanType : "DELIVERY",
             status: service.status || "ACTIVE",
-            price: service.price || "",
+            price: (service.from_price || service.price || "").toString(),
             description: service.description || ""
           });
         } else {

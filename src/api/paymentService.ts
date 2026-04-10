@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 
 // TypeScript types for Payment Invoice Store request
 // POST payment_invoice/store — initiates payment; response includes payment_url for redirect to Stripe Checkout
@@ -9,6 +10,11 @@ export interface PaymentInvoiceStoreRequest {
   professional_booking_id: number;
   /** Total to pay (same as Order Summary total) */
   price: number;
+  /** Where the gateway should send the user after successful payment */
+  success_url?: string;
+  /** Where to send the user on cancel or failure (depends on gateway / backend) */
+  cancel_url?: string;
+  failure_url?: string;
 }
 
 export interface PaymentInvoiceStoreResponse {
@@ -23,7 +29,7 @@ export interface PaymentInvoiceStoreResponse {
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

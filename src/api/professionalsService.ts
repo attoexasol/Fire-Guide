@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 /**
@@ -41,7 +42,7 @@ import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -386,6 +387,115 @@ export const getBlockedBookingDaysListForProfessional = async (
   }
   if (payload?.status === false) return [];
   throw new Error(payload?.message || 'Failed to fetch blocked booking days');
+};
+
+/** When body includes professional_id, API may return data as an object with notice_blocked_dates and blocked_ranges. */
+export interface BlockProfessionalBookingDaysListExtendedData {
+  blocked_ranges?: Array<{ start_day?: string; end_day?: string } | Record<string, unknown>>;
+  notice_blocked_dates?: string[];
+}
+
+function normalizeNoticeBlockedDateString(d: string): string {
+  return d.trim().split(/[\sT]/)[0];
+}
+
+/** Inclusive list of YYYY-MM-DD from start_day through end_day (handles "YYYY-MM-DD HH:mm:ss"). */
+function expandBlockedRangeToIsoDates(startDay: string, endDay: string): string[] {
+  const start = normalizeNoticeBlockedDateString(startDay);
+  const end = normalizeNoticeBlockedDateString(endDay);
+  if (!start || !end) return [];
+  if (start > end) return [];
+  const out: string[] = [];
+  let cur = new Date(`${start}T12:00:00`);
+  const endTime = new Date(`${end}T12:00:00`);
+  while (cur <= endTime) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, "0");
+    const day = String(cur.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${day}`);
+    cur = new Date(cur.getTime() + 86400000);
+  }
+  return out;
+}
+
+function collectCalendarBlockedDatesFromListPayload(
+  payload: Record<string, unknown>,
+  data: unknown
+): string[] {
+  const set = new Set<string>();
+
+  let obj: Record<string, unknown> | null = null;
+  if (data != null && typeof data === "object" && !Array.isArray(data)) {
+    obj = data as Record<string, unknown>;
+  }
+  if (obj && "data" in obj && obj.data != null && typeof obj.data === "object" && !Array.isArray(obj.data)) {
+    obj = obj.data as Record<string, unknown>;
+  }
+
+  const noticeFromRoot = payload.notice_blocked_dates;
+  const noticeFromObj = obj?.notice_blocked_dates;
+  const noticeRaw = Array.isArray(noticeFromRoot) ? noticeFromRoot : noticeFromObj;
+  if (Array.isArray(noticeRaw)) {
+    for (const x of noticeRaw) {
+      const k = normalizeNoticeBlockedDateString(String(x));
+      if (k) set.add(k);
+    }
+  }
+
+  const rangesFromObj = obj?.blocked_ranges;
+  if (Array.isArray(rangesFromObj)) {
+    for (const r of rangesFromObj) {
+      if (r == null || typeof r !== "object") continue;
+      const row = r as Record<string, unknown>;
+      const sd = row.start_day;
+      const ed = row.end_day;
+      if (typeof sd === "string" && typeof ed === "string") {
+        for (const d of expandBlockedRangeToIsoDates(sd, ed)) {
+          set.add(d);
+        }
+      }
+    }
+  }
+
+  return Array.from(set).sort();
+}
+
+/**
+ * POST /block-professional/booking-days-list
+ * Body: { api_token, professional_id }
+ * Merges data.notice_blocked_dates and every calendar day in data.blocked_ranges (start_day–end_day).
+ */
+export const getNoticeBlockedBookingDates = async (
+  apiToken: string,
+  professionalId: number
+): Promise<string[]> => {
+  const response = await apiClient.post<{
+    status?: boolean;
+    success?: boolean;
+    message?: string;
+    data?: BlockProfessionalBookingDaysListExtendedData | BlockedBookingDayItem[] | Record<string, unknown>;
+    notice_blocked_dates?: string[];
+  }>('/block-professional/booking-days-list', {
+    api_token: apiToken,
+    professional_id: professionalId,
+  });
+  const payload = response.data as Record<string, unknown>;
+  const ok = payload?.status === true || payload?.success === true;
+  if (!ok) return [];
+
+  let data: unknown = payload.data;
+  if (data != null && typeof data === "object" && !Array.isArray(data) && "data" in data) {
+    const inner = (data as Record<string, unknown>).data;
+    if (inner != null && typeof inner === "object" && !Array.isArray(inner)) {
+      data = inner;
+    }
+  }
+
+  if (Array.isArray(data)) {
+    return [];
+  }
+
+  return collectCalendarBlockedDatesFromListPayload(payload, data);
 };
 
 /**
@@ -890,6 +1000,52 @@ export const fetchProfessionals = async (page: number = 1): Promise<Professional
       }
     }
     throw { success: false, message: 'An unexpected error occurred', error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+};
+
+/** Public landing list: GET /professionals-get */
+export interface ProfessionalsGetCreatorRef {
+  id: number;
+  full_name?: string;
+  image?: string | null;
+}
+
+export interface ProfessionalsGetItem {
+  id: number;
+  name: string;
+  business_name?: string;
+  image: string | null;
+  business_location: string;
+  from_price: string | null;
+  creator?: ProfessionalsGetCreatorRef | null;
+  updater?: ProfessionalsGetCreatorRef | null;
+}
+
+export interface ProfessionalsGetApiResponse {
+  status: string;
+  message: string;
+  data: ProfessionalsGetItem[];
+}
+
+export function formatProfessionalsGetFromPrice(fromPrice: string | null | undefined): string {
+  const gbp = (n: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
+  if (fromPrice == null || String(fromPrice).trim() === '') return gbp(0);
+  const n = parseFloat(String(fromPrice));
+  if (Number.isNaN(n)) return gbp(0);
+  return gbp(n);
+}
+
+export const fetchProfessionalsGet = async (): Promise<ProfessionalsGetItem[]> => {
+  try {
+    const response = await apiClient.get<ProfessionalsGetApiResponse>('/professionals-get');
+    if (response.data.status === 'success' && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching professionals-get:', error);
+    return [];
   }
 };
 

@@ -28,6 +28,8 @@ const PaymentHistoryPage = lazy(() => import("./pages/PaymentHistoryPage"));
 const AboutContactPage = lazy(() => import("./pages/AboutContactPage"));
 const ReportUploadPage = lazy(() => import("./pages/ReportUploadPage"));
 const TestPage = lazy(() => import("./TestPage"));
+const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
+const PaymentFailedPage = lazy(() => import("./pages/PaymentFailedPage"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -94,6 +96,8 @@ export default function Routes() {
       <Route path="/booking" element={<Suspense fallback={<PageLoader />}><BookingPage /></Suspense>} />
       <Route path="/booking/confirmation" element={<Suspense fallback={<PageLoader />}><ConfirmationPage /></Suspense>} />
       <Route path="/booking/appointment-details" element={<Suspense fallback={<PageLoader />}><AppointmentDetailsPage /></Suspense>} />
+      <Route path="/payment-success" element={<Suspense fallback={<PageLoader />}><PaymentSuccessPage /></Suspense>} />
+      <Route path="/payment-failed" element={<Suspense fallback={<PageLoader />}><PaymentFailedPage /></Suspense>} />
       
       {/* Professional Routes */}
       <Route path="/professional/benefits" element={<Suspense fallback={<PageLoader />}><ProfessionalBenefitsPage /></Suspense>} />

@@ -9,6 +9,7 @@ import { getProfessionalWiseIdentity, updateProfessionalIdentity, ProfessionalId
 import { createCertification, updateEvidence } from "../api/qualificationsService";
 import { showInsuranceCoverage, InsuranceItem, updateInsuranceDocument } from "../api/insuranceService";
 import { getApiToken, getProfessionalId } from "../lib/auth";
+import { resolveApiBaseUrl } from "../lib/apiBaseUrl";
 import { toast } from "sonner";
 
 export function ProfessionalVerification() {
@@ -257,9 +258,8 @@ export function ProfessionalVerification() {
         // Otherwise, construct the full URL from the base URL
         if (evidenceOrFile && !evidenceOrFile.includes('http://') && !evidenceOrFile.includes('https://')) {
           // It's a filename, construct the full URL
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
-          // Remove /api from the end if present
-          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+          const baseUrl = resolveApiBaseUrl();
+          const apiBaseUrl = baseUrl.replace(/\/api\/?$/, "");
           fileUrl = `${apiBaseUrl}/certificates/${evidenceOrFile}`;
         }
         
@@ -296,9 +296,8 @@ export function ProfessionalVerification() {
         // Otherwise, construct the full URL from the base URL
         if (fileUrl && !fileUrl.includes('http://') && !fileUrl.includes('https://')) {
           // It's a filename, construct the full URL
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
-          // Remove /api from the end if present
-          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+          const baseUrl = resolveApiBaseUrl();
+          const apiBaseUrl = baseUrl.replace(/\/api\/?$/, "");
           fileUrl = `${apiBaseUrl}/image/${fileUrl}`;
         }
         
@@ -829,8 +828,8 @@ export function ProfessionalVerification() {
                                         if (urlToOpen.includes('http://') || urlToOpen.includes('https://')) {
                                           window.open(urlToOpen, '_blank');
                                         } else {
-                                          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://fireguide.attoexasolutions.com/api';
-                                          const apiBaseUrl = baseUrl.replace(/\/api$/, '');
+                                          const baseUrl = resolveApiBaseUrl();
+                                          const apiBaseUrl = baseUrl.replace(/\/api\/?$/, "");
                                           window.open(`${apiBaseUrl}/certificates/${urlToOpen}`, '_blank');
                                         }
                                       }}

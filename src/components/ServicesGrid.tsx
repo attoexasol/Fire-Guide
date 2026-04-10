@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { ServiceCard, Service } from "./ServiceCard";
-import { fetchServices, ServiceResponse } from "../api/servicesService";
+import { fetchServices, ServiceResponse, formatServiceFromPrice } from "../api/servicesService";
 import { toast } from "sonner";
 
 interface ServicesGridProps {
@@ -30,10 +30,7 @@ const mapApiServiceToService = (apiService: ServiceResponse, index: number): Ser
   // Determine if service is active (status === "ACTIVE")
   const isActive = apiService.status?.toUpperCase() === "ACTIVE";
   
-  // Format price with £ symbol
-  const formattedPrice = apiService.price 
-    ? `£${parseFloat(apiService.price).toFixed(2)}`
-    : "£0.00";
+  const formattedPrice = formatServiceFromPrice(apiService);
   
   // Use icon from API if available, otherwise use default icon based on index
   const iconIndex = index % defaultIcons.length;
@@ -91,7 +88,7 @@ export function ServicesGrid({ onSelectService }: ServicesGridProps) {
 
   // Show all services (both active and inactive)
   const allServices = services;
-console.log(allServices);
+
   return (
     <section id="services" className="py-24 px-4 md:px-6 bg-white">
       <div className="max-w-6xl mx-auto">
