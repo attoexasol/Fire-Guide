@@ -24,6 +24,7 @@ import {
   MonthlyAvailabilitySummaryData,
   blockProfessionalBookingDays,
   getBlockedBookingDaysList,
+  getBlockedBookingDaysListForProfessional,
   deleteBlockedBookingDay,
   updateBlockedBookingDay,
   BlockedBookingDayItem,
@@ -34,6 +35,19 @@ import {
 import { getApiToken, getProfessionalId } from "../lib/auth";
 import { getUpcomingBookings, UpcomingBookingItem } from "../api/bookingService";
 import { toast } from "sonner";
+
+/**
+ * Blocked ranges for the Availability page: POST booking-days-list with `professional_id`
+ * (and optional `api_token`) so `blocked_ranges` include server `id` values for
+ * booking-days-delete. Falls back to token-only list if `professional_id` is not stored.
+ */
+async function fetchBlockedBookingRangesForAvailability(apiToken: string): Promise<BlockedBookingDayItem[]> {
+  const professionalId = getProfessionalId();
+  if (professionalId != null) {
+    return (await getBlockedBookingDaysListForProfessional(professionalId, apiToken)) ?? [];
+  }
+  return (await getBlockedBookingDaysList(apiToken)) ?? [];
+}
 
 function parseDayOnly(s: string): string {
   if (!s) return "";
@@ -180,7 +194,7 @@ export function ProfessionalAvailabilityContent() {
     if (!apiToken) return;
     let blockedList: BlockedBookingDayItem[] = [];
     try {
-      blockedList = (await getBlockedBookingDaysList(apiToken)) ?? [];
+      blockedList = await fetchBlockedBookingRangesForAvailability(apiToken);
       setBlockedBookingDayList(blockedList);
     } catch {
       setBlockedBookingDayList([]);
@@ -380,7 +394,7 @@ export function ProfessionalAvailabilityContent() {
           return;
         }
 
-        const list = (await getBlockedBookingDaysList(apiToken)) ?? [];
+        const list = await fetchBlockedBookingRangesForAvailability(apiToken);
         setBlockedBookingDayList(list);
 
         const professionalId = resolveProfessionalIdForNoticeApi(list);
