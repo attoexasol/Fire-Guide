@@ -3616,7 +3616,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select People</Label>
                   <Select value={trainingPeopleValue} onValueChange={setTrainingPeopleValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select People"} />
+                      <SelectValue
+                        placeholder={loadingTrainingOptions ? "Loading..." : "Select People"}
+                        label={String(
+                          trainingPeopleOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingPeopleValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {trainingPeopleOptions.length === 0 && !loadingTrainingOptions ? (
@@ -3675,7 +3682,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium whitespace-nowrap">Select Place</Label>
                   <Select value={trainingPlaceValue} onValueChange={setTrainingPlaceValue}>
                     <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Place"} />
+                      <SelectValue
+                        placeholder={loadingTrainingOptions ? "Loading..." : "Select Place"}
+                        label={String(
+                          trainingPlaceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingPlaceValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {trainingPlaceOptions.length === 0 && !loadingTrainingOptions ? (
@@ -3734,7 +3748,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium whitespace-nowrap">Select Training On</Label>
                   <Select value={trainingTrainingValue} onValueChange={setTrainingTrainingValue}>
                     <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Training"} />
+                      <SelectValue
+                        placeholder={loadingTrainingOptions ? "Loading..." : "Select Training"}
+                        label={String(
+                          trainingTrainingOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingTrainingValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {trainingTrainingOptions.length === 0 && !loadingTrainingOptions ? (
@@ -3793,7 +3814,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select Experience</Label>
                   <Select value={trainingExperienceValue} onValueChange={setTrainingExperienceValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Experience"} />
+                      <SelectValue
+                        placeholder={loadingTrainingOptions ? "Loading..." : "Select Experience"}
+                        label={String(
+                          trainingExperienceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingExperienceValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {trainingExperienceOptions.length === 0 && !loadingTrainingOptions ? (
@@ -4034,7 +4062,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select Extinguisher</Label>
                   <Select value={exExtinguisherValue} onValueChange={setExExtinguisherValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select Extinguisher"} />
+                      <SelectValue
+                        placeholder={loadingExOptions ? "Loading..." : "Select Extinguisher"}
+                        label={String(
+                          exExtinguisherOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (exExtinguisherValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {exExtinguisherOptions.length === 0 && !loadingExOptions ? (
@@ -4094,7 +4129,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select Floor</Label>
                   <Select value={exFloorValue} onValueChange={setExFloorValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select floor"} />
+                      <SelectValue
+                        placeholder={loadingExOptions ? "Loading..." : "Select floor"}
+                        label={String(
+                          exFloorOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (exFloorValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {exFloorOptions.length === 0 && !loadingExOptions ? (
@@ -4154,7 +4196,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select Extinguisher Type</Label>
                   <Select value={exTypeValue} onValueChange={setExTypeValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select extinguisher type"} />
+                      <SelectValue
+                        placeholder={loadingExOptions ? "Loading..." : "Select extinguisher type"}
+                        label={String(
+                          exTypeOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (exTypeValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {exTypeOptions.length === 0 && !loadingExOptions ? (
@@ -4214,7 +4263,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select Last Service</Label>
                   <Select value={exLastServiceValue} onValueChange={setExLastServiceValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingExOptions ? "Loading..." : "Select last service"} />
+                      <SelectValue
+                        placeholder={loadingExOptions ? "Loading..." : "Select last service"}
+                        label={String(
+                          exLastServiceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (exLastServiceValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {exLastServiceOptions.length === 0 && !loadingExOptions ? (
@@ -4458,7 +4514,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select smoke/heat detectors</Label>
                   <Select value={alarmDetectorsValue} onValueChange={setAlarmDetectorsValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select smoke/heat detectors"} />
+                      <SelectValue
+                        placeholder={loadingAlarmModalOptions ? "Loading..." : "Select smoke/heat detectors"}
+                        label={String(
+                          alarmDetectorsOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (alarmDetectorsValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {alarmDetectorsOptions.length === 0 && !loadingAlarmModalOptions ? (
@@ -4515,7 +4578,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select manual call points</Label>
                   <Select value={alarmCallPointsValue} onValueChange={setAlarmCallPointsValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select manual call points"} />
+                      <SelectValue
+                        placeholder={loadingAlarmModalOptions ? "Loading..." : "Select manual call points"}
+                        label={String(
+                          alarmCallPointsOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (alarmCallPointsValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {alarmCallPointsOptions.length === 0 && !loadingAlarmModalOptions ? (
@@ -4572,7 +4642,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select number of floor</Label>
                   <Select value={alarmFloorValue} onValueChange={setAlarmFloorValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select number of floor"} />
+                      <SelectValue
+                        placeholder={loadingAlarmModalOptions ? "Loading..." : "Select number of floor"}
+                        label={String(
+                          alarmFloorsOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (alarmFloorValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {alarmFloorsOptions.length === 0 && !loadingAlarmModalOptions ? (
@@ -4629,7 +4706,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select fire alarm panels</Label>
                   <Select value={alarmPanelsValue} onValueChange={setAlarmPanelsValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select fire alarm panel"} />
+                      <SelectValue
+                        placeholder={loadingAlarmModalOptions ? "Loading..." : "Select fire alarm panel"}
+                        label={String(
+                          alarmPanelsOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (alarmPanelsValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {alarmPanelsOptions.length === 0 && !loadingAlarmModalOptions ? (
@@ -4686,7 +4770,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select type of alarm system</Label>
                   <Select value={alarmSystemTypeValue} onValueChange={setAlarmSystemTypeValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select type of alarm system"} />
+                      <SelectValue
+                        placeholder={loadingAlarmModalOptions ? "Loading..." : "Select type of alarm system"}
+                        label={String(
+                          alarmSystemTypeOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (alarmSystemTypeValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {alarmSystemTypeOptions.length === 0 && !loadingAlarmModalOptions ? (
@@ -4743,7 +4834,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                   <Label className="text-gray-700 font-medium">Select last Service</Label>
                   <Select value={alarmLastServiceValue} onValueChange={setAlarmLastServiceValue}>
                     <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                      <SelectValue placeholder={loadingAlarmModalOptions ? "Loading..." : "Select last service"} />
+                      <SelectValue
+                        placeholder={loadingAlarmModalOptions ? "Loading..." : "Select last service"}
+                        label={String(
+                          alarmLastServiceOptions.find(
+                            (o) => (String(o.value ?? "").trim() || String(o.id)) === (alarmLastServiceValue ?? "").trim()
+                          )?.value ?? ""
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {alarmLastServiceOptions.length === 0 && !loadingAlarmModalOptions ? (
@@ -5365,7 +5463,12 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                 <Label className="text-gray-700 font-medium">Select Emergency light</Label>
                 <Select value={elValue} onValueChange={setElValue}>
                   <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                    <SelectValue placeholder={loadingElOptions ? "Loading..." : "Select Emergency light"} />
+                    <SelectValue
+                      placeholder={loadingElOptions ? "Loading..." : "Select Emergency light"}
+                      label={String(
+                        elOptions.find((o) => (String(o.value ?? "").trim() || String(o.id)) === (elValue ?? "").trim())?.value ?? ""
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {elOptions.length === 0 && !loadingElOptions ? (
@@ -5424,7 +5527,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                 <Label className="text-gray-700 font-medium whitespace-nowrap">Select Emergency light floor</Label>
                 <Select value={elFloorValue} onValueChange={setElFloorValue}>
                   <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                    <SelectValue placeholder={loadingElOptions ? "Loading..." : "Select floor"} />
+                    <SelectValue
+                      placeholder={loadingElOptions ? "Loading..." : "Select floor"}
+                      label={String(
+                        elFloorOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === (elFloorValue ?? "").trim()
+                        )?.value ?? ""
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {elFloorOptions.length === 0 && !loadingElOptions ? (
@@ -5462,7 +5572,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                 <Label className="text-gray-700 font-medium whitespace-nowrap">Select Emergency light type</Label>
                 <Select value={elTypeValue} onValueChange={setElTypeValue}>
                   <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                    <SelectValue placeholder={loadingElOptions ? "Loading..." : "Select type"} />
+                    <SelectValue
+                      placeholder={loadingElOptions ? "Loading..." : "Select type"}
+                      label={String(
+                        elTypeOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === (elTypeValue ?? "").trim()
+                        )?.value ?? ""
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {elTypeOptions.length === 0 && !loadingElOptions ? (
@@ -5521,7 +5638,14 @@ function FRABasePriceContent({ isAdmin = false }: FRABasePriceContentProps) {
                 <Label className="text-gray-700 font-medium">Select Emergency light test</Label>
                 <Select value={elTestValue} onValueChange={setElTestValue}>
                   <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                    <SelectValue placeholder={loadingElOptions ? "Loading..." : "Select test"} />
+                    <SelectValue
+                      placeholder={loadingElOptions ? "Loading..." : "Select test"}
+                      label={String(
+                        elTestOptions.find(
+                          (o) => (String(o.value ?? "").trim() || String(o.id)) === (elTestValue ?? "").trim()
+                        )?.value ?? ""
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {elTestOptions.length === 0 && !loadingElOptions ? (

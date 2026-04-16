@@ -343,12 +343,93 @@ export interface BlockedBookingDayItem {
   end_day: string;
   created_at: string;
   updated_at: string;
+  /** Row came from `blocked_ranges` without a server id — delete/update APIs are not available. */
+  synthetic?: boolean;
+  reason?: string;
 }
 
 export interface BlockedBookingDaysListResponse {
   status: boolean;
   message: string;
   data: BlockedBookingDayItem[];
+}
+
+function unwrapBookingDaysListDataObject(data: unknown): Record<string, unknown> | null {
+  if (data == null || typeof data !== "object" || Array.isArray(data)) return null;
+  const o = data as Record<string, unknown>;
+  if (Array.isArray(o.blocked_ranges) || Array.isArray(o.notice_blocked_dates)) return o;
+  const inner = o.data;
+  if (inner != null && typeof inner === "object" && !Array.isArray(inner)) {
+    const innerObj = inner as Record<string, unknown>;
+    if (Array.isArray(innerObj.blocked_ranges) || Array.isArray(innerObj.notice_blocked_dates)) {
+      return innerObj;
+    }
+  }
+  return null;
+}
+
+function mapBlockedRangesToBookingDayItems(
+  ranges: unknown[],
+  professionalFallback: { id: number; name: string }
+): BlockedBookingDayItem[] {
+  const out: BlockedBookingDayItem[] = [];
+  let synIndex = 0;
+  for (const raw of ranges) {
+    if (raw == null || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const sd = row.start_day;
+    if (typeof sd !== "string" || !sd.trim()) continue;
+    const ed = typeof row.end_day === "string" && row.end_day.trim() ? row.end_day : sd;
+    const idRaw = row.id;
+    const idNum =
+      typeof idRaw === "number" ? idRaw : typeof idRaw === "string" ? Number(idRaw) : NaN;
+    const hasServerId = Number.isFinite(idNum) && idNum > 0;
+    const id = hasServerId ? Math.floor(idNum) : -(++synIndex);
+    let professional = professionalFallback;
+    const prof = row.professional;
+    if (prof != null && typeof prof === "object" && !Array.isArray(prof)) {
+      const p = prof as Record<string, unknown>;
+      const pid = p.id;
+      const pname = p.name;
+      if (typeof pid === "number") {
+        professional = { id: pid, name: typeof pname === "string" ? pname : professionalFallback.name };
+      }
+    }
+    const reason =
+      typeof row.reason === "string"
+        ? row.reason
+        : typeof row.note === "string"
+          ? row.note
+          : typeof row.description === "string"
+            ? row.description
+            : undefined;
+    out.push({
+      id,
+      professional,
+      start_day: sd,
+      end_day: ed,
+      created_at: typeof row.created_at === "string" ? row.created_at : "",
+      updated_at: typeof row.updated_at === "string" ? row.updated_at : "",
+      synthetic: !hasServerId,
+      reason,
+    });
+  }
+  return out;
+}
+
+/** Supports legacy `data: BlockedBookingDayItem[]` or `data: { blocked_ranges, notice_blocked_dates }`. */
+export function parseBlockedBookingDaysFromListData(
+  data: unknown,
+  professionalFallback: { id: number; name: string }
+): BlockedBookingDayItem[] {
+  if (Array.isArray(data)) {
+    return data as BlockedBookingDayItem[];
+  }
+  const obj = unwrapBookingDaysListDataObject(data);
+  if (!obj) return [];
+  const ranges = obj.blocked_ranges;
+  if (!Array.isArray(ranges)) return [];
+  return mapBlockedRangesToBookingDayItems(ranges, professionalFallback);
 }
 
 export const getBlockedBookingDaysList = async (
@@ -358,11 +439,11 @@ export const getBlockedBookingDaysList = async (
     '/block-professional/booking-days-list',
     { api_token: apiToken }
   );
-  const payload = response.data as BlockedBookingDaysListResponse;
-  if (payload?.status === true && Array.isArray(payload?.data)) {
-    return payload.data;
+  const payload = response.data as BlockedBookingDaysListResponse & { data?: unknown };
+  if (payload?.status !== true) {
+    throw new Error(payload?.message || 'Failed to fetch blocked booking days');
   }
-  throw new Error(payload?.message || 'Failed to fetch blocked booking days');
+  return parseBlockedBookingDaysFromListData(payload.data, { id: 0, name: '' });
 };
 
 /**
@@ -381,12 +462,12 @@ export const getBlockedBookingDaysListForProfessional = async (
     '/block-professional/booking-days-list',
     body
   );
-  const payload = response.data as BlockedBookingDaysListResponse;
-  if (payload?.status === true && Array.isArray(payload?.data)) {
-    return payload.data;
-  }
+  const payload = response.data as BlockedBookingDaysListResponse & { data?: unknown };
   if (payload?.status === false) return [];
-  throw new Error(payload?.message || 'Failed to fetch blocked booking days');
+  if (payload?.status !== true) {
+    throw new Error(payload?.message || 'Failed to fetch blocked booking days');
+  }
+  return parseBlockedBookingDaysFromListData(payload.data, { id: professionalId, name: '' });
 };
 
 /** When body includes professional_id, API may return data as an object with notice_blocked_dates and blocked_ranges. */

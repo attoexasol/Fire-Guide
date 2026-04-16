@@ -1,11 +1,10 @@
 import { startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
-import { getApiToken } from "../../lib/auth";
 import { ComparisonResults } from "../ComparisonResults";
 import { calculatePriceForBooking, addToCartFra, addToCartFireAlarm, addToCartFireExtinguisher, addToCartFireEmergencyLight, addToCartFireMarshal, addToCartFireConsultation } from "../../api/bookingService";
-import { storeSelectedService, createFireAlarmSelectedService, createFireExtinguisherSelectedService, createEmergencyLightSelectedService, createFireMarshalSelectedService, createFireConsultationSelectedService } from "../../api/servicesService";
 import { toast } from "sonner";
+import { createBookingSelectedSession } from "../../lib/createBookingSelectedSession";
 
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
@@ -26,16 +25,6 @@ function getIsCustomQuote() {
     }
   } catch (_) {}
   return false;
-}
-
-/** Extract session_id from "Selected service created successfully" (or similar) API response. Used for next request (price + professional_booking/store). */
-function getSessionIdFromResponse(response: { data?: { session_id?: number; id?: number; [key: string]: unknown } } | null | undefined): number | string | undefined {
-  const data = response?.data;
-  if (data == null) return undefined;
-  const raw = data.session_id ?? data.id ?? (typeof data === 'object' && (data as any).selected_service?.session_id) ?? (data as any).selected_service?.id;
-  if (raw == null || raw === '') return undefined;
-  const num = typeof raw === 'string' ? parseInt(raw, 10) : raw;
-  return Number.isNaN(num) ? raw : num;
 }
 
 export default function ComparisonPage() {
@@ -81,147 +70,19 @@ export default function ComparisonPage() {
         const isEmergencyLighting = serviceIdNum === 39 || Boolean((questionnaireData as { emergency_light_id?: number })?.emergency_light_id != null || (questionnaireData as { emergency_lights_count?: string })?.emergency_lights_count);
         const isFireMarshal = serviceIdNum === 45 || Boolean((questionnaireData as { people_id?: number })?.people_id != null || (questionnaireData as { training_people_count?: string })?.training_people_count);
         const isFireConsultation = serviceIdNum === 46 || Boolean((questionnaireData as { mode_id?: number })?.mode_id != null || (questionnaireData as { consultation_type?: string })?.consultation_type);
-        const q = questionnaireData as {
-          property_type_id?: number;
-          approximate_people_id?: number;
-          number_of_floors?: string;
-          number_of_floors_id?: number;
-          duration_id?: number;
-          preferred_date?: string;
-          access_note?: string;
-          fire_alarm_smoke_detector_id?: number;
-          fire_alarm_call_point_id?: number;
-          fire_alarm_floor_id?: number;
-          fire_alarm_panel_id?: number;
-          fire_alarm_system_type_id?: number;
-          fire_alarm_last_service_id?: number;
-          extinguisher_id?: number;
-          floor_id?: number;
-          type_id?: number;
-          last_service_id?: number;
-          emergency_light_id?: number;
-          emergency_floor_id?: number;
-          emergency_light_type_id?: number;
-          emergency_light_test_id?: number;
-          people_id?: number;
-          place_id?: number;
-          building_type_id?: number;
-          experience_id?: number;
-          mode_id?: number;
-          hour_id?: number;
-        } | null;
         if (questionnaireData && locationSearchData && serviceId != null) {
-          try {
-            const apiToken = getApiToken();
-            if (isFireAlarm) {
-              const alarmRes = await createFireAlarmSelectedService({
-                ...(apiToken && { api_token: apiToken }),
-                professional_id: professional.id,
-                service_id: serviceIdNum,
-                smoke_detector_id: q?.fire_alarm_smoke_detector_id ?? 0,
-                call_point_id: q?.fire_alarm_call_point_id ?? 0,
-                floor_id: q?.fire_alarm_floor_id ?? 0,
-                panel_id: q?.fire_alarm_panel_id ?? 0,
-                system_type_id: q?.fire_alarm_system_type_id ?? 0,
-                last_service_id: q?.fire_alarm_last_service_id ?? 0,
-                access_note: questionnaireData.access_note ?? "",
-                post_code: locationSearchData.post_code,
-                search_radius: locationSearchData.search_radius,
-              });
-              sessionId = getSessionIdFromResponse(alarmRes) ?? sessionId;
-            } else if (isFireExtinguisher) {
-              const extRes = await createFireExtinguisherSelectedService({
-                ...(apiToken && { api_token: apiToken }),
-                professional_id: professional.id,
-                service_id: serviceIdNum,
-                extinguisher_id: q?.extinguisher_id ?? 0,
-                floor_id: q?.floor_id ?? 0,
-                type_id: q?.type_id ?? 0,
-                last_service_id: q?.last_service_id ?? 0,
-                access_note: questionnaireData.access_note ?? "",
-                post_code: locationSearchData.post_code,
-                search_radius: locationSearchData.search_radius,
-                preffered_date: questionnaireData.preferred_date ?? "",
-              });
-              sessionId = getSessionIdFromResponse(extRes) ?? sessionId;
-            } else if (isEmergencyLighting) {
-              const req = (questionnaireData as { request_data?: { emergency_light_type_id?: number; emergency_light_test_id?: number } })?.request_data;
-              const lightTypeIdRaw = q?.emergency_light_type_id ?? req?.emergency_light_type_id;
-              const lightTestIdRaw = q?.emergency_light_test_id ?? req?.emergency_light_test_id;
-              const lightTypeId = lightTypeIdRaw != null ? Number(lightTypeIdRaw) : 0;
-              const lightTestId = lightTestIdRaw != null ? Number(lightTestIdRaw) : 0;
-              const elRes = await createEmergencyLightSelectedService({
-                ...(apiToken && { api_token: apiToken }),
-                professional_id: professional.id,
-                service_id: serviceIdNum,
-                light_id: q?.emergency_light_id != null ? Number(q.emergency_light_id) : 1,
-                floor_id: q?.emergency_floor_id != null ? Number(q.emergency_floor_id) : 1,
-                light_type_id: lightTypeId,
-                light_test_id: lightTestId,
-                access_note: questionnaireData.access_note ?? "",
-                post_code: locationSearchData.post_code,
-                search_radius: locationSearchData.search_radius,
-                preffered_date: questionnaireData.preferred_date ?? "",
-              });
-              sessionId = getSessionIdFromResponse(elRes) ?? sessionId;
-            } else if (isFireMarshal) {
-              const marshalReq = (questionnaireData as { request_data?: { people_id?: number; place_id?: number; building_type_id?: number; experience_id?: number } })?.request_data;
-              const peopleId = q?.people_id ?? marshalReq?.people_id;
-              const placeId = q?.place_id ?? marshalReq?.place_id;
-              const buildingTypeId = q?.building_type_id ?? marshalReq?.building_type_id;
-              const experienceId = q?.experience_id ?? marshalReq?.experience_id;
-              const marshalRes = await createFireMarshalSelectedService({
-                ...(apiToken && { api_token: apiToken }),
-                professional_id: professional.id,
-                service_id: serviceIdNum,
-                people_id: peopleId != null ? Number(peopleId) : 1,
-                place_id: placeId != null ? Number(placeId) : 1,
-                building_type_id: buildingTypeId != null ? Number(buildingTypeId) : 1,
-                experience_id: experienceId != null ? Number(experienceId) : 1,
-                access_note: questionnaireData.access_note ?? "",
-                post_code: locationSearchData.post_code,
-                search_radius: locationSearchData.search_radius,
-                preffered_date: questionnaireData.preferred_date ?? "",
-              });
-              sessionId = getSessionIdFromResponse(marshalRes) ?? sessionId;
-            } else if (isFireConsultation) {
-              const consultReq = (questionnaireData as { request_data?: { mode_id?: number; hour_id?: number } })?.request_data;
-              const modeId = q?.mode_id ?? consultReq?.mode_id;
-              const hourId = q?.hour_id ?? consultReq?.hour_id;
-              const consultRes = await createFireConsultationSelectedService({
-                ...(apiToken && { api_token: apiToken }),
-                professional_id: professional.id,
-                service_id: serviceIdNum,
-                mode_id: modeId != null ? Number(modeId) : 1,
-                hour_id: hourId != null ? Number(hourId) : 1,
-                access_note: questionnaireData.access_note ?? "",
-                post_code: locationSearchData.post_code,
-                search_radius: locationSearchData.search_radius,
-                preffered_date: questionnaireData.preferred_date ?? "",
-              });
-              sessionId = getSessionIdFromResponse(consultRes) ?? sessionId;
-            } else {
-              const floorId = questionnaireData.number_of_floors_id;
-              const number_of_floors = floorId != null ? String(floorId) : (questionnaireData.number_of_floors ?? "");
-              const storeRes = await storeSelectedService({
-                ...(apiToken && { api_token: apiToken }),
-                service_id: serviceIdNum,
-                property_type_id: questionnaireData.property_type_id,
-                approximate_people_id: questionnaireData.approximate_people_id,
-                number_of_floors,
-                ...(floorId != null && { number_of_floors_id: floorId }),
-                ...(questionnaireData.duration_id != null && { duration_id: questionnaireData.duration_id }),
-                preferred_date: questionnaireData.preferred_date,
-                access_note: questionnaireData.access_note,
-                post_code: locationSearchData.post_code,
-                search_radius: locationSearchData.search_radius,
-                professional_id: professional.id,
-              });
-              sessionId = getSessionIdFromResponse(storeRes) ?? sessionId;
-            }
-          } catch (err: any) {
-            console.error(isFireAlarm ? 'Failed to create fire alarm selected service' : isFireExtinguisher ? 'Failed to create fire extinguisher selected service' : isEmergencyLighting ? 'Failed to create emergency light selected service' : 'Failed to store selected service with professional:', err);
-            toast.error(err?.message || 'Could not complete. Please try again.');
+          const created = await createBookingSelectedSession({
+            professionalId: professional.id,
+            serviceId: serviceIdNum,
+            questionnaireData: questionnaireData as Record<string, unknown>,
+            locationSearchData,
+          });
+          if (created.error) {
+            console.error("Failed to create selected service session:", created.error);
+            toast.error(created.error || "Could not complete. Please try again.");
+          }
+          if (created.sessionId != null) {
+            sessionId = created.sessionId;
           }
         }
 
@@ -372,6 +233,11 @@ export default function ComparisonPage() {
           } else {
             bookingPricingError = "Could not create booking session. Please try again.";
           }
+        }
+
+        if (serviceId != null && sessionId == null) {
+          toast.error("Could not create a booking session. Please try Book again from the list.");
+          return;
         }
 
         startTransition(() => {

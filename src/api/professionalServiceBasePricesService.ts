@@ -50,6 +50,19 @@ export interface ProfessionalServiceBasePriceSingleResponse {
   data: ProfessionalServiceBasePriceItem;
 }
 
+/** Normalized base price payload used by professional pricing tabs (matches module GET responses). */
+export interface ResolvedProfessionalModuleBasePrice {
+  status: boolean;
+  message: string;
+  data?: {
+    id: number;
+    professional_id: number;
+    price: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
 /**
  * Fetch all professional service base prices
  * GET https://fireguide.attoexasolutions.com/api/professional-service-base-prices/get-all
@@ -59,10 +72,48 @@ export const getProfessionalServiceBasePricesAll = async (
 ): Promise<ProfessionalServiceBasePricesResponse> => {
   const response = await apiClient.get<ProfessionalServiceBasePricesResponse>(
     '/professional-service-base-prices/get-all',
-    apiToken ? { params: { api_token: apiToken } } : undefined
+    apiToken
+      ? {
+          params: { api_token: apiToken },
+          headers: { Authorization: `Bearer ${apiToken}` },
+        }
+      : undefined
   );
   return response.data;
 };
+
+/**
+ * Resolve base price from GET …/professional-service-base-prices/get-all when per-module POST routes 404.
+ * Matches the first row whose `service.service_name` matches `serviceNameMatch`.
+ */
+export async function tryResolveProfessionalBasePriceFromRegistry(
+  apiToken: string,
+  serviceNameMatch: RegExp
+): Promise<ResolvedProfessionalModuleBasePrice | null> {
+  try {
+    const res = await getProfessionalServiceBasePricesAll(apiToken);
+    if (!res?.status || !Array.isArray(res.data)) {
+      return null;
+    }
+    const row = res.data.find((r) => serviceNameMatch.test(String(r.service?.service_name ?? '')));
+    if (!row) {
+      return { status: false, message: 'No matching service in base price registry.' };
+    }
+    return {
+      status: true,
+      message: res.message || 'ok',
+      data: {
+        id: row.id,
+        professional_id: row.professional_id,
+        price: String(row.base_price ?? '0'),
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Fetch a single professional service base price by ID
@@ -76,7 +127,8 @@ export const getProfessionalServiceBasePriceSingle = async (
   try {
     const response = await apiClient.post<ProfessionalServiceBasePriceSingleResponse>(
       '/professional-service-base-prices/get-single',
-      { api_token: apiToken, id }
+      { api_token: apiToken, id },
+      { headers: { Authorization: `Bearer ${apiToken}` } }
     );
     const body = response.data;
     if (body?.status && body?.data) {
@@ -123,7 +175,8 @@ export const updateProfessionalServiceBasePrice = async (
     }
     const response = await apiClient.post<UpdateBasePriceResponse>(
       '/professional-service-base-prices/update',
-      payload
+      payload,
+      { headers: { Authorization: `Bearer ${apiToken}` } }
     );
     if (response.data?.status && response.data?.data) {
       return response.data;
@@ -168,7 +221,8 @@ export const deleteProfessionalServiceBasePrice = async (
     }
     const response = await apiClient.post<DeleteBasePriceResponse>(
       '/professional-service-base-prices/delete',
-      payload
+      payload,
+      { headers: { Authorization: `Bearer ${apiToken}` } }
     );
     if (response.data?.status) {
       return response.data;
@@ -200,7 +254,8 @@ export const storeProfessionalServiceBasePrice = async (
         api_token: apiToken,
         service_id: serviceId,
         base_price: String(basePrice),
-      }
+      },
+      { headers: { Authorization: `Bearer ${apiToken}` } }
     );
     if (response.data?.status && response.data?.data) {
       return response.data;

@@ -1,11 +1,49 @@
-import React, { startTransition } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { startTransition, useEffect, useLayoutEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
+import { isLiveBookingHash } from "../../lib/liveBookingNav";
 import { LandingPage as LandingPageComponent } from "../LandingPage";
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser, logout } = useApp();
+
+  useLayoutEffect(() => {
+    if (!isLiveBookingHash(location.hash)) return;
+    if (location.hash === "#live-booking") return;
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: "#live-booking" },
+      { replace: true }
+    );
+  }, [location.hash, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    const hash = location.hash || (typeof window !== "undefined" ? window.location.hash : "");
+    if (!isLiveBookingHash(hash)) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 120;
+
+    const scrollToSection = () => {
+      if (cancelled) return;
+      const el = document.getElementById("live-booking");
+      if (el) {
+        el.scrollIntoView({ block: "start", behavior: "auto" });
+        return;
+      }
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        window.setTimeout(scrollToSection, 50);
+      }
+    };
+
+    window.setTimeout(scrollToSection, 0);
+    return () => {
+      cancelled = true;
+    };
+  }, [location.hash, location.pathname, location.key]);
 
   return (
     <LandingPageComponent
@@ -53,6 +91,14 @@ export default function LandingPage() {
             }
           });
         }
+      }}
+      onNavigateHome={() => {
+        startTransition(() => {
+          navigate({ pathname: "/", hash: "" }, { replace: true });
+        });
+        window.setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 0);
       }}
     />
   );

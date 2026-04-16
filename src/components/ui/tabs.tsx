@@ -59,6 +59,7 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
 
     return (
       <button
+        type="button"
         ref={ref}
         data-state={isActive ? "active" : "inactive"}
         className={cn(

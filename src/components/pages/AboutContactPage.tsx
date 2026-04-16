@@ -18,6 +18,9 @@ export default function AboutContactPage() {
       onNavigateServices={() => navigate("/services")}
       onNavigateProfessionals={() => navigate("/professional/auth")}
       onCustomerLogin={() => navigate("/customer/auth")}
+      onStartBooking={() =>
+        navigate({ pathname: "/", hash: "live-booking" })
+      }
     />
   );
 }

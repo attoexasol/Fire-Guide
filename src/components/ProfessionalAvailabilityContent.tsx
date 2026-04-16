@@ -8,8 +8,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Pencil,
-  Trash2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -63,6 +61,40 @@ function formatBlockedBookingRangeLine(item: BlockedBookingDayItem): string {
   const endKey = parseDayOnly(item.end_day || item.start_day);
   if (!endKey || endKey === startKey) return start;
   return `${start} – ${formatBlockDateDisplay(item.end_day)}`;
+}
+
+const longUkDateOpts: Intl.DateTimeFormatOptions = {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+};
+
+/** Single day or inclusive range, e.g. "Monday, 15 December 2025" or "Mon … – Thu …". */
+function formatBlockedRangeHeadline(startStr: string, endStr: string): string {
+  const start = parseDayOnly(startStr);
+  const end = parseDayOnly(endStr || startStr);
+  const d0 = new Date(`${start}T12:00:00`);
+  if (!start || Number.isNaN(d0.getTime())) return formatBlockDateDisplay(startStr);
+  if (!end || end === start) {
+    return d0.toLocaleDateString("en-GB", longUkDateOpts);
+  }
+  const d1 = new Date(`${end}T12:00:00`);
+  if (Number.isNaN(d1.getTime())) return d0.toLocaleDateString("en-GB", longUkDateOpts);
+  return `${d0.toLocaleDateString("en-GB", longUkDateOpts)} – ${d1.toLocaleDateString("en-GB", longUkDateOpts)}`;
+}
+
+function blockedRangeSubtitle(item: BlockedBookingDayItem): string {
+  const r = item.reason?.trim();
+  if (r) return r;
+  const start = parseDayOnly(item.start_day);
+  const end = parseDayOnly(item.end_day || item.start_day);
+  if (start === end) return "Unavailable for bookings";
+  const a = new Date(`${start}T12:00:00`);
+  const b = new Date(`${end}T12:00:00`);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return "Blocked period";
+  const days = Math.round((b.getTime() - a.getTime()) / 86400000) + 1;
+  return `${days} day${days === 1 ? "" : "s"} blocked`;
 }
 
 function isDateInBookingBlockRange(dateStr: string, item: BlockedBookingDayItem): boolean {
@@ -251,6 +283,11 @@ export function ProfessionalAvailabilityContent() {
 
   const handleConfirmDeleteBookingDay = async () => {
     if (!itemToDelete) return;
+    if (itemToDelete.synthetic || itemToDelete.id <= 0) {
+      toast.error("This block cannot be removed from the list. Contact support if it should change.");
+      setItemToDelete(null);
+      return;
+    }
     const apiToken = getApiToken();
     if (!apiToken) {
       toast.error("Please log in to delete.");
@@ -939,7 +976,7 @@ export function ProfessionalAvailabilityContent() {
           <Card className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="flex flex-row items-start justify-between gap-4 border-b border-gray-100 px-8 pt-9 pb-6 sm:px-10 sm:pt-10">
               <div className="min-w-0 flex-1 pr-3">
-                <h2 className="text-xl font-semibold text-[#0A1A2F] mt-3">Blocked Dates</h2>
+                <h2 className="mt-3 text-xl font-bold text-gray-900">Blocked Dates</h2>
                 <p className="mt-1.5 text-sm text-gray-600">
                   Block specific days when you are not available for bookings.
                 </p>
@@ -947,10 +984,10 @@ export function ProfessionalAvailabilityContent() {
               <Button
                 type="button"
                 size="sm"
-                className="mt-0.5 shrink-0 bg-red-600 hover:bg-red-700 mt-3"
+                className="mt-0.5 shrink-0 rounded-lg bg-red-600 px-4 font-medium text-white hover:bg-red-700 mt-3"
                 onClick={() => openAddBlockModal()}
               >
-                Add Block
+                + Add Block
               </Button>
             </div>
             <CardContent className="p-0">
@@ -965,50 +1002,62 @@ export function ProfessionalAvailabilityContent() {
                   <p>No blocked dates. Click &quot;Add Block&quot; to block unavailable days.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100">
-                  {blockedBookingDayList.map((blocked) => (
-                    <div
-                      key={blocked.id}
-                      className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 sm:px-10"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-50">
-                          <CalendarX2 className="h-5 w-5 text-red-600" />
+                <div className="space-y-3 px-8 pb-8 pt-2 sm:px-10">
+                  {blockedBookingDayList.map((blocked, index) => {
+                    const canRemove = !blocked.synthetic && blocked.id > 0;
+                    const rowKey =
+                      blocked.id > 0 ? String(blocked.id) : `block-${index}-${blocked.start_day}-${blocked.end_day}`;
+                    return (
+                      <div
+                        key={rowKey}
+                        className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200/60 bg-red-50 px-4 py-4 sm:px-5 ${
+                          canRemove ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={(e) => {
+                          if (!canRemove) return;
+                          if ((e.target as HTMLElement).closest("button")) return;
+                          handleEditBlockedBookingDay(blocked);
+                        }}
+                        title={canRemove ? "Double-click to change dates" : undefined}
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                          <div
+                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-600 shadow-sm"
+                            aria-hidden
+                          >
+                            <X className="h-[18px] w-[18px] text-white" strokeWidth={2.75} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-base font-bold leading-snug text-gray-900">
+                              {formatBlockedRangeHeadline(blocked.start_day, blocked.end_day)}
+                            </p>
+                            <p className="mt-0.5 text-sm font-normal leading-snug text-gray-500">
+                              {blockedRangeSubtitle(blocked)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-900">
-                            {formatBlockedBookingRangeLine(blocked)}
-                          </p>
-                          {blocked.professional?.name ? (
-                            <p className="text-sm text-gray-500">{blocked.professional.name}</p>
-                          ) : null}
+                        <div className="flex shrink-0 items-center self-center sm:self-auto">
+                          <button
+                            type="button"
+                            className={`text-sm font-normal ${
+                              canRemove
+                                ? "text-gray-900 underline-offset-2 hover:underline"
+                                : "cursor-not-allowed text-gray-400 no-underline"
+                            } disabled:opacity-60`}
+                            onClick={() => canRemove && setItemToDelete(blocked)}
+                            disabled={!canRemove || deletingBookingDayId === blocked.id}
+                            title={
+                              canRemove
+                                ? "Remove this blocked period"
+                                : "This period cannot be removed from here"
+                            }
+                          >
+                            Remove
+                          </button>
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                          onClick={() => handleEditBlockedBookingDay(blocked)}
-                          title="Edit"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-500 hover:bg-red-50 hover:text-red-600"
-                          onClick={() => setItemToDelete(blocked)}
-                          disabled={deletingBookingDayId === blocked.id}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

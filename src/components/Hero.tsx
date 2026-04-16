@@ -45,10 +45,10 @@ export const Hero = React.memo(function Hero({ onGetStarted }: HeroProps) {
     }, 5000); // Change image every 5 seconds
 
     return () => clearInterval(interval);
-  }, [images.length]);
+  }, [images.length]); 
 
   return (
-    <section id="home" className="relative overflow-hidden">
+    <section id="home" className="relative overflow-hidden pt-16">
       {/* Background Slider */}
       <div className="absolute inset-0">
         {images.map((image, index) => {
@@ -73,7 +73,7 @@ export const Hero = React.memo(function Hero({ onGetStarted }: HeroProps) {
       <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/40 to-transparent md:from-transparent md:via-transparent md:to-transparent" />
 
       {/* Main Hero Content */}
-      <div className="relative max-w-7xl mx-auto px-5 md:px-6 lg:px-12 pt-32 md:pt-44 pb-16 md:pb-36 min-h-[550px] md:min-h-0">
+      <div className="relative max-w-7xl mx-auto px-5 md:px-6 lg:px-12 pt-32 md:pt-48 pb-16 md:pb-36 min-h-[550px] md:min-h-0">
         <div className="grid md:grid-cols-1 lg:grid-cols-[40%_60%] gap-12 items-center">
           
           {/* Left Column - Content */}

@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { ServiceCard, Service } from "./ServiceCard";
 import { fetchServices, ServiceResponse, formatServiceFromPrice } from "../api/servicesService";
+import { getLucideIconForService } from "../lib/serviceIcons";
 import { toast } from "sonner";
 
 interface ServicesGridProps {
   onSelectService: () => void;
 }
 
-// Default icon mapping - fallback icons for services
-const defaultIcons = [ClipboardCheck, Bell, Flame, DoorOpen, Lightbulb, Sparkles];
 const colorOptions = ["red", "blue", "orange", "green", "purple"];
 
 // Description mapping for services - override API descriptions with updated text
@@ -31,17 +29,13 @@ const mapApiServiceToService = (apiService: ServiceResponse, index: number): Ser
   const isActive = apiService.status?.toUpperCase() === "ACTIVE";
   
   const formattedPrice = formatServiceFromPrice(apiService);
-  
-  // Use icon from API if available, otherwise use default icon based on index
-  const iconIndex = index % defaultIcons.length;
-  const iconComponent = defaultIcons[iconIndex];
-  
-  // Assign color based on index
+
+  const serviceName = apiService.service_name || "Service";
+  const iconComponent = getLucideIconForService(serviceName, apiService.type);
+
   const colorIndex = index % colorOptions.length;
   const color = colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple";
 
-  // Use mapped description if available, otherwise use API description or fallback
-  const serviceName = apiService.service_name || "Service";
   const mappedDescription = serviceDescriptionMap[serviceName] || apiService.description || "No description available";
 
   return {
@@ -119,7 +113,7 @@ export function ServicesGrid({ onSelectService }: ServicesGridProps) {
             <p className="text-gray-600">No services available at the moment.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          <div className="grid md:grid-cols-2 gap-6 mb-12">
             {allServices.map((service) => (
               <ServiceCard
                 key={service.id}

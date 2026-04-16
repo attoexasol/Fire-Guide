@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { startTransition } from "react";
+import { toast } from "sonner";
 import { useApp } from "../../contexts/AppContext";
 import { CustomerAuth } from "../CustomerAuth";
 import { setUserInfo, getUserRole } from "../../lib/auth";
+import { setCompleteProfileReminderFlag } from "../../lib/professionalProfileReminder";
 
 export default function CustomerAuthPage() {
   const navigate = useNavigate();
@@ -16,10 +18,25 @@ export default function CustomerAuthPage() {
 
   return (
     <CustomerAuth
-      onAuthSuccess={(name: string) => {
+      onAuthSuccess={(name: string, options) => {
         // Get user role from backend FIRST (stored during auth)
         const userRole = getUserRole();
-        
+
+        // New account created as Professional from this page → profile + reminder (same as /professional/auth signup)
+        if (options?.isNewProfessionalSignup) {
+          setCurrentUser({ name, role: "professional" });
+          setUserInfo(name, "professional");
+          setCompleteProfileReminderFlag();
+          toast.info("Please complete your profile.");
+          startTransition(() => {
+            navigate("/professional/dashboard/profile", {
+              replace: true,
+              state: { showCompleteProfileReminder: true },
+            });
+          });
+          return;
+        }
+
         // Set user info based on actual role from backend
         if (userRole === "USER") {
           setIsCustomerLoggedIn(true);
@@ -37,7 +54,7 @@ export default function CustomerAuthPage() {
           setCurrentUser({ name, role: "customer" });
           setUserInfo(name, "customer");
         }
-        
+
         // Add demo bookings and payments for testing (only for USER role)
         if (userRole === "USER" && customerBookings.length === 0) {
           const demoBookings = [

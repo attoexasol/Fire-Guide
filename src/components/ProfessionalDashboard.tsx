@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard,
   User, 
@@ -36,6 +36,7 @@ import { ProfessionalPricingContent } from "./ProfessionalPricingContent";
 import { ProfessionalAvailabilityContent } from "./ProfessionalAvailabilityContent";
 import { ProfessionalCustomQuoteContent } from "./ProfessionalCustomQuoteContent";
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
+import { setCompleteProfileReminderFlag } from "../lib/professionalProfileReminder";
 
 interface ProfessionalDashboardProps {
   onLogout: () => void;
@@ -46,6 +47,7 @@ type ProfessionalView = "dashboard" | "profile" | "pricing-overview" | "availabi
 
 export function ProfessionalDashboard({ onLogout, onNavigateToReports }: ProfessionalDashboardProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { view } = useParams<{ view?: string }>();
   const validViews: ProfessionalView[] = ["dashboard", "profile", "pricing-overview", "availability", "bookings", "payments", "custom-quote", "verification", "settings", "notifications"];
   
@@ -63,11 +65,17 @@ export function ProfessionalDashboard({ onLogout, onNavigateToReports }: Profess
   
   const [activeMenu, setActiveMenu] = useState<ProfessionalView>(currentViewFromUrl);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
   // Sync state with URL parameter when it changes (including on mount and URL changes)
   useEffect(() => {
     setActiveMenu(currentViewFromUrl);
   }, [currentViewFromUrl]);
+
+  useEffect(() => {
+    const st = location.state as { showCompleteProfileReminder?: boolean } | null;
+    if (!st?.showCompleteProfileReminder) return;
+    setCompleteProfileReminderFlag();
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: {} });
+  }, [location.state, location.pathname, location.search, navigate]);
 
   // Old "Block Booking Day" URL → normalize to Availability in the address bar
   useEffect(() => {

@@ -42,6 +42,7 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
   const [profilePricing, setProfilePricing] = useState<ProfessionalProfilePricingItem[]>([]);
   const [isLoadingPricing, setIsLoadingPricing] = useState(true);
   const [persistedProfessional, setPersistedProfessional] = useState<any>(null);
+  const [pricingPageIndex, setPricingPageIndex] = useState(0);
 
   // Restore professional data from sessionStorage on mount if not provided in props
   useEffect(() => {
@@ -370,13 +371,32 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
   const reviewCount = reviews.length;
 
   // Pricing from API response: size, number_of_people, price (displayed in Pricing section)
-  const pricing = profilePricing.map((item) => ({
-    service: `${item.size.charAt(0).toUpperCase() + item.size.slice(1)} property (${item.people?.number_of_people ?? item.size})`,
-    price: `£${(Number(item.price) || 0).toFixed(2)}`,
-  }));
+  const pricing = useMemo(
+    () =>
+      profilePricing.map((item) => ({
+        service: `${item.size.charAt(0).toUpperCase() + item.size.slice(1)} property (${item.people?.number_of_people ?? item.size})`,
+        price: `£${(Number(item.price) || 0).toFixed(2)}`,
+      })),
+    [profilePricing]
+  );
   const minPriceFromApi = profilePricing.length > 0
     ? Math.min(...profilePricing.map((item) => Number(item.price) || 0))
     : null;
+
+  const PRICING_PAGE_SIZE = 3;
+  const pricingPageCount = Math.max(1, Math.ceil(pricing.length / PRICING_PAGE_SIZE));
+  const pagedPricing = useMemo(() => {
+    const start = pricingPageIndex * PRICING_PAGE_SIZE;
+    return pricing.slice(start, start + PRICING_PAGE_SIZE);
+  }, [pricing, pricingPageIndex]);
+
+  useEffect(() => {
+    setPricingPageIndex(0);
+  }, [professionalIdNum]);
+
+  useEffect(() => {
+    setPricingPageIndex((prev) => Math.min(prev, Math.max(0, pricingPageCount - 1)));
+  }, [pricingPageCount]);
 
   // Available dates from API: sort by date and show latest 3 (next 3 upcoming)
   const availableDates = useMemo(() => {
@@ -448,9 +468,9 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
             Back to Results
           </Button>
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left Column - Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid lg:grid-cols-3 gap-6 lg:items-start">
+            {/* Left Column - Main Content (scrollable on large screens; right column stays sticky) */}
+            <div className="lg:col-span-2 space-y-6 lg:min-h-0 lg:max-h-[calc(100dvh-15rem)] lg:overflow-y-auto lg:overscroll-y-contain lg:pr-1 [scrollbar-gutter:stable]">
               {/* Profile Header */}
               <Card>
                 <CardContent className="p-8">
@@ -798,14 +818,50 @@ export function ProfessionalProfile({ professional, professionalIdFromUrl, onBoo
                         No pricing available
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {pricing.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center py-2 border-b last:border-0">
-                            <span className="text-sm text-gray-700">{item.service}</span>
-                            <span className="font-semibold text-gray-900">{item.price}</span>
+                      <>
+                        <div className="space-y-3">
+                          {pagedPricing.map((item, index) => (
+                            <div
+                              key={pricingPageIndex * PRICING_PAGE_SIZE + index}
+                              className="flex justify-between items-center py-2 border-b last:border-0"
+                            >
+                              <span className="text-sm text-gray-700">{item.service}</span>
+                              <span className="font-semibold text-gray-900">{item.price}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {pricing.length > PRICING_PAGE_SIZE && (
+                          <div className="flex flex-col gap-2 mt-3">
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                disabled={pricingPageIndex <= 0}
+                                onClick={() => setPricingPageIndex((p) => Math.max(0, p - 1))}
+                              >
+                                Previous
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                disabled={pricingPageIndex >= pricingPageCount - 1}
+                                onClick={() =>
+                                  setPricingPageIndex((p) => Math.min(pricingPageCount - 1, p + 1))
+                                }
+                              >
+                                Next
+                              </Button>
+                            </div>
+                            <p className="text-center text-xs text-gray-500">
+                              Page {pricingPageIndex + 1} of {pricingPageCount}
+                            </p>
                           </div>
-                        ))}
-                      </div>
+                        )}
+                      </>
                     )}
                   </CardContent>
                 </Card>

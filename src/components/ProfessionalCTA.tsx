@@ -13,23 +13,23 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
   const benefits = [
     {
       icon: Users,
-      title: "Access Real Fire Safety Enquiries",
-      description: "Connect with dutyholders, landlords, and businesses actively searching for fire risk assessments, inspections, servicing, and advice — not cold leads."
+      title: "Access Thousands of Customers",
+      description: "Connect with customers actively searching for fire safety services"
     },
     {
       icon: Calendar,
-      title: "Work on Your Terms",
-      description: "Control your availability, service areas, and the types of work you accept. Take on jobs that suit your schedule and expertise."
+      title: "Flexible Scheduling",
+      description: "Control your availability and manage bookings on your terms"
     },
     {
       icon: CreditCard,
-      title: "Simple, Transparent Payments",
-      description: "Get paid securely through the platform with clear commission rates and no hidden charges. Spend less time chasing invoices."
+      title: "Secure & Fast Payments",
+      description: "Get paid quickly with simple and transparent commission charges"
     },
     {
       icon: Star,
-      title: "Build Trust Through Customer Feedback",
-      description: "Showcase genuine customer reviews to strengthen your reputation and help win repeat and future work."
+      title: "Customer-led ratings & feedback",
+      description: "Showcase verified reviews and grow your business"
     }
   ];
 
@@ -38,7 +38,7 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
       {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-red-100 rounded-full blur-3xl opacity-20"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-20"></div>
-      
+
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Header */}
         <div className="text-center mb-16">
@@ -47,18 +47,15 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
             <span className="font-medium text-[14px]">For Fire Safety Professionals</span>
           </div>
           <h2 className="mb-6 text-[28px] md:text-5xl font-bold leading-[120%] tracking-[-0.01em] pt-4 pb-3 px-4">
-            Win More Fire Safety Work — Without the Hassle
+            Grow Your Fire Safety Business
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Join Fire Guide and connect with customers actively looking for fire safety services. We handle visibility, enquiries, and payments — so you can focus on delivering the work. No setup fees. Free to join.
-          </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-center mb-16">
           {/* Left Column - Image */}
           <div className="relative">
             <div className="relative rounded-2xl overflow-hidden shadow-2xl h-[240px] md:h-[530px]">
-              <ImageWithFallback 
+              <ImageWithFallback
                 src={verifiedTeam}
                 alt="Fire Safety Professional"
                 className="w-full h-full object-cover"
@@ -72,7 +69,7 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
           {/* Right Column - Benefits */}
           <div className="space-y-6">
             {benefits.map((benefit, index) => (
-              <div 
+              <div
                 key={index}
                 className="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-xl hover:border-red-200 transition-all duration-300"
               >
@@ -96,8 +93,8 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
 
         {/* CTA */}
         <div className="text-center">
-          <Button 
-            onClick={onJoinNow} 
+          <Button
+            onClick={onJoinNow}
             className="bg-red-600 hover:bg-red-700 text-lg group text-[16px] !px-[35px] !py-[25px] font-bold"
           >
             Join Fire Guide Today
@@ -105,9 +102,6 @@ export function ProfessionalCTA({ onJoinNow }: ProfessionalCTAProps) {
           </Button>
           <p className="text-sm text-gray-500 mt-4">
             Free to join
-          </p>
-          <p className="text-xs text-gray-400 mt-3 max-w-2xl mx-auto">
-            Fire Guide is a booking and management platform connecting customers with independent fire safety professionals.
           </p>
         </div>
       </div>

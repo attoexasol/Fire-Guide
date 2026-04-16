@@ -735,6 +735,7 @@ export function ProfessionalPricingContent() {
 
     const load = async () => {
       setLoadingFireAlarmOptions(true);
+      setFireAlarmUpdateMessage(null);
       try {
         const [detectors, callPoints, floors, panels, systemType, lastService, basePriceRes] = await Promise.all([
           fetchFireAlarmOptions(api_token, "ditectors"),
@@ -762,6 +763,13 @@ export function ProfessionalPricingContent() {
         if (basePriceRes?.status && basePriceRes?.data?.price != null) {
           const p = String(basePriceRes.data.price).trim();
           if (p !== "") setFireAlarmBasePrice(p);
+        } else if (basePriceRes && basePriceRes.status === false) {
+          setFireAlarmUpdateMessage({
+            type: "error",
+            text:
+              (basePriceRes.message && String(basePriceRes.message).trim()) ||
+              "Could not load your saved Fire Alarm base price. You can still enter prices below.",
+          });
         }
 
         const firstVal = (item: { value?: string; id?: number } | undefined) =>
@@ -2041,7 +2049,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select smoke/heat detectors</Label>
                     <Select value={fireAlarmSmokeDetectorsValue} onValueChange={setFireAlarmSmokeDetectorsValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select smoke/heat detectors"} />
+                        <SelectValue
+                          placeholder={loadingFireAlarmOptions ? "Loading..." : "Select smoke/heat detectors"}
+                          label={String(
+                            fireAlarmDetectorsOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (fireAlarmSmokeDetectorsValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {fireAlarmDetectorsOptions.length === 0 && !loadingFireAlarmOptions ? (
@@ -2086,7 +2101,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select manual call points</Label>
                     <Select value={fireAlarmManualCallPointsValue} onValueChange={setFireAlarmManualCallPointsValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select manual call points"} />
+                        <SelectValue
+                          placeholder={loadingFireAlarmOptions ? "Loading..." : "Select manual call points"}
+                          label={String(
+                            fireAlarmCallPointsOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (fireAlarmManualCallPointsValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {fireAlarmCallPointsOptions.length === 0 && !loadingFireAlarmOptions ? (
@@ -2131,7 +2153,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select number of floor</Label>
                     <Select value={fireAlarmFloorValue} onValueChange={setFireAlarmFloorValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select number of floor"} />
+                        <SelectValue
+                          placeholder={loadingFireAlarmOptions ? "Loading..." : "Select number of floor"}
+                          label={String(
+                            fireAlarmFloorsOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (fireAlarmFloorValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {fireAlarmFloorsOptions.length === 0 && !loadingFireAlarmOptions ? (
@@ -2176,7 +2205,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select fire alarm panels</Label>
                     <Select value={fireAlarmPanelsValue} onValueChange={setFireAlarmPanelsValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select fire alarm panel"} />
+                        <SelectValue
+                          placeholder={loadingFireAlarmOptions ? "Loading..." : "Select fire alarm panel"}
+                          label={String(
+                            fireAlarmPanelsOptions.find(
+                              (o) => String(o.value ?? "").trim() === (fireAlarmPanelsValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {fireAlarmPanelsOptions.length === 0 && !loadingFireAlarmOptions ? (
@@ -2218,7 +2254,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select type of alarm system</Label>
                     <Select value={fireAlarmSystemTypeValue} onValueChange={setFireAlarmSystemTypeValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select option"} />
+                        <SelectValue
+                          placeholder={loadingFireAlarmOptions ? "Loading..." : "Select option"}
+                          label={String(
+                            fireAlarmSystemTypeOptions.find(
+                              (o) => String(o.value ?? "").trim() === (fireAlarmSystemTypeValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {fireAlarmSystemTypeOptions.length === 0 && !loadingFireAlarmOptions ? (
@@ -2260,7 +2303,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select last Service</Label>
                     <Select value={fireAlarmLastServiceValue} onValueChange={setFireAlarmLastServiceValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Select option"} />
+                        <SelectValue
+                          placeholder={loadingFireAlarmOptions ? "Loading..." : "Select option"}
+                          label={String(
+                            fireAlarmLastServiceOptions.find(
+                              (o) => String(o.value ?? "").trim() === (fireAlarmLastServiceValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {fireAlarmLastServiceOptions.length === 0 && !loadingFireAlarmOptions ? (
@@ -2416,7 +2466,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select Extinguisher</Label>
                     <Select value={extinguisherValue} onValueChange={setExtinguisherValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select extinguisher"} />
+                        <SelectValue
+                          placeholder={loadingExtinguisherOptions ? "Loading..." : "Select extinguisher"}
+                          label={String(
+                            extinguisherOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (extinguisherValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {extinguisherOptions.length === 0 && !loadingExtinguisherOptions ? (
@@ -2478,7 +2535,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium whitespace-nowrap">Select Floor</Label>
                     <Select value={extinguisherFloorValue} onValueChange={setExtinguisherFloorValue}>
                       <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select floor"} />
+                        <SelectValue
+                          placeholder={loadingExtinguisherOptions ? "Loading..." : "Select floor"}
+                          label={String(
+                            extinguisherFloorOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (extinguisherFloorValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {extinguisherFloorOptions.length === 0 && !loadingExtinguisherOptions ? (
@@ -2540,7 +2604,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium whitespace-nowrap">Select Extinguisher Type</Label>
                     <Select value={extinguisherTypeValue} onValueChange={setExtinguisherTypeValue}>
                       <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select extinguisher type"} />
+                        <SelectValue
+                          placeholder={loadingExtinguisherOptions ? "Loading..." : "Select extinguisher type"}
+                          label={String(
+                            extinguisherTypeOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (extinguisherTypeValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {extinguisherTypeOptions.length === 0 && !loadingExtinguisherOptions ? (
@@ -2602,7 +2673,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select Last Service</Label>
                     <Select value={extinguisherLastServiceValue} onValueChange={setExtinguisherLastServiceValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Select last service"} />
+                        <SelectValue
+                          placeholder={loadingExtinguisherOptions ? "Loading..." : "Select last service"}
+                          label={String(
+                            extinguisherLastServiceOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (extinguisherLastServiceValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {extinguisherLastServiceOptions.length === 0 && !loadingExtinguisherOptions ? (
@@ -2847,7 +2925,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select Emergency light</Label>
                     <Select value={emergencyLightValue} onValueChange={setEmergencyLightValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select Emergency light"} />
+                        <SelectValue
+                          placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select Emergency light"}
+                          label={String(
+                            emergencyLightOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (emergencyLightValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {emergencyLightOptions.length === 0 && !loadingEmergencyLightOptions ? (
@@ -2892,7 +2977,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium whitespace-nowrap">Select Emergency light floor</Label>
                     <Select value={emergencyLightFloorValue} onValueChange={setEmergencyLightFloorValue}>
                       <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select floor"} />
+                        <SelectValue
+                          placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select floor"}
+                          label={String(
+                            emergencyLightFloorOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (emergencyLightFloorValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {emergencyLightFloorOptions.length === 0 && !loadingEmergencyLightOptions ? (
@@ -2937,7 +3029,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium whitespace-nowrap">Select Emergency light type</Label>
                     <Select value={emergencyLightTypeValue} onValueChange={setEmergencyLightTypeValue}>
                       <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select type"} />
+                        <SelectValue
+                          placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select type"}
+                          label={String(
+                            emergencyLightTypeOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (emergencyLightTypeValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {emergencyLightTypeOptions.length === 0 && !loadingEmergencyLightOptions ? (
@@ -2999,7 +3098,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select Emergency light test</Label>
                     <Select value={emergencyLightTestValue} onValueChange={setEmergencyLightTestValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select test"} />
+                        <SelectValue
+                          placeholder={loadingEmergencyLightOptions ? "Loading..." : "Select test"}
+                          label={String(
+                            emergencyLightTestOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (emergencyLightTestValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {emergencyLightTestOptions.length === 0 && !loadingEmergencyLightOptions ? (
@@ -3240,7 +3346,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select People</Label>
                     <Select value={trainingPeopleValue} onValueChange={setTrainingPeopleValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select People"} />
+                        <SelectValue
+                          placeholder={loadingTrainingOptions ? "Loading..." : "Select People"}
+                          label={String(
+                            trainingPeopleOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingPeopleValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {trainingPeopleOptions.length === 0 && !loadingTrainingOptions ? (
@@ -3301,7 +3414,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium whitespace-nowrap">Select Place</Label>
                     <Select value={trainingPlaceValue} onValueChange={setTrainingPlaceValue}>
                       <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Place"} />
+                        <SelectValue
+                          placeholder={loadingTrainingOptions ? "Loading..." : "Select Place"}
+                          label={String(
+                            trainingPlaceOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingPlaceValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {trainingPlaceOptions.length === 0 && !loadingTrainingOptions ? (
@@ -3361,7 +3481,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium whitespace-nowrap">Select Training On</Label>
                     <Select value={trainingTrainingValue} onValueChange={setTrainingTrainingValue}>
                       <SelectTrigger className="w-full min-w-0 h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Training"} />
+                        <SelectValue
+                          placeholder={loadingTrainingOptions ? "Loading..." : "Select Training"}
+                          label={String(
+                            trainingTrainingOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingTrainingValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {trainingTrainingOptions.length === 0 && !loadingTrainingOptions ? (
@@ -3421,7 +3548,14 @@ export function ProfessionalPricingContent() {
                     <Label className="text-gray-700 font-medium">Select Experience</Label>
                     <Select value={trainingExperienceValue} onValueChange={setTrainingExperienceValue}>
                       <SelectTrigger className="w-full h-12 text-base border-gray-200 focus:border-red-500 focus:ring-red-500">
-                        <SelectValue placeholder={loadingTrainingOptions ? "Loading..." : "Select Experience"} />
+                        <SelectValue
+                          placeholder={loadingTrainingOptions ? "Loading..." : "Select Experience"}
+                          label={String(
+                            trainingExperienceOptions.find(
+                              (o) => (String(o.value ?? "").trim() || String(o.id)) === (trainingExperienceValue ?? "").trim()
+                            )?.value ?? ""
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {trainingExperienceOptions.length === 0 && !loadingTrainingOptions ? (

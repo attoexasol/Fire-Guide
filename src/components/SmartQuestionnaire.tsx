@@ -1571,7 +1571,16 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("extinguisherTypeId", value)}
                   >
                     <SelectTrigger id="extinguisherTypeId" className="w-full" disabled={loadingExtinguisherOptions}>
-                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose (optional)"} />
+                      <SelectValue
+                        placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose (optional)"}
+                        label={
+                          formData.extinguisherTypeId === "__skip__"
+                            ? "Skip / Not sure"
+                            : formData.extinguisherTypeId
+                              ? (extinguisherTypeOptions.find((o) => String(o.id) === formData.extinguisherTypeId)?.value ?? "")
+                              : ""
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip / Not sure</SelectItem>
@@ -1600,7 +1609,16 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("extinguisherLastServiced", value)}
                   >
                     <SelectTrigger id="extinguisherLastServiced" className="w-full" disabled={loadingExtinguisherOptions}>
-                      <SelectValue placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose (optional)"} />
+                      <SelectValue
+                        placeholder={loadingExtinguisherOptions ? "Loading..." : "Choose (optional)"}
+                        label={
+                          formData.extinguisherLastServiced === "__skip__"
+                            ? "Skip (optional)"
+                            : formData.extinguisherLastServiced
+                              ? (extinguisherLastServiceOptions.find((o) => String(o.id) === formData.extinguisherLastServiced)?.value ?? "")
+                              : ""
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>
@@ -1919,7 +1937,14 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("alarmSystemType", value)}
                   >
                     <SelectTrigger id="alarmSystemType" className="w-full" disabled={loadingFireAlarmOptions}>
-                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose alarm system type"} />
+                      <SelectValue
+                        placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose alarm system type"}
+                        label={
+                          formData.alarmSystemType
+                            ? (fireAlarmSystemTypeOptions.find((o) => String(o.id) === formData.alarmSystemType)?.value ?? "")
+                            : ""
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {fireAlarmSystemTypeOptions.map((opt) => (
@@ -1947,7 +1972,16 @@ export function SmartQuestionnaire({ service, serviceId, serviceName, onComplete
                     onValueChange={(value) => updateFormData("lastServiced", value)}
                   >
                     <SelectTrigger id="lastServiced" className="w-full" disabled={loadingFireAlarmOptions}>
-                      <SelectValue placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose (optional)"} />
+                      <SelectValue
+                        placeholder={loadingFireAlarmOptions ? "Loading..." : "Choose (optional)"}
+                        label={
+                          formData.lastServiced === "__skip__"
+                            ? "Skip (optional)"
+                            : formData.lastServiced
+                              ? (fireAlarmLastServiceOptions.find((o) => String(o.id) === formData.lastServiced)?.value ?? "")
+                              : ""
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__skip__">Skip (optional)</SelectItem>

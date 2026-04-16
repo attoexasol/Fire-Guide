@@ -2,14 +2,26 @@ import React, { useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ProfessionalProfile } from "../ProfessionalProfile";
+import { createBookingSelectedSession } from "../../lib/createBookingSelectedSession";
+import { toast } from "sonner";
 
 const SELECTED_PROFESSIONAL_KEY = 'fireguide_selected_professional';
 const SELECTED_PROFESSIONAL_ID_KEY = 'fireguide_selected_professional_id';
+const BOOKING_SERVICE_ID_KEY = 'fireguide_booking_service_id';
+const BOOKING_SESSION_ID_KEY = 'fireguide_booking_session_id';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedProfessional, setSelectedProfessional, setBookingProfessional, setSelectedProfessionalId } = useApp();
+  const {
+    selectedProfessional,
+    setSelectedProfessional,
+    setBookingProfessional,
+    setSelectedProfessionalId,
+    locationSearchData,
+    selectedServiceId,
+    questionnaireData,
+  } = useApp();
   const { professionalId } = useParams<{ professionalId: string }>();
 
   // Restore professional data from sessionStorage or location state on mount/reload
@@ -57,16 +69,63 @@ export default function ProfilePage() {
     <ProfessionalProfile
       professional={resolvedProfessional}
       professionalIdFromUrl={professionalIdNum ?? undefined}
-      onBook={() => {
+      onBook={async () => {
         const id = professionalIdNum ?? resolvedProfessional?.id ?? resolvedProfessional?.professional_id ?? null;
         if (resolvedProfessional) {
           setBookingProfessional(resolvedProfessional);
           setSelectedProfessionalId(id ?? undefined);
         }
+        // Same sources as Comparison "Book now" — profile previously omitted serviceId, so payment step failed while summary still showed a label.
+        const qSid = questionnaireData?.service_id;
+        const rawServiceId =
+          locationSearchData?.service_id ??
+          selectedServiceId ??
+          (typeof qSid === "number" ? qSid : qSid != null ? Number(qSid) : null);
+        const serviceIdNum =
+          rawServiceId != null && !Number.isNaN(Number(rawServiceId)) ? Number(rawServiceId) : undefined;
+        if (serviceIdNum != null) {
+          try {
+            sessionStorage.setItem(BOOKING_SERVICE_ID_KEY, String(serviceIdNum));
+          } catch (_) {}
+        }
+
+        let sessionIdForBooking: number | undefined;
+        if (
+          id != null &&
+          serviceIdNum != null &&
+          questionnaireData &&
+          locationSearchData
+        ) {
+          const created = await createBookingSelectedSession({
+            professionalId: Number(id),
+            serviceId: serviceIdNum,
+            questionnaireData: questionnaireData as Record<string, unknown>,
+            locationSearchData,
+          });
+          if (created.error) {
+            toast.error(created.error);
+            return;
+          }
+          sessionIdForBooking = created.sessionId;
+        }
+        if (serviceIdNum != null && sessionIdForBooking == null) {
+          toast.error(
+            "Could not start your booking session. Please use Compare Professionals and click Book, or complete the service questionnaire first."
+          );
+          return;
+        }
+        if (sessionIdForBooking != null) {
+          try {
+            sessionStorage.setItem(BOOKING_SESSION_ID_KEY, String(sessionIdForBooking));
+          } catch (_) {}
+        }
+
         navigate("/booking", {
           state: {
             professional: resolvedProfessional,
             professionalId: id ?? undefined,
+            ...(serviceIdNum != null ? { serviceId: serviceIdNum } : {}),
+            ...(sessionIdForBooking != null ? { sessionId: sessionIdForBooking } : {}),
           },
         });
       }}

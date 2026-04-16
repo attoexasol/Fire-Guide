@@ -45,7 +45,7 @@ export function InteractiveCalculator({ onGetQuote }: InteractiveCalculatorProps
   const estimate = calculateEstimate();
 
   return (
-    <section className="py-24 px-6 bg-gradient-to-br from-gray-50 to-white">
+    <section id="instant-price-calculator" className="py-24 px-6 bg-gradient-to-br from-gray-50 to-white">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-8">

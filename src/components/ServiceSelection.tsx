@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { ClipboardCheck, Flame, Bell, DoorOpen, GraduationCap, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Header } from "./Header";
 import { fetchServices, ServiceResponse } from "../api/servicesService";
+import { getLucideIconForService } from "../lib/serviceIcons";
 
 interface ServiceSelectionProps {
   onSelectService: (serviceId: string, serviceName?: string) => void;
@@ -45,17 +46,6 @@ export function ServiceSelection({
     "Fire Alarm Service": "Installation, inspection, testing, and maintenance of fire alarm systems to confirm they operate as intended and provide effective warning.",
     "Fire Extinguisher Service": "Supply, inspection, and maintenance of fire extinguishers appropriate to the risks and layout of your premises.",
     "Emergency Lighting Test": "Inspection and testing of emergency lighting systems to support visibility of escape routes in the event of power failure.",
-  };
-
-  // Map service types to icons (fallback icons)
-  const getIconForService = (type: string | undefined) => {
-    const typeUpper = type?.toUpperCase() || "";
-    if (typeUpper.includes("DELIVERY")) return Flame;
-    if (typeUpper.includes("ASSESSMENT")) return ClipboardCheck;
-    if (typeUpper.includes("ALARM")) return Bell;
-    if (typeUpper.includes("DOOR")) return DoorOpen;
-    if (typeUpper.includes("TRAINING")) return GraduationCap;
-    return ClipboardCheck; // Default icon
   };
 
   useEffect(() => {
@@ -117,8 +107,7 @@ export function ServiceSelection({
         onNavigateToDashboard={onNavigateToDashboard}
       />
 
-      {/* Main Content - Added pt-8 for spacing after header */}
-      <main className="py-12 px-4 md:px-6 pt-8">
+      <main className="py-12 px-4 md:px-6 pt-28">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="mb-4">
@@ -157,7 +146,7 @@ export function ServiceSelection({
           ) : (
             <div className="grid md:grid-cols-2 gap-6 mb-12">
               {services.map((service) => {
-                const ServiceIcon = getIconForService(service.type);
+                const ServiceIcon = getLucideIconForService(service.service_name, service.type);
                 const serviceId = service.id.toString();
                 return (
                   <Card

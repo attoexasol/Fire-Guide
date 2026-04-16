@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { handleTokenExpired, isTokenExpiredError } from '../lib/auth';
 import { resolveApiBaseUrl } from '../lib/apiBaseUrl';
+import { tryResolveProfessionalBasePriceFromRegistry } from './professionalServiceBasePricesService';
 
 // TypeScript types for API response
 export interface ServiceResponse {
@@ -403,7 +404,7 @@ export const saveFraDurationPrice = async (
 };
 
 // Create axios instance with base configuration
-// Uses VITE_API_BASE_URL when set; otherwise https://fireguide.attoexasolutions.com/api (see lib/apiBaseUrl.ts)
+// Uses VITE_API_BASE_URL when set; otherwise https://firesafety-backend.fireguide.co.uk/api (see lib/apiBaseUrl.ts)
 const apiClient = axios.create({
   baseURL: resolveApiBaseUrl(),
   headers: {
@@ -430,6 +431,60 @@ apiClient.interceptors.response.use(
 );
 
 /**
+ * Professional "get saved base price" endpoints sometimes return 401/403 (e.g. backend rules for new accounts).
+ * Rejecting aborts Promise.all in pricing tabs and spams console; return a stable failure payload instead.
+ */
+async function postProfessionalBasePriceReadSafe<T extends { status: boolean; message: string }>(
+  exec: () => Promise<{ data: T }>
+): Promise<T> {
+  try {
+    const res = await exec();
+    return res.data;
+  } catch (err: unknown) {
+    const response = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
+    const status = response?.status;
+    if (status === 401 || status === 403) {
+      const msg =
+        response?.data?.message != null ? String(response.data.message) : "Unable to load saved base price.";
+      return { status: false, message: msg } as T;
+    }
+    if (status === 404) {
+      const msg =
+        response?.data?.message != null ? String(response.data.message) : "Base price endpoint not found.";
+      return { status: false, message: msg } as T;
+    }
+    throw err;
+  }
+}
+
+/** Laravel often authenticates via `Authorization: Bearer`; keep `api_token` in JSON for APIs that read the body. */
+function authHeaders(apiToken: string) {
+  return { headers: { Authorization: `Bearer ${apiToken}` } };
+}
+
+/**
+ * Some modules expose `.../get-base-price` (same pattern as Fire Alarm); older builds used `.../base-price-get`.
+ * Try each path until one is not 404 so Postman and UI stay aligned with production routes.
+ */
+async function postProfessionalBasePriceGetBestEffort<T extends { status: boolean; message: string }>(
+  apiToken: string,
+  ...paths: [string, ...string[]]
+): Promise<{ data: T }> {
+  let lastErr: unknown;
+  for (const path of paths) {
+    try {
+      return await apiClient.post<T>(path, { api_token: apiToken }, authHeaders(apiToken));
+    } catch (e: unknown) {
+      lastErr = e;
+      const st = (e as { response?: { status?: number } })?.response?.status;
+      if (st === 404) continue;
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Fire Alarm: fetch options for dropdowns (detectors, call_points, floors, alarm_panels, system_type, last_service).
  * POST /fire-alarm/get-alarm  Body: { api_token?, type }
  * Response: { status: true, message: string, data: [{ id, type, value, ... }] } — "value" is shown in dropdowns.
@@ -440,10 +495,14 @@ export const fetchFireAlarmOptions = async (
   type: string
 ): Promise<FireAlarmOptionItem[]> => {
   try {
-    const response = await apiClient.post<FireAlarmGetAlarmResponse>('/fire-alarm/get-alarm', {
-      ...(apiToken != null && apiToken !== '' && { api_token: apiToken }),
-      type,
-    });
+    const response = await apiClient.post<FireAlarmGetAlarmResponse>(
+      '/fire-alarm/get-alarm',
+      {
+        ...(apiToken != null && apiToken !== '' && { api_token: apiToken }),
+        type,
+      },
+      apiToken != null && apiToken !== '' ? authHeaders(apiToken) : undefined
+    );
     const raw = response.data as FireAlarmGetAlarmResponse | { data?: unknown };
     const list = Array.isArray(raw?.data) ? raw.data : [];
     return list.map((item) => ({
@@ -475,7 +534,8 @@ export const fetchExtinguisherServiceOptions = async (
   try {
     const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
       '/fire-extinguisher-service/get-extinguisher-service',
-      { api_token: apiToken, type }
+      { api_token: apiToken, type },
+      authHeaders(apiToken)
     );
     const raw = response.data;
     const list = Array.isArray(raw?.data) ? raw.data : [];
@@ -534,13 +594,17 @@ export interface MarshalServiceOptionItem {
 }
 
 export const fetchMarshalOptions = async (
-  _apiToken: string,
+  apiToken: string,
   type: string
 ): Promise<MarshalServiceOptionItem[]> => {
   try {
     const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
       '/fire-marshal/get-marshal',
-      { type }
+      {
+        type,
+        ...(apiToken != null && apiToken !== '' && { api_token: apiToken }),
+      },
+      apiToken != null && apiToken !== '' ? authHeaders(apiToken) : undefined
     );
     const raw = response.data;
     const list = Array.isArray(raw?.data) ? raw.data : [];
@@ -571,7 +635,8 @@ export const fetchFireConsultationOptions = async (
   try {
     const response = await apiClient.post<{ status?: boolean; data?: Array<{ id: number; value?: string; type?: string }> }>(
       '/fire-consultation/get-consultation',
-      { api_token: apiToken, type }
+      { api_token: apiToken, type },
+      authHeaders(apiToken)
     );
     const raw = response.data;
     const list = Array.isArray(raw?.data) ? raw.data : [];
@@ -627,16 +692,25 @@ export interface ProfessionalConsultationBasePriceGetResponse {
 
 /**
  * Get professional Consultation base price.
- * POST /professional-consultation/base-price-get  Body: { api_token }
+ * POST /professional-consultation/get-base-price or /professional-consultation/base-price-get  Body: { api_token }
  */
 export const getProfessionalConsultationBasePrice = async (
   apiToken: string
 ): Promise<ProfessionalConsultationBasePriceGetResponse> => {
-  const response = await apiClient.post<ProfessionalConsultationBasePriceGetResponse>(
-    '/professional-consultation/base-price-get',
-    { api_token: apiToken }
+  const reg = await tryResolveProfessionalBasePriceFromRegistry(
+    apiToken,
+    /consultation|fire safety consult/i
   );
-  return response.data;
+  if (reg?.status && reg.data) {
+    return reg as ProfessionalConsultationBasePriceGetResponse;
+  }
+  return postProfessionalBasePriceReadSafe(() =>
+    postProfessionalBasePriceGetBestEffort<ProfessionalConsultationBasePriceGetResponse>(
+      apiToken,
+      '/professional-consultation/get-base-price',
+      '/professional-consultation/base-price-get'
+    )
+  );
 };
 
 /** Response for POST /professional-consultation/mode-price-create */
@@ -755,16 +829,22 @@ export interface ProfessionalExtinguisherBasePriceGetResponse {
 
 /**
  * Get professional Extinguisher base price.
- * POST /professional-extinguisher/base-price-get  Body: { api_token }
+ * POST /professional-extinguisher/get-base-price or /professional-extinguisher/base-price-get  Body: { api_token }
  */
 export const getProfessionalExtinguisherBasePrice = async (
   apiToken: string
 ): Promise<ProfessionalExtinguisherBasePriceGetResponse> => {
-  const response = await apiClient.post<ProfessionalExtinguisherBasePriceGetResponse>(
-    '/professional-extinguisher/base-price-get',
-    { api_token: apiToken }
+  const reg = await tryResolveProfessionalBasePriceFromRegistry(apiToken, /extinguisher/i);
+  if (reg?.status && reg.data) {
+    return reg as ProfessionalExtinguisherBasePriceGetResponse;
+  }
+  return postProfessionalBasePriceReadSafe(() =>
+    postProfessionalBasePriceGetBestEffort<ProfessionalExtinguisherBasePriceGetResponse>(
+      apiToken,
+      '/professional-extinguisher/get-base-price',
+      '/professional-extinguisher/base-price-get'
+    )
   );
-  return response.data;
 };
 
 /**
@@ -825,16 +905,25 @@ export interface ProfessionalMarshalBasePriceGetResponse {
 
 /**
  * Get professional Marshal (Training) base price.
- * POST /professional-marshal/base-price-get  Body: { api_token }
+ * POST /professional-marshal/get-base-price or /professional-marshal/base-price-get  Body: { api_token }
  */
 export const getProfessionalMarshalBasePrice = async (
   apiToken: string
 ): Promise<ProfessionalMarshalBasePriceGetResponse> => {
-  const response = await apiClient.post<ProfessionalMarshalBasePriceGetResponse>(
-    '/professional-marshal/base-price-get',
-    { api_token: apiToken }
+  const reg = await tryResolveProfessionalBasePriceFromRegistry(
+    apiToken,
+    /marshal|warden|fire marshal/i
   );
-  return response.data;
+  if (reg?.status && reg.data) {
+    return reg as ProfessionalMarshalBasePriceGetResponse;
+  }
+  return postProfessionalBasePriceReadSafe(() =>
+    postProfessionalBasePriceGetBestEffort<ProfessionalMarshalBasePriceGetResponse>(
+      apiToken,
+      '/professional-marshal/get-base-price',
+      '/professional-marshal/base-price-get'
+    )
+  );
 };
 
 /** Response for POST /professional-marshal/people-price-create */
@@ -1038,16 +1127,25 @@ export interface ProfessionalEmergencyLightBasePriceGetResponse {
 
 /**
  * Get professional Emergency Light base price.
- * POST /professional-emergency-light/base-price-get  Body: { api_token }
+ * POST /professional-emergency-light/get-base-price or /professional-emergency-light/base-price-get  Body: { api_token }
  */
 export const getProfessionalEmergencyLightBasePrice = async (
   apiToken: string
 ): Promise<ProfessionalEmergencyLightBasePriceGetResponse> => {
-  const response = await apiClient.post<ProfessionalEmergencyLightBasePriceGetResponse>(
-    '/professional-emergency-light/base-price-get',
-    { api_token: apiToken }
+  const reg = await tryResolveProfessionalBasePriceFromRegistry(
+    apiToken,
+    /emergency\s*light|emergency lighting|lighting\s*test/i
   );
-  return response.data;
+  if (reg?.status && reg.data) {
+    return reg as ProfessionalEmergencyLightBasePriceGetResponse;
+  }
+  return postProfessionalBasePriceReadSafe(() =>
+    postProfessionalBasePriceGetBestEffort<ProfessionalEmergencyLightBasePriceGetResponse>(
+      apiToken,
+      '/professional-emergency-light/get-base-price',
+      '/professional-emergency-light/base-price-get'
+    )
+  );
 };
 
 /** Response for POST /professional-emergency-light/price-create */
@@ -1394,7 +1492,8 @@ export const saveProfessionalFireAlarmBasePrice = async (
 ): Promise<ProfessionalFireAlarmBasePriceResponse> => {
   const response = await apiClient.post<ProfessionalFireAlarmBasePriceResponse>(
     '/professional-fire-alarm-base-price',
-    { api_token: apiToken, price }
+    { api_token: apiToken, price },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1419,11 +1518,13 @@ export interface GetProfessionalFireAlarmBasePriceResponse {
 export const getProfessionalFireAlarmBasePrice = async (
   apiToken: string
 ): Promise<GetProfessionalFireAlarmBasePriceResponse> => {
-  const response = await apiClient.post<GetProfessionalFireAlarmBasePriceResponse>(
-    '/professional-fire-alarm/get-base-price',
-    { api_token: apiToken }
+  return postProfessionalBasePriceReadSafe(() =>
+    apiClient.post<GetProfessionalFireAlarmBasePriceResponse>(
+      '/professional-fire-alarm/get-base-price',
+      { api_token: apiToken },
+      authHeaders(apiToken)
+    )
   );
-  return response.data;
 };
 
 /** Request body for POST /professional-fire-alarm/get-single/prices */
@@ -1463,7 +1564,8 @@ export const getProfessionalFireAlarmSinglePrices = async (
 ): Promise<GetProfessionalFireAlarmSinglePricesResponse> => {
   const response = await apiClient.post<GetProfessionalFireAlarmSinglePricesResponse>(
     '/professional-fire-alarm/get-single/prices',
-    { api_token: apiToken, ...ids }
+    { api_token: apiToken, ...ids },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1499,7 +1601,8 @@ export const createProfessionalFireAlarmSmokeDetectorPrice = async (
       smoke_detectors_id,
       type: 'ditectors',
       price,
-    }
+    },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1535,7 +1638,8 @@ export const createProfessionalFireAlarmCallPointPrice = async (
       call_point_id,
       type: 'call_points',
       price,
-    }
+    },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1571,7 +1675,8 @@ export const createProfessionalFireAlarmFloorPrice = async (
       floor_id,
       type: 'floors',
       price,
-    }
+    },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1607,7 +1712,8 @@ export const createProfessionalFireAlarmPanelPrice = async (
       panel_id,
       type: 'alarm_panels',
       price,
-    }
+    },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1643,7 +1749,8 @@ export const createProfessionalFireAlarmSystemTypePrice = async (
       system_type_id,
       type: 'system_type',
       price,
-    }
+    },
+    authHeaders(apiToken)
   );
   return response.data;
 };
@@ -1679,10 +1786,58 @@ export const createProfessionalFireAlarmLastServicePrice = async (
       last_service_id,
       type: 'last_service',
       price,
-    }
+    },
+    authHeaders(apiToken)
   );
   return response.data;
 };
+
+/** Normalize GET /services (and variants) to a flat list for dropdowns. */
+function extractServicesFromApiPayload(root: unknown): ServiceResponse[] | null {
+  if (Array.isArray(root)) {
+    return root as ServiceResponse[];
+  }
+  if (root == null || typeof root !== 'object') {
+    return null;
+  }
+  const payload = root as Record<string, unknown>;
+  const raw = payload.data;
+
+  if (Array.isArray(raw)) {
+    return raw as ServiceResponse[];
+  }
+
+  // Laravel paginator: { data: { data: [...], current_page, ... } }
+  if (raw != null && typeof raw === 'object' && 'data' in raw && Array.isArray((raw as ServicesPaginatedResponse).data)) {
+    return (raw as ServicesPaginatedResponse).data;
+  }
+
+  // Alternate wrappers
+  if (Array.isArray(payload.services)) {
+    return payload.services as ServiceResponse[];
+  }
+
+  if (
+    raw != null &&
+    typeof raw === 'object' &&
+    raw !== null &&
+    'id' in raw &&
+    (raw as { service_name?: string }).service_name != null
+  ) {
+    return [raw as unknown as ServiceResponse];
+  }
+
+  const ok =
+    payload.status === 'success' ||
+    payload.status === true ||
+    payload.status === 'true' ||
+    (payload as { success?: boolean }).success === true;
+  if (ok && raw != null && typeof raw === 'object' && 'data' in raw && Array.isArray((raw as ServicesPaginatedResponse).data)) {
+    return (raw as ServicesPaginatedResponse).data;
+  }
+
+  return null;
+}
 
 /**
  * Fetch all services
@@ -1690,31 +1845,10 @@ export const createProfessionalFireAlarmLastServicePrice = async (
  */
 export const fetchServices = async (): Promise<ServiceResponse[]> => {
   try {
-    const response = await apiClient.get<ServicesApiResponse>('/services');
-    const payload = response.data;
-    const raw = payload.data;
-
-    // GET /services often returns { data: [...] } with or without status: "success"
-    if (Array.isArray(raw)) {
-      return raw as ServiceResponse[];
-    }
-
-    const ok =
-      payload.status === 'success' ||
-      payload.status === true ||
-      payload.status === 'true';
-    if (ok && raw != null) {
-      if (typeof raw === 'object' && 'data' in raw && Array.isArray((raw as ServicesPaginatedResponse).data)) {
-        return (raw as ServicesPaginatedResponse).data;
-      }
-      if (
-        typeof raw === 'object' &&
-        raw !== null &&
-        'id' in raw &&
-        (raw as { service_name?: string }).service_name != null
-      ) {
-        return [raw as unknown as ServiceResponse];
-      }
+    const response = await apiClient.get<unknown>('/services');
+    const extracted = extractServicesFromApiPayload(response.data);
+    if (extracted != null) {
+      return extracted;
     }
 
     console.warn('Unexpected services API response structure:', response.data);

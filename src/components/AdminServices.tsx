@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { Flame, ClipboardCheck, Bell, DoorOpen, Lightbulb, Plus, Edit, Save, X, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Edit, Save, X, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -22,25 +22,24 @@ import {
   DeleteServiceRequest
 } from "../api/servicesService";
 import { getApiToken } from "../lib/auth";
+import { getLucideIconForService } from "../lib/serviceIcons";
 
-// Default icons for services
-const defaultIcons = [ClipboardCheck, Flame, Lightbulb, Bell, DoorOpen];
 const colorOptions = ["red", "blue", "orange", "green", "purple"];
 
 // Map API service response to Service type
 const mapApiServiceToService = (apiService: ServiceResponse, index: number): Service => {
   const isActive = apiService.status?.toUpperCase() === "ACTIVE";
   const formattedPrice = formatServiceFromPrice(apiService);
-  
-  const iconIndex = index % defaultIcons.length;
-  const iconComponent = defaultIcons[iconIndex];
-  
+
+  const serviceName = apiService.service_name || "Service";
+  const iconComponent = getLucideIconForService(serviceName, apiService.type);
+
   const colorIndex = index % colorOptions.length;
   const color = colorOptions[colorIndex] as "red" | "blue" | "orange" | "green" | "purple";
 
   return {
     id: apiService.id,
-    name: apiService.service_name || "Service",
+    name: serviceName,
     icon: apiService.icon || undefined,
     iconComponent: iconComponent,
     description: apiService.description || "No description available",

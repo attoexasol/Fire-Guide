@@ -10,7 +10,8 @@ import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole, set
 import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 interface ProfessionalAuthProps {
-  onAuthSuccess: (name: string) => void;
+  /** `isNewProfessionalSignup` is true after first-time registration + OTP (not returning login). */
+  onAuthSuccess: (name: string, options?: { isNewProfessionalSignup?: boolean }) => void;
   onBack: () => void;
   onNavigateHome: () => void;
   onNavigateServices: () => void;
@@ -91,6 +92,7 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
     setIsLoading(true);
     setTimeout(() => {
       toast.success("Registration successful! Verify your email to continue.");
+      setIsSignUp(true);
       setStep("otp");
       setTimer(60);
       setIsLoading(false);
@@ -204,8 +206,8 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
             toast.success("Welcome back!");
           }
           
-          // Call onAuthSuccess which will navigate to dashboard
-          onAuthSuccess(fullName);
+          // Call onAuthSuccess which will navigate to dashboard (or profile for new signups)
+          onAuthSuccess(fullName, { isNewProfessionalSignup: isSignUp });
         } else {
           // OTP verified but no token returned - still proceed
           const fullName = 
@@ -237,7 +239,7 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
             toast.success("Welcome back!");
           }
           
-          onAuthSuccess(fullName);
+          onAuthSuccess(fullName, { isNewProfessionalSignup: isSignUp });
         }
       } else {
         toast.error(response.message || response.error || "Invalid OTP. Please try again.");
@@ -313,30 +315,30 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
       {/* Content */}
       <div className="relative z-10 flex-1 flex flex-col">
         {/* Header - Exact Same Structure as Home Page */}
-        <header className="bg-transparent backdrop-blur-sm text-white py-4 px-6 sticky top-0 z-50">
+        <header className="bg-transparent backdrop-blur-sm text-white py-4 px-4 md:px-6 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
               <img src={logoImage} alt="Fire Guide" className="h-12" />
             </Link>
             
-            <nav className="hidden md:flex items-center gap-8">
-              <button onClick={onNavigateHome} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+            <nav className="hidden md:flex items-center gap-8 text-lg">
+              <button type="button" onClick={onNavigateHome} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 Home
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
-              <button onClick={onNavigateServices} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateServices} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 Services
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
-              <button onClick={onNavigateProfessionals} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateProfessionals} className="relative py-2 text-red-400 transition-colors group cursor-pointer">
                 For Professionals
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
+                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
               </button>
-              <button onClick={onNavigateAbout} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateAbout} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 About
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
-              <button onClick={onNavigateContact} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateContact} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 Contact
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
@@ -346,14 +348,15 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
               <Button 
                 variant="ghost" 
                 onClick={onBack}
-                className="text-white hover:text-red-600 hover:bg-transparent transition-colors cursor-pointer group relative"
+                className="text-lg text-white hover:text-red-600 hover:bg-transparent cursor-pointer h-auto py-2 group relative"
               >
-                <User className="w-4 h-4 mr-2" />
+                <User className="w-5 h-5 mr-2 shrink-0" />
                 Login/Register
               </Button>
             </div>
 
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden"
             >
@@ -364,32 +367,37 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
           {/* Mobile Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden bg-white/5 backdrop-blur-md border-t border-white/10 mt-4 py-6">
-              <nav className="flex flex-col gap-1 px-6">
+              <nav className="flex flex-col gap-1 px-4 md:px-6 text-lg">
                 <button 
+                  type="button"
                   onClick={onNavigateHome} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
                   Home
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateServices} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
                   Services
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateProfessionals}
                   className="text-left py-3 px-4 rounded-lg bg-white/10 text-red-400 cursor-pointer"
                 >
                   For Professionals
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateAbout} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
                   About
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateContact} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
@@ -399,9 +407,9 @@ export function ProfessionalAuth({ onAuthSuccess, onBack, onNavigateHome, onNavi
                   <Button 
                     variant="ghost" 
                     onClick={onBack}
-                    className="w-full text-white hover:text-red-400 hover:bg-white/10 justify-start py-3 px-4 h-auto cursor-pointer transition-all"
+                    className="w-full text-lg text-white hover:text-red-400 hover:bg-white/10 justify-start py-3 px-4 h-auto cursor-pointer transition-all"
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-5 h-5 mr-2 shrink-0" />
                     Login/Register
                   </Button>
                 </div>

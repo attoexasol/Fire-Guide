@@ -23,6 +23,8 @@ import { storeCustomQuoteRequest } from "../api/customQuoteRequestsService";
 import { toast } from "sonner";
 import { getApiToken } from "../lib/auth";
 
+const BOOKING_SESSION_ID_KEY = "fireguide_booking_session_id";
+
 interface CustomerDetailsFormProps {
   service: BookingData["service"];
   professional: BookingData["professional"];
@@ -139,6 +141,31 @@ export function CustomerDetailsForm({
       return;
     }
 
+    const storedSessionRaw = (() => {
+      try {
+        return sessionStorage.getItem(BOOKING_SESSION_ID_KEY);
+      } catch {
+        return null;
+      }
+    })();
+    const storedSessionId =
+      storedSessionRaw != null && storedSessionRaw !== ""
+        ? parseInt(storedSessionRaw, 10)
+        : undefined;
+    const effectiveSessionId =
+      sessionId != null && !Number.isNaN(Number(sessionId))
+        ? Number(sessionId)
+        : storedSessionId != null && !Number.isNaN(storedSessionId)
+          ? storedSessionId
+          : undefined;
+
+    if (effectiveSessionId == null || Number.isNaN(effectiveSessionId)) {
+      toast.error(
+        "Your booking session is missing. Please go back to Compare Professionals and click Book again, or refresh this page."
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     const CUSTOM_QUOTE_REQUEST_ID_KEY = "fireguide_custom_quote_request_id";
@@ -201,9 +228,7 @@ export function CustomerDetailsForm({
       if (token) {
         bookingPayload.api_token = token;
       }
-      if (sessionId != null) {
-        bookingPayload.session_id = sessionId;
-      }
+      bookingPayload.session_id = effectiveSessionId;
       if (isCustomQuoteWithId && customQuoteRequestId != null) {
         bookingPayload.custom_quote_request_id = customQuoteRequestId;
         bookingPayload.custom_quote_id = customQuoteRequestId;

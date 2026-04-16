@@ -1,11 +1,14 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { BookingFlow } from "../BookingFlow";
+import { createBookingSelectedSession } from "../../lib/createBookingSelectedSession";
 
 const BOOKING_PROFESSIONAL_KEY = 'fireguide_booking_professional';
 const BOOKING_PROFESSIONAL_ID_KEY = 'fireguide_booking_professional_id';
 const BOOKING_SERVICE_ID_KEY = 'fireguide_booking_service_id';
+/** AppContext persists this when user picks a service — fallback if booking key was never set (e.g. older profile → book navigation). */
+const SELECTED_SERVICE_ID_KEY = 'fireguide_selected_service_id';
 const BOOKING_SESSION_ID_KEY = 'fireguide_booking_session_id';
 const BOOKING_PRICING_KEY = 'fireguide_booking_pricing';
 const BOOKING_PRICING_ERROR_KEY = 'fireguide_booking_pricing_error';
@@ -29,11 +32,14 @@ export default function BookingPage() {
     selectedProfessionalId,
     bookingProfessional,
     questionnaireData: contextQuestionnaireData,
+    locationSearchData,
     setBookingData,
     setBookingProfessional,
     setSelectedProfessionalId,
   } = useApp();
   const questionnaireData = getQuestionnaireData(contextQuestionnaireData);
+  const [recoveredSessionId, setRecoveredSessionId] = useState<number | undefined>();
+  const sessionRecoveryAttempted = useRef(false);
 
   // Restore professional, service, and session data from sessionStorage or location state on mount/reload
   useEffect(() => {
@@ -123,21 +129,72 @@ export default function BookingPage() {
   })();
   const resolvedServiceId = locationState?.serviceId ?? (() => {
     try {
-      const stored = sessionStorage.getItem(BOOKING_SERVICE_ID_KEY);
-      return stored ? parseInt(stored, 10) : undefined;
+      const bookingStored = sessionStorage.getItem(BOOKING_SERVICE_ID_KEY);
+      if (bookingStored) {
+        const n = parseInt(bookingStored, 10);
+        return Number.isNaN(n) ? undefined : n;
+      }
+      const selectedStored = sessionStorage.getItem(SELECTED_SERVICE_ID_KEY);
+      if (selectedStored) {
+        const n = parseInt(selectedStored, 10);
+        return Number.isNaN(n) ? undefined : n;
+      }
+      return undefined;
     } catch {
       return undefined;
     }
   })();
 
-  const resolvedSessionId = locationState?.sessionId ?? (() => {
+  const storedSessionId = (() => {
     try {
       const stored = sessionStorage.getItem(BOOKING_SESSION_ID_KEY);
-      return stored ? parseInt(stored, 10) : undefined;
+      if (!stored) return undefined;
+      const n = parseInt(stored, 10);
+      return Number.isNaN(n) ? undefined : n;
     } catch {
       return undefined;
     }
   })();
+  const resolvedSessionId =
+    locationState?.sessionId ?? recoveredSessionId ?? storedSessionId;
+
+  useEffect(() => {
+    if (sessionRecoveryAttempted.current) return;
+    if (resolvedSessionId != null && !Number.isNaN(resolvedSessionId)) return;
+    if (resolvedProfessionalId == null || resolvedServiceId == undefined) return;
+    if (!questionnaireData || !locationSearchData) return;
+    const profId =
+      resolvedProfessional?.id ??
+      resolvedProfessional?.professional_id ??
+      resolvedProfessionalId;
+    if (profId == null || Number.isNaN(Number(profId))) return;
+
+    sessionRecoveryAttempted.current = true;
+    let cancelled = false;
+    void (async () => {
+      const created = await createBookingSelectedSession({
+        professionalId: Number(profId),
+        serviceId: resolvedServiceId,
+        questionnaireData: questionnaireData as Record<string, unknown>,
+        locationSearchData,
+      });
+      if (cancelled || created.sessionId == null) return;
+      try {
+        sessionStorage.setItem(BOOKING_SESSION_ID_KEY, String(created.sessionId));
+      } catch (_) {}
+      setRecoveredSessionId(created.sessionId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    resolvedSessionId,
+    resolvedProfessionalId,
+    resolvedServiceId,
+    questionnaireData,
+    locationSearchData,
+    resolvedProfessional,
+  ]);
 
   return (
     <BookingFlow

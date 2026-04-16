@@ -25,6 +25,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Alert, AlertDescription } from "./ui/alert";
 import { Checkbox } from "./ui/checkbox";
 import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
@@ -35,6 +36,10 @@ import { getApiToken, getProfessionalId, setProfessionalId, getUserEmail } from 
 import { createCertification } from "../api/qualificationsService";
 import { createProfessional, CreateProfessionalRequest, fetchProfessionals, ProfessionalResponse, getSelectedServices, getProfileCompletionPercentage, ProfileCompletionDetails, getCertificates, CertificateItem, getProfessionalExperiences, createProfessionalExperience, ExperienceItem } from "../api/professionalsService";
 import { toast } from "sonner";
+import {
+  readCompleteProfileReminderFlag,
+  clearCompleteProfileReminderFlag,
+} from "../lib/professionalProfileReminder";
 
 export function ProfessionalProfileContent() {
   const [formData, setFormData] = useState({
@@ -108,6 +113,16 @@ export function ProfessionalProfileContent() {
   // State for viewing experience details in modal
   const [isExperienceModalOpen, setIsExperienceModalOpen] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<ExperienceItem | null>(null);
+
+  const [showCompleteProfileReminder, setShowCompleteProfileReminder] = useState(readCompleteProfileReminderFlag);
+
+  useEffect(() => {
+    if (showCompleteProfileReminder) return;
+    const id = window.setTimeout(() => {
+      if (readCompleteProfileReminderFlag()) setShowCompleteProfileReminder(true);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [showCompleteProfileReminder]);
 
   // Load profile image from localStorage using email-based key for persistence
   // This allows the image to persist across logout/login for the same user
@@ -1230,6 +1245,34 @@ export function ProfessionalProfileContent() {
 
   return (
     <div>
+      {showCompleteProfileReminder && (
+        <Alert
+          role="alert"
+          className="mb-6 border-2 border-red-600 bg-red-50 shadow-md"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3 min-w-0">
+              <AlertCircle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" aria-hidden />
+              <AlertDescription className="m-0 text-base sm:text-lg font-semibold text-red-950 leading-snug">
+                Please complete your profile.
+              </AlertDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-red-300 bg-white hover:bg-red-100 text-red-900"
+              onClick={() => {
+                clearCompleteProfileReminderFlag();
+                setShowCompleteProfileReminder(false);
+              }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       {/* Page Header */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl text-[#0A1A2F] mb-2">

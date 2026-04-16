@@ -9,7 +9,6 @@ import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
 import { toast } from "sonner";
-import logoImage from "figma:asset/629703c093c2f72bf409676369fecdf03c462cd2.png";
 
 function professionalKey(item: AdminNoticePeriodItem): string {
   const p = item.professional;
@@ -149,40 +148,27 @@ export function AdminNoticePeriod() {
             return (
               <Card key={row.id}>
                 <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <div
-                      className="isolate flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-800 bg-black p-2"
-                      aria-hidden
-                    >
-                      {/* PNG often has opaque white baked in; filters make the mark read as light on black */}
-                      <img
-                        src={logoImage}
-                        alt=""
-                        className="h-full w-full object-contain object-center brightness-0 invert"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
-                        <div>
-                          <h3 className="text-xl text-[#0A1A2F] mb-2">{name}</h3>
-                          <div className="space-y-1 text-sm text-gray-600 mb-3">
-                            <p className="flex items-center gap-2 min-w-0">
-                              <Mail className="w-4 h-4 shrink-0" />
-                              <span className="truncate">{email}</span>
-                            </p>
-                          </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                      <div>
+                        <h3 className="text-xl text-[#0A1A2F] mb-2">{name}</h3>
+                        <div className="space-y-1 text-sm text-gray-600 mb-3">
+                          <p className="flex items-center gap-2 min-w-0">
+                            <Mail className="w-4 h-4 shrink-0" />
+                            <span className="truncate">{email}</span>
+                          </p>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="pt-4 border-t flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <CalendarDays className="w-5 h-5 text-red-600" />
-                          <div>
-                            <p className="text-xs text-gray-500">Notice period</p>
-                            <p className="text-lg font-semibold text-gray-900">
-                              {typeof days === "number" ? `${days} day${days === 1 ? "" : "s"}` : "—"}
-                            </p>
-                          </div>
+                    <div className="pt-4 border-t flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5 text-red-600" />
+                        <div>
+                          <p className="text-xs text-gray-500">Notice period</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {typeof days === "number" ? `${days} day${days === 1 ? "" : "s"}` : "—"}
+                          </p>
                         </div>
                       </div>
                     </div>

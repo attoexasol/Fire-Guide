@@ -13,7 +13,8 @@ import { setAuthToken, setUserEmail, setUserInfo, setUserPhone, setUserRole, set
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 
 interface CustomerAuthProps {
-  onAuthSuccess: (name: string) => void;
+  /** Pass `{ isNewProfessionalSignup: true }` when a new account was created with the Professional role. */
+  onAuthSuccess: (name: string, options?: { isNewProfessionalSignup?: boolean }) => void;
   onBack: () => void;
 }
 
@@ -83,16 +84,18 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           setUserEmail(signInEmail.trim().toLowerCase());
           // Store user info - extract first name from full_name
           const fullName = response.data?.full_name || response.data?.user_name || response.data?.name || "User";
-          setUserInfo(fullName, "customer"); // setUserInfo will extract first name and store full name
+          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
+          const roleRaw = response.data?.role || response.data?.data?.role || response.role;
+          const roleUpper = roleRaw ? String(roleRaw).toUpperCase() : "";
+          if (roleUpper) {
+            setUserRole(roleUpper);
+          }
+          const appRole =
+            roleUpper === "PROFESSIONAL" ? "professional" : roleUpper === "ADMIN" ? "admin" : "customer";
+          setUserInfo(fullName, appRole);
           // Store phone number if available in response
           if (response.data?.phone) {
             setUserPhone(response.data.phone);
-          }
-          // Store role from backend response - check multiple possible locations
-          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
-          const role = response.data?.role || response.data?.data?.role || response.role;
-          if (role) {
-            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
           }
           // Store professional_id if available in response (for PROFESSIONAL role)
           const professionalId = response.data?.professional?.id;
@@ -170,17 +173,17 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
           setUserEmail(signUpEmail.trim().toLowerCase());
           // Store user info - extract first name from full_name
           const fullName = response.data?.full_name || signUpName;
-          setUserInfo(fullName, "customer"); // setUserInfo will extract first name and store full name
+          // Store role from backend response, or the role chosen on the form
+          const role = response.data?.role || response.data?.data?.role || response.role || signUpRole;
+          const roleUpper = String(role ?? "USER").toUpperCase();
+          setUserRole(roleUpper);
+          const appRole =
+            roleUpper === "PROFESSIONAL" ? "professional" : roleUpper === "ADMIN" ? "admin" : "customer";
+          setUserInfo(fullName, appRole);
           // Store phone number from response or signup form
           const phone = response.data?.phone || signUpPhone;
           if (phone) {
             setUserPhone(phone);
-          }
-          // Store role from backend response - overwrites existing and removes legacy key
-          // API response structure: { status: "success", data: { role: "USER"|"PROFESSIONAL"|"ADMIN", ... } }
-          const role = response.data?.role || response.data?.data?.role || response.role || signUpRole;
-          if (role) {
-            setUserRole(role.toUpperCase()); // Ensure role is uppercase (USER, PROFESSIONAL, ADMIN)
           }
           // Store professional_id if available in response (for PROFESSIONAL role)
           const professionalId = response.data?.professional?.id;
@@ -198,7 +201,15 @@ export function CustomerAuth({ onAuthSuccess, onBack }: CustomerAuthProps) {
         toast.success("Account created successfully! Welcome to Fire Guide.");
         const fullName = response.data?.full_name || signUpName;
         const firstName = fullName.trim().split(' ')[0]; // Extract first name for callback
-        onAuthSuccess(firstName);
+        const registeredAsProfessional =
+          String(
+            response.data?.role ||
+              response.data?.data?.role ||
+              response.role ||
+              signUpRole ||
+              ""
+          ).toUpperCase() === "PROFESSIONAL";
+        onAuthSuccess(firstName, { isNewProfessionalSignup: registeredAsProfessional });
       } else {
         toast.error(response.message || response.error || "Registration failed. Please try again.");
       }

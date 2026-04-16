@@ -307,18 +307,39 @@ export const handleTokenExpired = (): void => {
  * @returns true if the error indicates token expiration
  */
 export const isTokenExpiredError = (error: any): boolean => {
-  if (error?.status === 401) return true;
-  if (error?.response?.status === 401) return true;
-  
-  // Check for common token expired messages
-  const message = (error?.message || error?.response?.data?.message || '').toLowerCase();
-  if (message.includes('token') && (message.includes('expired') || message.includes('invalid'))) {
+  const status = error?.response?.status ?? error?.status;
+  const data = error?.response?.data;
+  let dataMessage = "";
+  if (data != null && typeof data === "object") {
+    const o = data as { message?: unknown; error?: unknown };
+    if (o.message != null) dataMessage += String(o.message);
+    if (o.error != null) dataMessage += ` ${String(o.error)}`;
+  }
+  const combined = `${dataMessage} ${error?.message || ""}`.toLowerCase();
+
+  // Never treat bare 401 as "must log out" — some routes return 401 for business rules
+  // (e.g. new professional hitting a pricing endpoint) and wiping the session feels like a random logout.
+  if (status === 401) {
+    if (combined.includes("unauthenticated")) return true;
+    if (combined.includes("token") && (combined.includes("expired") || combined.includes("invalid"))) return true;
+    if (combined.includes("could not parse token")) return true;
+    if (combined.includes("invalid_token") || combined.includes("invalid grant")) return true;
+    if (combined.includes("jwt")) return true;
+    if (combined.includes("session") && combined.includes("expired")) return true;
+    return false;
+  }
+
+  if (combined.includes("token") && (combined.includes("expired") || combined.includes("invalid"))) {
     return true;
   }
-  if (message.includes('unauthenticated') || message.includes('unauthorized')) {
+  if (combined.includes("unauthenticated")) {
     return true;
   }
-  
+  // "Unauthorized" alone is too broad for global session teardown
+  if (combined.includes("unauthorized") && combined.includes("token")) {
+    return true;
+  }
+
   return false;
 };
 

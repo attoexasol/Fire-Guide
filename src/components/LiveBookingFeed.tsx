@@ -25,7 +25,10 @@ export function LiveBookingFeed() {
   }, []);
 
   return (
-    <section className="py-24 px-6 bg-[#0A1A2F] relative overflow-hidden">
+    <section
+      id="live-booking"
+      className="py-24 px-6 bg-[#0A1A2F] relative overflow-hidden scroll-mt-24 md:scroll-mt-28"
+    >
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <div 

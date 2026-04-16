@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
+import logoImage from "figma:asset/69744b74419586d01801e7417ef517136baf5cfb.png";
 
 export interface UserInfo {
   name: string;
@@ -55,23 +56,25 @@ export function Header({
     }
   };
 
+  const handleNavigateHome = () => {
+    setMobileMenuOpen(false);
+    onNavigateHome?.();
+  };
+
   return (
-    <header className="bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-4 md:px-6 sticky top-0 z-50 shadow-lg">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-4 md:px-6 shadow-lg">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link
           to="/"
-          className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity"
+          className="flex items-center cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => { if (window.location.pathname === "/") onNavigateHome?.(); }}
           aria-label="Go to home"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600" aria-hidden="true">
-            <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path>
-          </svg>
-          <span className="text-xl font-semibold text-[#0A1A2F]">Fire Guide</span>
+          <img src={logoImage} alt="Fire Guide" className="h-12" />
         </Link>
         
-        <nav className="hidden md:flex items-center gap-8">
-          <button onClick={onNavigateHome} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
+        <nav className="hidden md:flex items-center gap-8 text-lg">
+          <button type="button" onClick={handleNavigateHome} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
             Home
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
           </button>
@@ -98,18 +101,18 @@ export function Header({
             <Button 
               variant="ghost" 
               onClick={handleUserClick} 
-              className="text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer"
+              className="text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer h-auto py-2"
             >
-              <User className="w-4 h-4 mr-2" />
+              <User className="w-5 h-5 mr-2 shrink-0" />
               {currentUser.name}
             </Button>
           ) : (
             <Button 
               variant="ghost" 
               onClick={handleLoginClick} 
-              className="text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer"
+              className="text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer h-auto py-2"
             >
-              <User className="w-4 h-4 mr-2" />
+              <User className="w-5 h-5 mr-2 shrink-0" />
               Login/Register
             </Button>
           )}
@@ -126,9 +129,10 @@ export function Header({
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-200 mt-4 py-6">
-          <nav className="flex flex-col gap-1 px-4 md:px-6">
-            <button 
-              onClick={onNavigateHome} 
+          <nav className="flex flex-col gap-1 px-4 md:px-6 text-lg">
+            <button
+              type="button"
+              onClick={handleNavigateHome}
               className="text-left py-3 px-4 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
             >
               Home
@@ -162,18 +166,18 @@ export function Header({
                 <Button 
                   variant="ghost" 
                   onClick={handleUserClick} 
-                  className="w-full text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
+                  className="w-full text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
                 >
-                  <User className="w-4 h-4 mr-2" />
+                  <User className="w-5 h-5 mr-2 shrink-0" />
                   {currentUser.name}
                 </Button>
               ) : (
                 <Button 
                   variant="ghost" 
                   onClick={handleLoginClick} 
-                  className="w-full text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
+                  className="w-full text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
                 >
-                  <User className="w-4 h-4 mr-2" />
+                  <User className="w-5 h-5 mr-2 shrink-0" />
                   Login/Register
                 </Button>
               )}

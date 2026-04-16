@@ -52,7 +52,7 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttrib
         ref={ref}
         type="button"
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
+          "flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
           className
         )}
         onClick={() => context?.setOpen(!context.open)}
@@ -66,9 +66,27 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttrib
 );
 SelectTrigger.displayName = "SelectTrigger";
 
-const SelectValue = ({ placeholder }: { placeholder?: string }) => {
+type SelectValueProps = {
+  placeholder?: string;
+  /** When the Select `value` is an id, pass the human-readable label here so the trigger does not show the raw id. */
+  label?: string;
+};
+
+const SelectValue = ({ placeholder, label }: SelectValueProps) => {
   const context = React.useContext(SelectContext);
-  return <span>{context?.value || placeholder}</span>;
+  const raw = context?.value ?? "";
+  if (label !== undefined) {
+    const hasSelection = raw !== "";
+    return (
+      <span className={cn("block min-w-0 flex-1 truncate text-left", !hasSelection && "text-gray-500")}>
+        {!hasSelection ? (placeholder ?? "") : label.trim() ? label : "—"}
+      </span>
+    );
+  }
+  if (!raw) {
+    return <span className="block min-w-0 flex-1 truncate text-left text-gray-500">{placeholder ?? ""}</span>;
+  }
+  return <span className="block min-w-0 flex-1 truncate text-left">{raw}</span>;
 };
 
 const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(

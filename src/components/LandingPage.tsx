@@ -2,7 +2,6 @@ import React, { lazy, Suspense } from "react";
 import { Header } from "./Header";
 import { Hero } from "./Hero";
 
-// Lazy load heavy components for better initial load performance
 const HowItWorks = lazy(() => import("./HowItWorks").then(m => ({ default: m.HowItWorks })));
 const ServicesGrid = lazy(() => import("./ServicesGrid").then(m => ({ default: m.ServicesGrid })));
 const ProfessionalCTA = lazy(() => import("./ProfessionalCTA").then(m => ({ default: m.ProfessionalCTA })));
@@ -17,6 +16,9 @@ const SafetyCertifications = lazy(() => import("./SafetyCertifications").then(m 
 const FAQ = lazy(() => import("./FAQ").then(m => ({ default: m.FAQ })));
 const WhyChooseFireGuide = lazy(() => import("./WhyChooseFireGuide").then(m => ({ default: m.WhyChooseFireGuide })));
 const ServiceTimeline = lazy(() => import("./ServiceTimeline").then(m => ({ default: m.ServiceTimeline })));
+const InteractiveCalculator = lazy(() =>
+  import("./InteractiveCalculator").then(m => ({ default: m.InteractiveCalculator }))
+);
 const CoreBenefits = lazy(() => import("./CoreBenefits").then(m => ({ default: m.CoreBenefits })));
 
 export interface User {
@@ -33,19 +35,33 @@ interface LandingPageProps {
   onLogout?: () => void;
   onAboutContact?: () => void;
   onNavigateToDashboard?: () => void;
+  /** Clears hash (e.g. #live-booking) and scrolls to top when provided */
+  onNavigateHome?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, onCustomerLogin, currentUser, onLogout, onAboutContact, onNavigateToDashboard }: LandingPageProps) {
+export function LandingPage({
+  onGetStarted,
+  onProfessionalLogin,
+  onAdminLogin,
+  onCustomerLogin,
+  currentUser,
+  onLogout,
+  onAboutContact,
+  onNavigateToDashboard,
+  onNavigateHome,
+}: LandingPageProps) {
+  const handleNavigateHome =
+    onNavigateHome ?? (() => window.scrollTo({ top: 0, behavior: "smooth" }));
   return (
     <div className="min-h-screen bg-white">
-      <Header 
-        onGetStarted={onGetStarted} 
-        onProfessionalLogin={onProfessionalLogin} 
+      <Header
+        onGetStarted={onGetStarted}
+        onProfessionalLogin={onProfessionalLogin}
         onCustomerLogin={onCustomerLogin}
         currentUser={currentUser}
         onLogout={onLogout}
         onAboutContact={onAboutContact}
-        onNavigateHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onNavigateHome={handleNavigateHome}
         onNavigateServices={onGetStarted}
         onNavigateAbout={() => {
           if (onAboutContact) {
@@ -55,7 +71,6 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
         onNavigateContact={() => {
           if (onAboutContact) {
             onAboutContact();
-            // Scroll to contact section after navigation
             setTimeout(() => {
               const contactSection = document.getElementById('contact');
               if (contactSection) {
@@ -66,22 +81,22 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
         }}
         onNavigateToDashboard={onNavigateToDashboard}
       />
+      <div className="pt-16 md:pt-28">
       <Hero onGetStarted={onGetStarted} />
-      {/* <RecentActivityTicker /> */}
       <Suspense fallback={null}>
         <TrustIndicators />
-      </Suspense>
-      <Suspense fallback={null}>
-        <ServicesGrid onSelectService={onGetStarted} />
       </Suspense>
       <Suspense fallback={null}>
         <ProfessionalCTA onJoinNow={onProfessionalLogin} />
       </Suspense>
       <Suspense fallback={null}>
+        <HowItWorks />
+      </Suspense>
+      <Suspense fallback={null}>
         <CoreBenefits />
       </Suspense>
       <Suspense fallback={null}>
-        <HowItWorks />
+        <ServicesGrid onSelectService={onGetStarted} />
       </Suspense>
       <Suspense fallback={null}>
         <FeaturedProfessionals onViewProfile={onGetStarted} />
@@ -91,6 +106,9 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
       </Suspense>
       <Suspense fallback={null}>
         <ServiceTimeline />
+      </Suspense>
+      <Suspense fallback={null}>
+        {/* <InteractiveCalculator onGetQuote={onGetStarted} /> */}
       </Suspense>
       <Suspense fallback={null}>
         <PricingPreview onGetQuote={onGetStarted} />
@@ -113,6 +131,7 @@ export function LandingPage({ onGetStarted, onProfessionalLogin, onAdminLogin, o
       <Suspense fallback={null}>
         <Footer onAdminLogin={onAdminLogin} />
       </Suspense>
+      </div>
     </div>
   );
 }

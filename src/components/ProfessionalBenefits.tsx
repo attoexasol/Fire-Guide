@@ -79,24 +79,24 @@ export function ProfessionalBenefits({ onRegister, onLogin, onBack, onNavigateHo
               <img src={logoImage} alt="Fire Guide" className="h-12" />
             </Link>
             
-            <nav className="hidden md:flex items-center gap-8">
-              <button onClick={onNavigateHome} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+            <nav className="hidden md:flex items-center gap-8 text-lg">
+              <button type="button" onClick={onNavigateHome} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 Home
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
-              <button onClick={onNavigateServices} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateServices} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 Services
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
-              <button className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" className="relative py-2 text-red-400 transition-colors group cursor-pointer">
                 For Professionals
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
+                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
               </button>
-              <button onClick={onNavigateAbout} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateAbout} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 About
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
-              <button onClick={onNavigateContact} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
+              <button type="button" onClick={onNavigateContact} className="relative py-2 text-white hover:text-red-600 transition-colors group cursor-pointer">
                 Contact
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </button>
@@ -106,14 +106,15 @@ export function ProfessionalBenefits({ onRegister, onLogin, onBack, onNavigateHo
               <Button 
                 variant="ghost" 
                 onClick={onLogin}
-                className="text-white hover:text-red-600 hover:bg-transparent transition-colors cursor-pointer group relative"
+                className="text-lg text-white hover:text-red-600 hover:bg-transparent cursor-pointer h-auto py-2 group relative"
               >
-                <User className="w-4 h-4 mr-2" />
+                <User className="w-5 h-5 mr-2 shrink-0" />
                 Login/Register
               </Button>
             </div>
 
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden"
             >
@@ -124,31 +125,36 @@ export function ProfessionalBenefits({ onRegister, onLogin, onBack, onNavigateHo
           {/* Mobile Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden bg-transparent border-t border-white/10 mt-4 py-6">
-              <nav className="flex flex-col gap-1 px-6">
+              <nav className="flex flex-col gap-1 px-4 md:px-6 text-lg">
                 <button 
+                  type="button"
                   onClick={onNavigateHome} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
                   Home
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateServices} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
                   Services
                 </button>
                 <button 
+                  type="button"
                   className="text-left py-3 px-4 rounded-lg bg-white/10 text-red-400 cursor-pointer"
                 >
                   For Professionals
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateAbout} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
                   About
                 </button>
                 <button 
+                  type="button"
                   onClick={onNavigateContact} 
                   className="text-left py-3 px-4 rounded-lg text-white hover:bg-white/10 hover:text-red-400 transition-all cursor-pointer"
                 >
@@ -158,9 +164,9 @@ export function ProfessionalBenefits({ onRegister, onLogin, onBack, onNavigateHo
                   <Button 
                     variant="ghost" 
                     onClick={onLogin}
-                    className="w-full text-white hover:text-red-400 hover:bg-white/10 justify-start py-3 px-4 h-auto cursor-pointer transition-all"
+                    className="w-full text-lg text-white hover:text-red-400 hover:bg-white/10 justify-start py-3 px-4 h-auto cursor-pointer transition-all"
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-5 h-5 mr-2 shrink-0" />
                     Login/Register
                   </Button>
                 </div>

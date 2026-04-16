@@ -4,7 +4,9 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Root-relative assets so deep links (e.g. /professional/dashboard/availability) still load /assets/*.js.
+  // With base './', relative URLs resolve under the current path and return HTML from the SPA fallback.
+  base: '/',
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     alias: {

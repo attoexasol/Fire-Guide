@@ -34,9 +34,20 @@ interface AboutContactProps {
   onNavigateServices?: () => void;
   onNavigateProfessionals?: () => void;
   onCustomerLogin?: () => void;
+  /** Navigate home and scroll to the Live Booking Activity section */
+  onStartBooking?: () => void;
 }
 
-export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, onNavigateServices, onNavigateProfessionals, onCustomerLogin }: AboutContactProps) {
+export function AboutContact({
+  onBack,
+  onAdminLogin,
+  currentUserName,
+  onLogout,
+  onNavigateServices,
+  onNavigateProfessionals,
+  onCustomerLogin,
+  onStartBooking,
+}: AboutContactProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -122,31 +133,30 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-6 sticky top-0 z-50 shadow-lg">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white/95 backdrop-blur-sm text-[#0A1A2F] py-4 px-4 md:px-6 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link to="/" className="flex items-center cursor-pointer hover:opacity-90 transition-opacity" aria-label="Go to home">
             <img src={logoImage} alt="Fire Guide" className="h-12" />
           </Link>
           
-          <nav className="hidden md:flex items-center gap-8">
-            <button onClick={onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
+          <nav className="hidden md:flex items-center gap-8 text-lg">
+            <button type="button" onClick={onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
               Home
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
             </button>
-            <button onClick={onNavigateServices || onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
+            <button type="button" onClick={onNavigateServices || onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
               Services
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
             </button>
-            <button onClick={onNavigateProfessionals || onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
+            <button type="button" onClick={onNavigateProfessionals || onBack} className="relative py-2 hover:text-red-600 transition-colors group cursor-pointer">
               For Professionals
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
             </button>
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="relative py-2 text-red-600 transition-colors group cursor-pointer">
+            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="relative py-2 text-red-600 transition-colors group cursor-pointer">
               About
               <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
             </button>
-            <button onClick={() => {
+            <button type="button" onClick={() => {
               const contactSection = document.getElementById('contact');
               if (contactSection) {
                 contactSection.scrollIntoView({ behavior: 'smooth' });
@@ -162,18 +172,18 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
               <Button 
                 variant="ghost" 
                 onClick={onLogout} 
-                className="text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer"
+                className="text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer h-auto py-2"
               >
-                <User className="w-4 h-4 mr-2" />
+                <User className="w-5 h-5 mr-2 shrink-0" />
                 {currentUserName}
               </Button>
             ) : (
               <Button 
                 variant="ghost" 
                 onClick={onCustomerLogin || onBack} 
-                className="text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer"
+                className="text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-transparent cursor-pointer h-auto py-2"
               >
-                <User className="w-4 h-4 mr-2" />
+                <User className="w-5 h-5 mr-2 shrink-0" />
                 Login/Register
               </Button>
             )}
@@ -190,26 +200,30 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-200 mt-4 py-6">
-            <nav className="flex flex-col gap-1 px-6">
+            <nav className="flex flex-col gap-1 px-4 md:px-6 text-lg">
               <button 
+                type="button"
                 onClick={onBack} 
                 className="text-left py-3 px-4 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
               >
                 Home
               </button>
               <button 
+                type="button"
                 onClick={onNavigateServices || onBack}
                 className="text-left py-3 px-4 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
               >
                 Services
               </button>
               <button 
+                type="button"
                 onClick={onNavigateProfessionals || onBack}
                 className="text-left py-3 px-4 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
               >
                 For Professionals
               </button>
               <button 
+                type="button"
                 className="text-left py-3 px-4 rounded-lg bg-red-50 text-red-600 cursor-pointer"
               >
                 About
@@ -225,18 +239,18 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
                   <Button 
                     variant="ghost" 
                     onClick={onLogout} 
-                    className="w-full text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
+                    className="w-full text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-5 h-5 mr-2 shrink-0" />
                     {currentUserName}
                   </Button>
                 ) : (
                   <Button 
                     variant="ghost" 
                     onClick={onCustomerLogin || onBack} 
-                    className="w-full text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
+                    className="w-full text-lg text-[#0A1A2F] hover:text-red-600 hover:bg-red-50 justify-start py-3 px-4 h-auto cursor-pointer"
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-5 h-5 mr-2 shrink-0" />
                     Login/Register
                   </Button>
                 )}
@@ -246,9 +260,8 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
         )}
       </header>
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-[#0A1A2F] via-[#0A1A2F] to-[#1a2f4f] text-white py-20 px-6">
-        <div className="max-w-7xl mx-auto text-center">
+      <section className="bg-gradient-to-br from-[#0A1A2F] via-[#0A1A2F] to-[#1a2f4f] text-white py-16 px-6 pt-[6.25rem] md:pt-[7.5rem] lg:pt-32 pb-14 md:pb-16 lg:pb-20">
+        <div className="max-w-7xl mx-auto text-center py-24">
           <div className="inline-flex items-center gap-2 bg-red-600/20 border border-red-500/30 rounded-full px-4 py-2 mb-6">
             <Flame className="w-4 h-4 text-red-500" />
             <span className="text-sm">Trusted by 10,000+ Customers</span>
@@ -262,9 +275,8 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 px-6 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
+      <section className="pt-0 pb-14 md:pb-16 px-6 bg-gray-50">
+        <div className="max-w-7xl mx-auto py-12 md:py-14">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
@@ -619,7 +631,8 @@ export function AboutContact({ onBack, onAdminLogin, currentUserName, onLogout, 
             Book a certified fire safety professional in minutes
           </p>
           <Button
-            onClick={onBack}
+            type="button"
+            onClick={() => (onStartBooking ? onStartBooking() : onBack())}
             className="bg-red-600 hover:bg-red-700 text-white px-8 py-6 text-lg"
           >
             Start Your Booking

@@ -1,8 +1,10 @@
 import React, { startTransition } from "react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../contexts/AppContext";
 import { ProfessionalAuth } from "../ProfessionalAuth";
 import { setUserInfo, getUserRole } from "../../lib/auth";
+import { setCompleteProfileReminderFlag } from "../../lib/professionalProfileReminder";
 
 export default function ProfessionalAuthPage() {
   const navigate = useNavigate();
@@ -10,11 +12,27 @@ export default function ProfessionalAuthPage() {
 
   return (
     <ProfessionalAuth
-      onAuthSuccess={(name: string) => {
+      onAuthSuccess={(name: string, options) => {
         // Get user role from backend FIRST (stored during auth)
         const userRole = getUserRole();
-        
-        // Set user info based on actual role from backend
+
+        // First-time registration on this page is always a professional — send to profile even if
+        // `user_role` is not written yet or the API shape omits it (otherwise users land on /dashboard).
+        if (options?.isNewProfessionalSignup) {
+          setCurrentUser({ name, role: "professional" });
+          setUserInfo(name, "professional");
+          setCompleteProfileReminderFlag();
+          toast.info("Please complete your profile.");
+          startTransition(() => {
+            navigate("/professional/dashboard/profile", {
+              replace: true,
+              state: { showCompleteProfileReminder: true },
+            });
+          });
+          return;
+        }
+
+        // Returning login: set context from role and redirect as before
         if (userRole === "USER") {
           setCurrentUser({ name, role: "customer" });
           setUserInfo(name, "customer");
@@ -25,23 +43,20 @@ export default function ProfessionalAuthPage() {
           setCurrentUser({ name, role: "admin" });
           setUserInfo(name, "admin");
         } else {
-          // Fallback to professional if role not found
           setCurrentUser({ name, role: "professional" });
           setUserInfo(name, "professional");
         }
-        
-        // Redirect immediately based on role (wrapped in startTransition to avoid suspend during sync input)
+
         startTransition(() => {
-        if (userRole === "USER") {
-          navigate("/customer/dashboard", { replace: true });
-        } else if (userRole === "PROFESSIONAL") {
-          navigate("/professional/dashboard", { replace: true });
-        } else if (userRole === "ADMIN") {
-          navigate("/admin/dashboard", { replace: true });
-        } else {
-          // Fallback to professional dashboard if role is not set
-          navigate("/professional/dashboard", { replace: true });
-        }
+          if (userRole === "USER") {
+            navigate("/customer/dashboard", { replace: true });
+          } else if (userRole === "PROFESSIONAL") {
+            navigate("/professional/dashboard", { replace: true });
+          } else if (userRole === "ADMIN") {
+            navigate("/admin/dashboard", { replace: true });
+          } else {
+            navigate("/professional/dashboard", { replace: true });
+          }
         });
       }}
       onBack={() => {
